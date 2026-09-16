@@ -15,6 +15,16 @@ more than one release; numbering resumed with 0.6.1. Reasoning behind the
 parser and converter decisions, including the defects a real corpus exposed and
 what was done about each, is in [CORPUS-FINDINGS.md](CORPUS-FINDINGS.md).
 
+## 0.12.0 — 2026-09-16
+
+The 853 now declares every level a statement shows the serial has, including one its own 863 cannot record a value for — and stops declaring a month where the statement never gave one.
+
+- **MARC Serials Toolkit** — "v. 78 - v. 93 no. 3 (1981 - Sep 1996)" states a month. Because the month is at one end of the range only, a compressed 863 cannot record it — that is unchanged, and the value is still left out and named. What was wrong is that the 853 stopped declaring a month level at all, so the record described a serial that is not numbered by month, when the statement plainly says it is.
+- **MARC Serials Toolkit** — Seven statements in the test collection now declare the month caption they were losing, and one declares a day caption. No 863 changes: not one value moves, and nothing that was recorded stops being recorded. The 853 gains a caption; the warning naming the value it could not place stays exactly as it was.
+- **MARC Serials Toolkit** — The reverse case is fixed too. "v. 15 (1998 Buyers Guide)" was declaring a month caption because "Buyers Guide" sat in the slot a month would occupy. It is not a month, nothing could ever be written under that caption, and the 853 no longer offers one. The wording is still named as something the tool could not code, as before.
+- **MARC Serials Toolkit** — Why the two are one change. The 853 sets out the whole structure a serial can have; the 863 records the values one holding pins down. Those are different questions, and the tool had been answering both with "did a value survive?" — so a month it could not place vanished from the map, and a phrase it could not code appeared on it.
+- **MARC Serials Toolkit** — A note for anyone comparing output with an earlier version: an 853 caption with nothing under it in the 863 is normal and expected, not a sign something was lost. The tool's own corpus report used to count those as promises the record failed to keep; it now reports them as ordinary.
+
 ## 0.11.2 — 2026-09-16
 
 Starting the tool no longer prints a warning about the program's own code. Nothing about how statements convert has changed.
