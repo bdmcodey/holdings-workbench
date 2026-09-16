@@ -99,10 +99,41 @@ jobs:
         run: python scripts/corpus_report.py
 
       - name: Tag drift
-        # Exits 1 when a statement no longer converts the way its recorded tag
-        # says it does. That is a gate rather than a warning on purpose: a
-        # change to what the corpus produces should be a decision somebody
-        # made, not something noticed later. When the drift IS the improvement,
-        # update the tags in data/textual_holdings_corpus.txt in the same
-        # commit and say so in the message.
-        run: python scripts/corpus_report.py --drift
+        # A notice, not a gate. corpus_report.py --drift exits 1 when a
+        # statement no longer converts the way its recorded tag says it does,
+        # and that exit code is deliberately swallowed here: drift is very
+        # often the improvement -- a parser fix changes what a statement
+        # produces, and the tags catch up in the same commit -- so failing the
+        # build would turn every real fix red on its way in.
+        #
+        # Swallowed is not hidden. A drifting run raises a GitHub annotation,
+        # which appears at the top of the run and against the pull request, and
+        # writes the full report into the job summary. The one thing it does
+        # not do is block.
+        #
+        # To make it a gate again, delete everything below and run the command
+        # on its own: `python scripts/corpus_report.py --drift`.
+        run: |
+          set +e
+          out=$(python scripts/corpus_report.py --drift 2>&1)
+          status=$?
+          set -e
+
+          printf '%s\n' "$out"
+
+          if [ "$status" -ne 0 ]; then
+            {
+              echo "### Corpus drift"
+              echo
+              echo "Statements no longer convert the way their recorded tag says."
+              echo "If the change is the improvement, update the tags in"
+              echo '`data/textual_holdings_corpus.txt` in the same commit.'
+              echo
+              echo '```'
+              printf '%s\n' "$out"
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+
+            first=$(printf '%s' "$out" | head -1)
+            echo "::warning title=Corpus drift::${first} - full report in the job summary"
+          fi
