@@ -1,0 +1,108 @@
+# The suite, on every Python the project supports.
+#
+# The matrix is the point of this workflow, not thoroughness for its own sake.
+# The defect that prompted it -- a regex written into a non-raw docstring --
+# was a silent DeprecationWarning on 3.11 and a printed SyntaxWarning on 3.12,
+# so it was invisible on the machine it was written on and loud on the machine
+# it was used on. A single-version run would have missed it exactly as the
+# developer did.
+#
+# Two properties this gets for free, both of which took work to reproduce
+# locally and are worth naming so nobody removes them by accident:
+#
+#   * Every run starts with a cold __pycache__. Compile-time warnings are
+#     emitted when a file is byte-compiled and never again, so a warm cache
+#     hides them. A fresh checkout cannot.
+#   * MARC_TEST_DATA_DIR is unset, so tests/test_calibration.py skips. That is
+#     correct -- the files it pins against are real library holdings and are
+#     deliberately not in this repository -- and the skip is left visible in
+#     the log rather than deselected.
+
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pytest:
+    name: pytest on ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+
+    strategy:
+      # Report every version's result. Stopping at the first failure would hide
+      # precisely the difference this matrix exists to show.
+      fail-fast: false
+      matrix:
+        python-version: ['3.10', '3.11', '3.12', '3.13']
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: |
+            requirements-dev.txt
+            pyproject.toml
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+
+      - name: Show the versions actually in use
+        # pyproject pins pymarc below 6.0 for behaviour this code depends on.
+        # When a future release breaks the suite, the log should already say
+        # what it was running.
+        run: |
+          python --version
+          pip show flask pymarc pytest | grep -E '^(Name|Version):'
+
+      - name: pytest
+        run: python -m pytest
+
+  corpus:
+    name: corpus drift
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: |
+            requirements-dev.txt
+            pyproject.toml
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+
+      - name: What the corpus converts to
+        # Printed whether or not anything moved, so the numbers are in the log
+        # of every run rather than only in the report of a change.
+        run: python scripts/corpus_report.py
+
+      - name: Tag drift
+        # Exits 1 when a statement no longer converts the way its recorded tag
+        # says it does. That is a gate rather than a warning on purpose: a
+        # change to what the corpus produces should be a decision somebody
+        # made, not something noticed later. When the drift IS the improvement,
+        # update the tags in data/textual_holdings_corpus.txt in the same
+        # commit and say so in the message.
+        run: python scripts/corpus_report.py --drift
