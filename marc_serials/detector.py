@@ -1,0 +1,893 @@
+"""
+pattern_detector.py
+-------------------
+Detects structural patterns in MARC 866 textual holdings statements and
+generates named-capture-group regular expressions for each pattern cluster.
+
+Fuzzy clustering: caption variant forms ("v.", "Vol.", "volume") all map to
+the same VOL_CAP token kind, so they land in the same pattern group.
+The generated regex uses alternation to match all observed forms.
+
+Public API
+----------
+    from marc_serials.detector import detect_patterns, split_multi_range, PatternGroup
+
+    groups = detect_patterns([
+        "v.1:no.1(1990:Jan.)-v.5:no.4(1994:Dec.)",
+        "Vol. 1, No. 1 (Spring 1990)-Vol. 5, No. 4 (Winter 1994)",
+        "v.6(1995)-",
+    ])
+    for g in groups:
+        print(g.human_label)
+        print(g.regex)
+        print(g.named_groups)
+"""
+from __future__ import annotations
+
+import re
+from collections import defaultdict
+from dataclasses import dataclass, field
+from typing import Optional
+
+
+# ── Token kind constants ──────────────────────────────────────────────────────
+
+VOL_CAP     = "VOL_CAP"
+ISS_CAP     = "ISS_CAP"
+PT_CAP      = "PT_CAP"
+YEAR        = "YEAR"
+# One kind for months and seasons alike.  They occupy the same slot in a
+# statement and already share a capture-group name, but two kinds meant
+# "(Sep 1944 - Aug 1945)" and "(Winter 1986 - Summer 1987)" -- the same shape to
+# a cataloguer -- landed in different clusters, each needing its own
+# confirmation.  A combined chronology ("Jul/Aug", "Winter/Spring") is one
+# value written with a slash, so it is one token too; splitting it was the
+# other half of the same fragmentation.
+CHRON       = "CHRON"
+NUMBER      = "NUMBER"
+PAREN_OPEN  = "PAREN_OPEN"
+PAREN_CLOSE = "PAREN_CLOSE"
+SEP_COLON   = "SEP_COLON"
+SEP_HYPHEN  = "SEP_HYPHEN"
+SEP_COMMA   = "SEP_COMMA"
+SPACE       = "SPACE"
+UNKNOWN     = "UNKNOWN"
+
+_CAPTION_KINDS = {VOL_CAP, ISS_CAP, PT_CAP}
+_VALUE_KINDS   = {YEAR, CHRON, NUMBER}
+
+# Clusters longer than this (in collapsed tokens) are reported as a finding
+# rather than turned into a regex.
+#
+# Calibrated against two real MARC extracts (52 and 116 statements).  Real
+# statements cost 15–45 regex characters per token — month alternations alone
+# run ~180 characters — so the ceiling is set by /api/test-regex, which refuses
+# any regex over MAX_REGEX_CHARS: above ~45 tokens this module would emit
+# patterns the tool's own Test button rejects.  At 40 the longest generated
+# regex observed was 1,470 characters.
+#
+# Everything flagged at this level was a singleton multi-year run-on
+# ("1977: (46[Jul], 48-51[Sep-Dec])1978: …") — 45 tokens and up.  Nothing that
+# currently produces a working regex is suppressed, which keeps the guard
+# permissive toward pattern shapes not present in those samples.
+MAX_PATTERN_TOKENS = 40
+
+# What /api/test-regex accepts, and what pattern_library will store.  An
+# expression longer than this could never be checked against real statements
+# before being trusted, so emitting one would put "generated" and "usable" out
+# of step.  Enforced on the generated expression itself, not estimated from the
+# token count -- see the guard in detect_patterns().
+#
+# Raised from 2,000 in 0.8.3, because 2,000 was turning away expressions the
+# detector legitimately produces: a statement with five months in it costs
+# 2,384 characters and is an ordinary discontinuous list, not an attack.
+#
+# What this number is *not* is the defence against catastrophic backtracking,
+# though it was once described that way.  Length is nearly uncorrelated with
+# that risk: "^(\s*\w+)*$" is eleven characters and hangs on a 50-character
+# input, while the 2,384-character expression above has no nested quantifier,
+# no unbounded .* and two bounded lazy spans, and searches an adversarial
+# 500-character string in under a millisecond.  A cap turns away long
+# expressions, not dangerous ones.  What bounds the damage is the input side --
+# 2,000 statements of 500 characters -- and what ends it is the match budget in
+# regex_budget.py, added in 0.8.7: the matching runs in a child process the
+# request can kill.  This number and that one answer different questions, and
+# neither substitutes for the other.
+MAX_REGEX_CHARS = 4000
+
+# General month/season patterns used in generated regex output —
+# broad enough to match any standard form, not just the forms observed.
+_MON_RE = (
+    r"(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May"
+    r"|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:t(?:ember)?)?"
+    r"|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\.?"
+)
+_SEASON_RE = r"(?:Spring|Summer|Fall|Autumn|Winter)"
+
+# What a CHRON token matches: a month or a season, optionally slash-joined into
+# a combined chronology.  Broad on purpose -- a pattern found from months should
+# still match the season a later record uses in the same slot.
+_CHRON_UNIT_RE = f"(?:{_MON_RE}|{_SEASON_RE})"
+_CHRON_RE = rf"{_CHRON_UNIT_RE}(?:\s*/\s*{_CHRON_UNIT_RE})*"
+
+
+# ── Token dataclass ───────────────────────────────────────────────────────────
+
+@dataclass
+class Token:
+    kind: str
+    raw: str   # original text as found in the input
+
+
+# ── Tokenizer ─────────────────────────────────────────────────────────────────
+#
+# Pattern ordering matters: first match wins per position.
+#   - YEAR before NUMBER  → "1990" → YEAR not NUMBER
+#   - SEASON/MON before ISS_CAP → "Nov." → MON not ISS_CAP("no") + garbage
+#   - VOL_CAP/PT_CAP before ISS_CAP → no ambiguity on "v", "pt"
+#
+_TOK_RE = re.compile(
+    # Volume caption  — v. | vol. | volume | v
+    r"(?P<VOL_CAP>\bv(?:ol(?:ume)?)?\.?)"
+    # Part caption    — pt. | part
+    r"|(?P<PT_CAP>\b(?:pt|part)\.?)"
+    # Four-digit year — 1800–2099 range, must precede NUMBER.  A year split
+    # across the turn of one ("1996/97", "1996/1997") is a single year token:
+    # a serial whose winter issue straddles the new year numbers it that way,
+    # and tokenising the tail separately made "/97" a stray number the
+    # confirmation screen then asked about.
+    r"|(?P<YEAR>\b(?:1[89]|20)\d{2}(?:\s*/\s*\d{2,4})?\b)"
+    # Month or season, with any slash-joined continuation ("Jul/Aug",
+    # "Winter/Spring").  Must precede ISS_CAP to protect "Nov.", and the
+    # word boundary keeps "springtime" out.
+    r"|(?P<CHRON>\b(?:spring|summer|fall|autumn|winter"
+    r"|jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?"
+    r"|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?"
+    r"|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\.?\b"
+    r"(?:\s*/\s*(?:spring|summer|fall|autumn|winter"
+    r"|jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?"
+    r"|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?"
+    r"|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\.?\b)*)"
+    # Issue caption   — no. | nr. | num. | number | iss. | issue
+    r"|(?P<ISS_CAP>\b(?:no|nr|num(?:ber)?|iss(?:ue)?)\.?)"
+    # Generic number (possibly with trailing letter: "4a", "12b"), with any
+    # slash-joined continuation.  "no. 8/9" is *one* issue -- a single issue
+    # numbered 8/9, not issues 8 and 9 -- the same way "1996/97" is one YEAR and
+    # "Jul/Aug" one CHRON, and for the same reason those absorb their tails:
+    # tokenising the second half separately leaves it a stray number for the
+    # confirmation screen to ask about, and the roles inferred for the halves
+    # were then *transposed* -- "v. 34 no. 8/9-v. 35 no. 23/24" put the issue 9
+    # at the volume level and the volume 35 at the issue level, and converted to
+    # "$a 34 $b 8".
+    #
+    # A hyphen is deliberately *not* absorbed.  It is not part of a designation,
+    # it means "through": the "1-5" of "v.1-5(1990-1994)" is volume 1 through
+    # volume 5, two endpoints of one range, and they stay two captures so the
+    # cataloguer can see and confirm each.  Which of the two a hyphen is depends
+    # on whether the statement has a unit separator elsewhere, and that is not a
+    # question a tokeniser can answer -- see _merge_ranged_numbers().
+    r"|(?P<NUMBER>\d+[a-zA-Z]?(?:\s*/\s*\d+[a-zA-Z]?)*)"
+    r"|(?P<PAREN_OPEN>\()"
+    r"|(?P<PAREN_CLOSE>\))"
+    r"|(?P<SEP_COLON>:)"
+    r"|(?P<SEP_HYPHEN>-)"
+    r"|(?P<SEP_COMMA>,)"
+    r"|(?P<SPACE>\s+)"
+    r"|(?P<UNKNOWN>.)",
+    re.IGNORECASE,
+)
+
+
+# The captions a unit separator is followed by.  A hyphen that divides one
+# statement into two units always leads into a new unit, and a new unit starts
+# with a caption ("...-v. 29") or has just closed a chronology ("(1990)-v.5").
+_UNIT_CAPS = (VOL_CAP, ISS_CAP, PT_CAP)
+
+
+def _has_unit_separator(tokens: list[Token]) -> bool:
+    """Whether a hyphen in this statement divides it into two units."""
+    kinds = [t.kind for t in tokens if t.kind != SPACE]
+    for i, kind in enumerate(kinds):
+        if kind != SEP_HYPHEN:
+            continue
+        if i and kinds[i - 1] == PAREN_CLOSE:
+            return True
+        if i + 1 < len(kinds) and kinds[i + 1] in _UNIT_CAPS:
+            return True
+    return False
+
+
+def _merge_ranged_numbers(tokens: list[Token]) -> list[Token]:
+    """
+    Join "3-4" into one NUMBER, but only where the statement has units to be
+    inside of.
+
+    A hyphen between two numbers is one of two entirely different things, and
+    which one depends on the statement around it:
+
+        v.1-5(1990-1994)                  one unit  -> volume 1 *through* 5,
+                                                       two endpoints of a range
+        v. 23 no. 3-4-v. 29 no. 3-4       two units -> issues 3-4 *of v. 23*,
+                                                       one value inside a unit
+
+    Only the second is merged.  The first is the commoner shape by far and its
+    two endpoints are two facts a cataloguer confirms separately -- collapsing
+    it would throw away the start/end structure the whole role model is built
+    on, and would say a range spanning the statement is a designation.
+
+    The test is whether some *other* hyphen divides the statement, which is a
+    question about the whole token stream and so cannot live in the tokeniser's
+    own regex.  Without the merge, "3-4-v. 29" made the 4 an end-boundary value
+    at the volume level and the 29 an issue -- the transposition D24 is about,
+    reached by the other road.
+    """
+    if not _has_unit_separator(tokens):
+        return tokens
+
+    out: list[Token] = []
+    i = 0
+    while i < len(tokens):
+        run = [tokens[i]]
+        j = i + 1
+        # NUMBER (space) HYPHEN (space) NUMBER, as many times as it repeats.
+        while tokens[i].kind == NUMBER:
+            k = j
+            while k < len(tokens) and tokens[k].kind == SPACE:
+                k += 1
+            if k >= len(tokens) or tokens[k].kind != SEP_HYPHEN:
+                break
+            k += 1
+            while k < len(tokens) and tokens[k].kind == SPACE:
+                k += 1
+            if k >= len(tokens) or tokens[k].kind != NUMBER:
+                break
+            run.extend(tokens[j:k + 1])
+            j = k + 1
+        if len(run) > 1:
+            out.append(Token(kind=NUMBER, raw="".join(t.raw for t in run)))
+            i = j
+        else:
+            out.append(tokens[i])
+            i += 1
+    return out
+
+
+def tokenize(text: str) -> list[Token]:
+    """Tokenize a holdings statement into a list of Token objects."""
+    raw = [Token(kind=m.lastgroup, raw=m.group()) for m in _TOK_RE.finditer(text)]
+    return _merge_ranged_numbers(raw)
+
+
+def _strip_spaces(tokens: list[Token]) -> list[Token]:
+    """Drop all SPACE tokens; spacing is handled with \\s* in generated regexes."""
+    return [t for t in tokens if t.kind != SPACE]
+
+
+def _collapse_unknown_runs(tokens: list[Token]) -> list[Token]:
+    """
+    Merge each maximal run of UNKNOWN tokens into a single UNKNOWN token.
+
+    The tokenizer's last alternative is (?P<UNKNOWN>.), so free-text noise
+    ("Library has:", "[lacks v.3]") arrives as one token per character.  Left
+    alone that produces one regex fragment per character — bespoke output that
+    only ever matches the record it came from.
+
+    A run is a maximal sequence of UNKNOWN and SPACE tokens that both *starts*
+    and *ends* with UNKNOWN; interior SPACE is absorbed so the merged `raw`
+    spans the original text exactly.  Leading/trailing SPACE stays outside the
+    run and is dropped by _strip_spaces() as before.
+
+    Must be applied before _strip_spaces() — the interior spaces are what make
+    the merged length match the source text.
+    """
+    out: list[Token] = []
+    i, n = 0, len(tokens)
+    while i < n:
+        if tokens[i].kind != UNKNOWN:
+            out.append(tokens[i])
+            i += 1
+            continue
+        # Scan forward over UNKNOWN/SPACE, remembering the last UNKNOWN seen
+        # so the run never ends on absorbed whitespace.
+        j, last = i, i
+        while j < n and tokens[j].kind in (UNKNOWN, SPACE):
+            if tokens[j].kind == UNKNOWN:
+                last = j
+            j += 1
+        out.append(Token(kind=UNKNOWN, raw="".join(t.raw for t in tokens[i:last + 1])))
+        i = last + 1
+    return out
+
+
+def get_signature(text: str) -> str:
+    """
+    Compute the fuzzy pattern signature for a holdings string.
+
+    The signature is the pipe-separated sequence of token kinds with
+    SPACE tokens removed.  Because all caption variants (v., Vol., volume)
+    map to VOL_CAP, two statements that differ only in capitalisation or
+    abbreviation style will share the same signature and be clustered together.
+
+    Consecutive UNKNOWN tokens are collapsed first, so two statements that
+    differ only in the length of a free-text note ("Library has: v.1(1990)"
+    vs "[lacks] v.1(1990)") also share a signature.
+    """
+    return "|".join(
+        t.kind for t in _collapse_unknown_runs(tokenize(text)) if t.kind != SPACE
+    )
+
+
+# ── Range separator detection ─────────────────────────────────────────────────
+
+def _find_range_sep(stripped: list[Token]) -> Optional[int]:
+    """
+    Return the index within `stripped` of the top-level SEP_HYPHEN that
+    separates the start unit from the end unit (e.g. the "-" in "v.1(1990)-v.5(1994)").
+
+    Rules:
+    • Must be at paren depth 0 (not inside a chronology block).
+    • Must be followed by at least one more token (not the trailing open-ended hyphen).
+    • Must actually look like a unit separator, not a range *within* one caption
+      level.  The hyphen in "v.1-5(1990-1994)" joins two volumes; it does not
+      divide the statement into a start unit and an end unit, and treating it as
+      though it did put every later value on the wrong side of the range.
+
+    The third rule mirrors holdings_parser._smart_split_range, which has always
+    made the same distinction: a digit-to-digit hyphen is a compressed range at
+    one level, so a separator needs a closing paren before it, a caption after
+    it, or years on both sides (the bare "1990-1994" form).
+
+    Returns None for open-ended statements ("v.6(1995)-"), for single-unit
+    statements, and for statements whose only top-level hyphen is a compressed
+    range -- all three genuinely have no start/end division.
+    """
+    depth = 0
+    for i, tok in enumerate(stripped):
+        if tok.kind == PAREN_OPEN:
+            depth += 1
+        elif tok.kind == PAREN_CLOSE:
+            depth -= 1
+        elif tok.kind == SEP_HYPHEN and depth == 0 and i + 1 < len(stripped):
+            prev = stripped[i - 1] if i else None
+            nxt = stripped[i + 1]
+            if prev is not None and prev.kind == PAREN_CLOSE:
+                return i                      # "...(1990)-v.5(1994)"
+            if nxt.kind in _CAPTION_KINDS:
+                return i                      # "...-v.5", "...-no.4"
+            if prev is not None and prev.kind == YEAR and nxt.kind == YEAR:
+                return i                      # bare "1990-1994"
+    return None
+
+
+def _is_open_ended(stripped: list[Token]) -> bool:
+    """True when the statement ends with a bare hyphen (currently received)."""
+    return bool(stripped) and stripped[-1].kind == SEP_HYPHEN
+
+
+# ── Regex-building helpers ────────────────────────────────────────────────────
+
+def _alt_or_literal(vals: list[str]) -> str:
+    """
+    From a list of raw string values, produce either a single re.escape(val)
+    or a (?:...|...) alternation sorted longest-first for greedy correctness.
+    """
+    unique = sorted(set(v.strip() for v in vals if v.strip()), key=len, reverse=True)
+    if not unique:
+        return r"\S+"
+    if len(unique) == 1:
+        return re.escape(unique[0])
+    return "(?:" + "|".join(re.escape(v) for v in unique) + ")"
+
+
+def _unknown_bound(n: int) -> int:
+    """
+    Upper bound for a collapsed UNKNOWN run of `n` characters, rounded up to
+    the next multiple of 8 (minimum 8).  The headroom lets a similar note of
+    slightly different length match too, instead of pinning the pattern to the
+    exact free text observed.
+    """
+    return max(8, -(-n // 8) * 8)
+
+
+def _unique_name(base: str, used: set[str]) -> str:
+    """Return `base` if not yet used, else `base_2`, `base_3`, …"""
+    if base not in used:
+        used.add(base)
+        return base
+    n = 2
+    while f"{base}_{n}" in used:
+        n += 1
+    name = f"{base}_{n}"
+    used.add(name)
+    return name
+
+
+# ── Compact human-readable label ─────────────────────────────────────────────
+
+_CAP_SHORT = {VOL_CAP: "VOL", ISS_CAP: "ISS", PT_CAP: "PT"}
+_VAL_SHORT = {YEAR: "YEAR", CHRON: "CHRON"}
+_SEP_SHORT = {SEP_COLON: ":", SEP_COMMA: ",", PAREN_OPEN: "(", PAREN_CLOSE: ")"}
+
+
+def _compact_label(stripped: list[Token], range_sep_idx: Optional[int]) -> str:
+    """
+    Build a short human-readable description from the token sequence, e.g.:
+      "VOL:ISS(YEAR:MON) — VOL:ISS(YEAR:MON)"
+      "VOL-VOL(YEAR-YEAR)"
+      "YEAR — YEAR"
+    Caption + NUMBER pairs are collapsed to just "VOL", "ISS", "PT".
+
+    A compressed range keeps its hyphen and repeats the caption governing it:
+    the second number in "v.1-5" is a volume, so the label says so rather than
+    dropping the hyphen and reading "VOL#".  This is the heading a cataloguer
+    picks a pattern out by, so it has to describe the shape they are looking at.
+    """
+    parts: list[str] = []
+    i = 0
+    last_cap: Optional[str] = None    # caption governing the current range
+    while i < len(stripped):
+        tok = stripped[i]
+        if i == range_sep_idx:
+            parts.append(" \u2014 ")       # em-dash
+            last_cap = None               # captions do not cross the separator
+            i += 1
+            continue
+        kind = tok.kind
+        if kind in _CAP_SHORT:
+            last_cap = _CAP_SHORT[kind]
+            parts.append(last_cap)
+            # Silently consume the following NUMBER (it's implied)
+            if i + 1 < len(stripped) and stripped[i + 1].kind == NUMBER:
+                i += 2
+                continue
+        elif kind == NUMBER:
+            # The far side of a compressed range inherits the caption before it;
+            # a number with no caption anywhere is genuinely just a number.
+            following_hyphen = i and stripped[i - 1].kind == SEP_HYPHEN
+            parts.append(last_cap if (following_hyphen and last_cap) else "#")
+        elif kind in _VAL_SHORT:
+            parts.append(_VAL_SHORT[kind])
+        elif kind in _SEP_SHORT:
+            parts.append(_SEP_SHORT[kind])
+        elif kind == SEP_HYPHEN:
+            # Keep it: an intra-level range ("v.1-5", "1990-1994" inside parens)
+            # is part of the shape, and eliding it ran the two values together.
+            parts.append("\u2013" if i == len(stripped) - 1 else "-")
+        elif kind == UNKNOWN:
+            # Free text was omitted entirely, so "v. 58 Suppl. (Sep 2003)" read
+            # as "VOL(CHRONYEAR)" -- indistinguishable from a clean statement,
+            # and two different clusters could show the identical label.
+            parts.append("\u2039text\u203a")
+        i += 1
+    return "".join(parts)
+
+
+# ── Core regex builder ────────────────────────────────────────────────────────
+
+def _build_regex(
+    all_stripped: list[list[Token]],
+) -> tuple[str, list[str], dict[str, list[str]]]:
+    """
+    Given a list of stripped-token lists that all share the same signature,
+    build a Python named-group regex that matches all of them.
+
+    Returns
+    -------
+    regex         : the pattern string (use re.compile(regex, re.IGNORECASE))
+    named_groups  : ordered list of capture-group names (["start_vol", ...])
+    cap_variants  : observed caption forms per level, e.g. {"vol": ["v.", "Vol."]}
+    """
+    template = all_stripped[0]
+    n = len(template)
+
+    # Collect all raw values seen at each token position across all statements
+    pos_vals: list[list[str]] = [
+        [toks[i].raw for toks in all_stripped if i < len(toks)]
+        for i in range(n)
+    ]
+
+    range_sep_idx = _find_range_sep(template)
+    open_ended    = _is_open_ended(template)
+
+    parts: list[str]               = []
+    named_groups: list[str]        = []
+    cap_variants: dict[str, list]  = {}
+    used_names: set[str]           = set()
+
+    prev_cap: Optional[str] = None    # last caption kind: "vol" | "iss" | "part"
+
+    # Which boundary a value sits on is a property of its own level, not of the
+    # statement as a whole.  "v.1-5(1990-1994)" has no single point dividing a
+    # start half from an end half -- it has two compressed ranges, one per
+    # level, each with its own start and end.  Counting per level describes both
+    # that shape and "v.1(1990)-v.5(1994)", where the two happen to coincide.
+    #
+    # A third value at one level has no boundary left to take, so it falls back
+    # to _unique_name's suffix ("end_year_2") and is treated as unencodable.
+    level_seen: dict[str, int] = {}
+
+    def boundary_name(slot: str) -> str:
+        n = level_seen.get(slot, 0)
+        level_seen[slot] = n + 1
+        return _unique_name(f"{'start' if n == 0 else 'end'}_{slot}", used_names)
+
+    for i, tok in enumerate(template):
+        kind  = tok.kind
+        vals  = pos_vals[i]
+        unique = sorted(set(v.strip() for v in vals if v.strip()), key=len, reverse=True)
+
+        # ── Range separator ───────────────────────────────────────────────────
+        if i == range_sep_idx:
+            # Captions do not carry across the separator: the "5" in
+            # "v.1(1990)-5(1994)" is not covered by the "v." before the hyphen.
+            prev_cap = None
+            parts.append(r"\s*-\s*")
+            continue
+
+        # ── Caption tokens (VOL_CAP / ISS_CAP / PT_CAP) ──────────────────────
+        if kind == VOL_CAP:
+            prev_cap = "vol"
+            parts.append(_alt_or_literal(unique))
+            parts.append(r"\s*")
+            _record_variants(cap_variants, "vol", unique)
+            continue
+
+        if kind == ISS_CAP:
+            prev_cap = "iss"
+            parts.append(_alt_or_literal(unique))
+            parts.append(r"\s*")
+            _record_variants(cap_variants, "iss", unique)
+            continue
+
+        if kind == PT_CAP:
+            prev_cap = "part"
+            parts.append(_alt_or_literal(unique))
+            parts.append(r"\s*")
+            _record_variants(cap_variants, "part", unique)
+            continue
+
+        # ── Value tokens — named capture groups ───────────────────────────────
+        if kind == NUMBER:
+            name = boundary_name(prev_cap or "num")
+            named_groups.append(name)
+            # Generous on purpose, and deliberately wider than the tokeniser.
+            # The tokeniser decides how many captures a statement has; this
+            # decides what one capture may *hold*, and a merged range like the
+            # "3-4" of "v. 23 no. 3-4-v. 29 no. 3-4" is one value containing a
+            # hyphen. Leaving the hyphen out here made the cluster stop matching
+            # its own members. The joined part is optional, so a pattern found
+            # from "no. 8/9" also reads "no. 8" -- the same generosity the YEAR
+            # group has. Where the statement really is "1-5", the tokeniser has
+            # emitted two groups with a literal "-" between them, and this group
+            # backtracks off the hyphen to let that separator match.
+            parts.append(rf"(?P<{name}>\d+[a-zA-Z]?(?:\s*[-/]\s*\d+[a-zA-Z]?)*)")
+            parts.append(r"\s*")
+            continue
+
+        if kind == YEAR:
+            name = boundary_name("year")
+            named_groups.append(name)
+            # Allow 4-digit years in the realistic range, split or not; keep
+            # flexible.  The split half is optional so one pattern reads both
+            # "(Spring 1996)" and "(Winter 1996/97)".
+            parts.append(rf"(?P<{name}>(?:1[89]|20)\d{{2}}(?:\s*/\s*\d{{2,4}})?)")
+            parts.append(r"\s*")
+            continue
+
+        if kind == CHRON:
+            name = boundary_name("month")
+            named_groups.append(name)
+            # The general pattern, not the forms observed: a pattern found from
+            # "Apr" should still match the "Winter" or "Jul/Aug" a later record
+            # writes in the same slot.
+            parts.append(rf"(?P<{name}>{_CHRON_RE})")
+            parts.append(r"\s*")
+            continue
+
+        # ── Structural / punctuation tokens ───────────────────────────────────
+        if kind == PAREN_OPEN:
+            parts.append(r"\(\s*")
+            continue
+
+        if kind == PAREN_CLOSE:
+            parts.append(r"\s*\)")
+            parts.append(r"\s*")
+            continue
+
+        if kind == SEP_COLON:
+            parts.append(r"\s*:\s*")
+            continue
+
+        if kind == SEP_HYPHEN:
+            # Hyphens at this point are internal to a chronology block
+            # (depth > 0 when the range_sep was already handled) or part of
+            # a compressed enumeration range (v.1-5).  Allow surrounding
+            # whitespace: cataloguers write both "(Nov/Dec 2008-May 2010)"
+            # and "(Winter/Spring 1994 - Spring/Summer 1999)".
+            parts.append(r"\s*-\s*")
+            continue
+
+        if kind == SEP_COMMA:
+            parts.append(r",\s*")
+            continue
+
+        # ── Unrecognised free text — one bounded fragment per run ─────────────
+        if kind == UNKNOWN:
+            # Runs are pre-collapsed, so `vals` holds whole note spans rather
+            # than single characters.  A bounded lazy wildcard generalises to
+            # other notes of similar length; the trailing \s* covers the SPACE
+            # token that _strip_spaces() removed after the run.
+            longest = max((len(v) for v in vals if v), default=1)
+            parts.append(rf".{{1,{_unknown_bound(longest)}}}?")
+            parts.append(r"\s*")
+            continue
+
+        # ── Fallback: escape whatever is left ─────────────────────────────────
+        parts.append(_alt_or_literal(unique))
+
+    return _join(parts), named_groups, cap_variants
+
+
+SPACER = r"\s*"
+
+
+def _join(parts: List[str]) -> str:
+    """
+    Assemble the parts, collapsing runs of the whitespace separator.
+
+    Most branches above append r"\s*" after their group, and a token that also
+    *begins* with one leaves "\s*\s*" in the output -- the same language
+    written twice. Purely cosmetic on a short pattern, but these expressions
+    are held to MAX_REGEX_CHARS, and a
+    chronology-heavy statement spends every character it has.
+    """
+    out: List[str] = []
+    for i, part in enumerate(parts):
+        # The separators carry their own leading \s*, so the one appended after
+        # the preceding group is redundant: "\s*\s*:" and "\s*:" match the
+        # same text.
+        if part == SPACER:
+            nxt = parts[i + 1] if i + 1 < len(parts) else ""
+            if nxt.startswith(SPACER):
+                continue
+        out.append(part)
+    return "".join(out)
+
+
+def _record_variants(
+    cap_variants: dict[str, list[str]],
+    key: str,
+    unique: list[str],
+) -> None:
+    """Update cap_variants[key] with any new values from unique."""
+    existing = cap_variants.setdefault(key, [])
+    for v in unique:
+        if v not in existing:
+            existing.append(v)
+
+
+# ── Regex validator ───────────────────────────────────────────────────────────
+
+def _validate(
+    regex: str,
+    statements: list[str],
+) -> tuple[float, list[str], list[str]]:
+    """
+    Test a regex against every statement using re.fullmatch (IGNORECASE).
+
+    Returns (match_rate 0.0–1.0, matched_list, failed_list).
+
+    A statement counts as matched only when the pattern spans the whole of it.
+    An re.search fallback used to count a partial hit as a match, so that
+    partially-parsed multi-range strings still registered -- but the rate is
+    what a cataloguer reads to decide whether a pattern is trustworthy, and
+    pattern_bridge will not convert on a partial match, so counting one here
+    promised something the Workbench then declined to do.  Multi-range strings
+    are handled by split_multi_range() before they reach this function.
+    """
+    matched, failed = [], []
+    try:
+        compiled = re.compile(regex, re.IGNORECASE)
+    except re.error:
+        return 0.0, [], list(statements)
+
+    for s in statements:
+        hit = compiled.fullmatch(s.strip())
+        (matched if hit else failed).append(s)
+
+    rate = len(matched) / len(statements) if statements else 1.0
+    return rate, matched, failed
+
+
+# ── PatternGroup dataclass ────────────────────────────────────────────────────
+
+@dataclass
+class PatternGroup:
+    signature: str                          # raw token-kind sequence
+    human_label: str                        # compact display label
+    count: int                              # number of statements
+    examples: list[str]                     # every statement in the cluster
+    regex: str                              # generated Python regex
+    named_groups: list[str]                 # ordered group names
+    match_rate: float                       # 0.0–1.0
+    matched: list[str]
+    failed: list[str]
+    caption_variants: dict[str, list[str]]  # e.g. {"vol": ["v.", "Vol."]}
+    is_open_ended: bool
+    token_count: int = 0                    # collapsed structural tokens
+    too_complex: bool = False               # declined; no regex offered
+    # Why it was declined, in the cataloguer's terms.  Two different limits can
+    # refuse a cluster and they refuse very different things, so the card says
+    # which rather than assuming the token count was the one that fired.
+    decline_reason: str = ""
+
+    def to_dict(self) -> dict:
+        return {
+            "signature":        self.signature,
+            "human_label":      self.human_label,
+            "count":            self.count,
+            "examples":         self.examples,
+            "regex":            self.regex,
+            "named_groups":     self.named_groups,
+            "match_rate":       round(self.match_rate, 4),
+            "matched_count":    len(self.matched),
+            "failed":           self.failed,
+            "caption_variants": self.caption_variants,
+            "is_open_ended":    self.is_open_ended,
+            "token_count":      self.token_count,
+            "too_complex":      self.too_complex,
+            "decline_reason":   self.decline_reason,
+        }
+
+
+# ── Public API ────────────────────────────────────────────────────────────────
+
+def detect_patterns(statements: list[str]) -> list[PatternGroup]:
+    """
+    Cluster a collection of 866 $a strings by structural pattern and
+    return one PatternGroup per cluster, sorted by count descending.
+
+    Parameters
+    ----------
+    statements : list of holdings strings, already de-duped and trimmed.
+                 Multi-range strings should be pre-split with split_multi_range()
+                 if sub-ranges should be analysed individually.
+    """
+    if not statements:
+        return []
+
+    # ── Cluster by fuzzy signature ────────────────────────────────────────────
+    clusters: dict[str, list[str]] = defaultdict(list)
+    for stmt in statements:
+        s = stmt.strip()
+        if not s:
+            continue
+        clusters[get_signature(s)].append(s)
+
+    groups: list[PatternGroup] = []
+
+    for sig, members in clusters.items():
+        all_stripped = [
+            _strip_spaces(_collapse_unknown_runs(tokenize(m))) for m in members
+        ]
+        template     = all_stripped[0]
+
+        range_sep_idx = _find_range_sep(template)
+        open_ended    = _is_open_ended(template)
+        label         = _compact_label(template, range_sep_idx)
+
+        def _declined(reason: str) -> PatternGroup:
+            """A cluster reported as a finding, with no regex to offer."""
+            return PatternGroup(
+                signature        = sig,
+                human_label      = (label or sig)[:80],
+                count            = len(members),
+                examples         = members,
+                regex            = "",
+                named_groups     = [],
+                match_rate       = 0.0,
+                matched          = [],
+                failed           = [],
+                caption_variants = {},
+                is_open_ended    = open_ended,
+                token_count      = len(template),
+                too_complex      = True,
+                decline_reason   = reason,
+            )
+
+        # Guard *before* generating: a cluster this long yields a regex nobody
+        # can read or edit, and is almost always a one-off rather than a real
+        # pattern.  Report it as a finding instead of emitting the regex.
+        if len(template) > MAX_PATTERN_TOKENS:
+            groups.append(_declined(
+                f"These statements are {len(template)} parts long, which is past "
+                f"the point where a single expression can describe them usefully."
+            ))
+            continue
+
+        regex, named_groups, cap_variants = _build_regex(all_stripped)
+
+        # And again *after*, on the thing itself.  The token count is only a
+        # proxy for how long the expression will be, and a poor one: a CHRON
+        # token spends the month alternation twice, about 180 characters, where
+        # a NUMBER spends 54.  A statement with five of them reached 2,384
+        # characters at 25 tokens -- well inside the token ceiling and well
+        # past the 2,000 the Test button accepted then, so the detector was
+        # handing the cataloguer an expression it would refuse to test.
+        #
+        # Measuring the regex makes that impossible by construction rather than
+        # by calibration: whatever is emitted can always be tested and stored.
+        if len(regex) > MAX_REGEX_CHARS:
+            groups.append(_declined(
+                f"The expression for these statements comes to "
+                f"{len(regex):,} characters, past the {MAX_REGEX_CHARS:,} that "
+                f"can be tested here \u2014 months and seasons are expensive to "
+                f"describe, and these statements carry several."
+            ))
+            continue
+
+        match_rate, matched, failed       = _validate(regex, members)
+
+        groups.append(PatternGroup(
+            signature        = sig,
+            human_label      = label or sig[:80],
+            count            = len(members),
+            examples         = members,
+            regex            = regex,
+            named_groups     = named_groups,
+            match_rate       = match_rate,
+            matched          = matched,
+            failed           = failed,
+            caption_variants = cap_variants,
+            is_open_ended    = open_ended,
+            token_count      = len(template),
+        ))
+
+    groups.sort(key=lambda g: g.count, reverse=True)
+    return groups
+
+
+def split_multi_range(text: str) -> list[str]:
+    """
+    Split a holdings string that contains multiple comma-, semicolon- or
+    slash-separated ranges into individual range strings, ignoring separators
+    that fall inside parentheses.
+
+    A slash separates only when whitespace surrounds it.  A bare slash carries
+    meaning inside a statement — combined issues (v.1/2), split years
+    (1990/91) — and splitting on those would corrupt the statement.
+
+    Example
+    -------
+    "v.1(1990)-v.3(1992), v.5(1994)-"
+    → ["v.1(1990)-v.3(1992)", "v.5(1994)-"]
+    """
+    depth   = 0
+    parts:   list[str] = []
+    current: list[str] = []
+
+    for i, ch in enumerate(text):
+        if ch == "(":
+            depth += 1
+            current.append(ch)
+        elif ch == ")":
+            depth -= 1
+            current.append(ch)
+        elif depth == 0 and (
+            ch in (",", ";")
+            or (ch == "/"
+                and i > 0            and text[i - 1].isspace()
+                and i + 1 < len(text) and text[i + 1].isspace())
+        ):
+            seg = "".join(current).strip()
+            if seg:
+                parts.append(seg)
+            current = []
+        else:
+            current.append(ch)
+
+    seg = "".join(current).strip()
+    if seg:
+        parts.append(seg)
+
+    return parts if parts else [text.strip()]

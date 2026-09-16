@@ -1,0 +1,216 @@
+"""
+The pattern-detection routes.
+
+The last test in this file is the one that matters most: it takes a regex the
+detector generated and feeds it to the Test button. That
+round-trip is the workflow the UI performs, and it is the entire reason
+MAX_PATTERN_TOKENS is set where it is -- a pattern the tool cannot test is a
+pattern the cataloguer cannot trust.
+"""
+
+from __future__ import annotations
+
+import pytest
+
+from marc_serials.detector import MAX_REGEX_CHARS
+
+from conftest import upload_marc
+
+
+def test_detect_groups_statements(client):
+    response = client.post("/api/detect", json={
+        "statements": ["v.1(1990)-v.3(1992)", "v.5(1994)-v.8(1997)"],
+    })
+    assert response.status_code == 200
+
+    body = response.get_json()
+    assert body["total_statements"] == 2
+    assert body["total_patterns"] == 1
+    assert body["groups"][0]["match_rate"] == 1.0
+
+
+def test_detect_requires_statements(client):
+    assert client.post("/api/detect", json={"statements": []}).status_code == 400
+
+
+def test_detect_rejects_only_whitespace(client):
+    response = client.post("/api/detect", json={"statements": ["  ", ""]})
+    assert response.status_code == 400
+
+
+def test_split_option_is_honoured(client):
+    """
+    Splitting is the default. Turning it off has to leave the statement whole,
+    since a cataloguer may be looking at exactly how it was recorded.
+    """
+    statement = "v.1(1990)-v.3(1992), v.5(1994)-"
+
+    split = client.post("/api/detect", json={
+        "statements": [statement], "split_multi_range": True}).get_json()
+    whole = client.post("/api/detect", json={
+        "statements": [statement], "split_multi_range": False}).get_json()
+
+    assert split["total_statements"] == 2
+    assert whole["total_statements"] == 1
+
+
+def test_upload_extracts_statements(client, example_marc_bytes):
+    response = upload_marc(client, example_marc_bytes)
+    assert response.status_code == 200
+
+    body = response.get_json()
+    assert body["count"] == 10         # ten 866 $a values across five records
+    assert len(body["statements"]) == 10
+
+
+def test_test_regex_reports_matches(client):
+    response = client.post("/api/test-regex", json={
+        "regex": r"v\.(?P<vol>\d+)\((?P<year>\d{4})\)",
+        "statements": ["v.1(1990)", "v.2(1991)", "nope"],
+    })
+    assert response.status_code == 200
+
+    body = response.get_json()
+    assert body["matched"] == 2
+    assert body["failed"] == 1
+
+
+def test_test_regex_requires_a_pattern(client):
+    assert client.post("/api/test-regex",
+                                json={"statements": ["v.1(1990)"]}).status_code == 400
+
+
+def test_invalid_regex_is_a_400_not_a_500(client):
+    """A user typing a broken pattern is expected input, not a server fault."""
+    response = client.post("/api/test-regex",
+                                    json={"regex": "(", "statements": ["v.1(1990)"]})
+    assert response.status_code == 400
+    assert "error" in response.get_json()
+
+
+@pytest.mark.parametrize("over, expected_status", [(0, 200), (1, 400)])
+def test_regex_length_limit(client, over, expected_status):
+    """
+    The MAX_REGEX_CHARS ceiling is what MAX_PATTERN_TOKENS is calibrated
+    against, so the boundary is pinned on both sides.
+    """
+    regex = "a" * (MAX_REGEX_CHARS + over)
+    response = client.post("/api/test-regex",
+                                    json={"regex": regex, "statements": ["aaa"]})
+    assert response.status_code == expected_status
+
+
+def test_a_runaway_expression_is_stopped_rather_than_hanging_the_worker(
+        client):
+    """
+    The Test button runs a hand-edited expression against real text, which is
+    where a runaway one comes from. MAX_REGEX_CHARS above does not help: this
+    one is eleven characters. The matching happens in a child process the
+    request kills, so the endpoint answers and the worker stays usable.
+    """
+    response = client.post("/api/test-regex", json={
+        "regex": r"^(a+)+$", "statements": ["a" * 30 + "!"]})
+    assert response.status_code == 400
+    assert "repeat" in response.get_json()["error"]
+
+    # The worker is not wedged: the next request is served normally. The
+    # expression has to span the whole statement -- a pattern that matches only
+    # part of one does not describe it, and the route counts full matches only.
+    ok = client.post("/api/test-regex", json={
+        "regex": r"v\.(?P<vol>\d+)\((?P<year>\d{4})\)",
+        "statements": ["v.1(1990)"]})
+    assert ok.status_code == 200
+    assert ok.get_json()["matched"] == 1
+
+
+def test_generated_regexes_survive_the_tools_own_test_button(client,
+                                                             example_marc_bytes):
+    """
+    The contract that ties the two endpoints together. Every regex the detector
+    emits must be short enough for /api/test-regex to accept and must match the
+    statements it was generated from -- otherwise the tool contradicts itself in
+    front of the cataloguer.
+    """
+    statements = upload_marc(client, example_marc_bytes).get_json()["statements"]
+    groups = client.post("/api/detect",
+                                  json={"statements": statements}).get_json()["groups"]
+
+    tested = 0
+    for group in groups:
+        if group["too_complex"]:
+            continue
+        response = client.post("/api/test-regex", json={
+            "regex": group["regex"], "statements": group["examples"]})
+        assert response.status_code == 200, group["regex"][:80]
+        assert response.get_json()["match_rate"] == 1.0
+        tested += 1
+
+    assert tested, "no testable groups were produced; the assertion proved nothing"
+
+
+# ---------------------------------------------------------------------------
+# What confirming a pattern still decides
+# ---------------------------------------------------------------------------
+
+def test_a_pattern_the_parser_reads_in_full_decides_nothing(client):
+    """
+    "Series 1, v. 6 no. 1 (Summer/Fall 1992)" captures a bare "1" the detector
+    cannot type, so a role comes back unresolved and the screen used to ask
+    about it. The parser reads the statement completely -- ser. 1, v. 6,
+    no. 1 -- captions and all, so whatever the cataloguer answered was
+    discarded. It is no longer presented as work.
+    """
+    group = client.post("/api/detect", json={
+        "statements": ["Series 1, v. 6 no. 1 (Summer/Fall 1992)"]}).get_json()["groups"][0]
+
+    assert group["decides"] == "nothing"
+    assert group["needs_decision"] is False
+    # The unresolved role is still there; it simply has no consequence.
+    assert any(r["kind"] == "unresolved" for r in group["suggested_roles"])
+
+
+def test_a_pattern_the_parser_refuses_decides_the_reading(client):
+    """The case confirmation exists for: nothing else can convert it."""
+    group = client.post("/api/detect", json={
+        "statements": ["50th Anniversary Issue (2017)"]}).get_json()["groups"][0]
+
+    assert group["decides"] == "reading"
+    assert group["needs_decision"] is True
+
+
+def test_a_pattern_supplying_a_caption_says_so(client):
+    """
+    The parser reads "1979: 1 (6-8 [Sep-Dec])" but writes "(*)" for the two
+    levels the statement gives as bare numbers. A confirmed caption is the word
+    that goes there, and that is all it changes.
+    """
+    group = client.post("/api/detect", json={
+        "statements": ["1979: 1 (6-8 [Sep-Dec])"]}).get_json()["groups"][0]
+
+    assert group["decides"] == "caption"
+    assert group["needs_decision"] is True
+
+
+def test_the_test_button_reports_the_same_thing(client):
+    """
+    A cataloguer editing the expression must see the consequence change with it,
+    not keep the verdict from before the edit.
+    """
+    body = client.post("/api/test-regex", json={
+        "regex": r"(?P<start_num>\d+)(?P<t1>[^\d]+)(?P<start_year>\d{4})\)",
+        "statements": ["50th Anniversary Issue (2017)"],
+    }).get_json()
+    assert body["decides"] == "reading"
+
+
+def test_every_group_carries_a_verdict(client, example_marc_bytes):
+    """
+    The card renders from it, so a group without one would render a blank note
+    rather than fail loudly.
+    """
+    statements = upload_marc(client, example_marc_bytes).get_json()["statements"]
+    groups = client.post("/api/detect",
+                         json={"statements": statements}).get_json()["groups"]
+    assert groups
+    for group in groups:
+        assert group["decides"] in ("reading", "caption", "nothing"), group["human_label"]

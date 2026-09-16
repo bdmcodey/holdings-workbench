@@ -1,0 +1,6 @@
+# Development and test dependencies.
+#
+# Runtime dependencies are declared once, in pyproject.toml. Installing the
+# package in editable mode is what puts marc_serials on the path; the [dev]
+# extra adds pytest. Nothing here duplicates a pin.
+-e .[dev]
