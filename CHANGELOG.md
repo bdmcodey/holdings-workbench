@@ -15,6 +15,14 @@ more than one release; numbering resumed with 0.6.1. Reasoning behind the
 parser and converter decisions, including the defects a real corpus exposed and
 what was done about each, is in [CORPUS-FINDINGS.md](CORPUS-FINDINGS.md).
 
+## 0.11.2 — 2026-09-16
+
+Starting the tool no longer prints a warning about the program's own code. Nothing about how statements convert has changed.
+
+- **MARC Serials Toolkit** — On Windows, and anywhere else running Python 3.12 or newer, starting the tool printed a line of its own before the address: SyntaxWarning: invalid escape sequence '\s'. Nothing was wrong with your file or your holdings — the message was about a note inside the program — but a warning you cannot act on is one you learn to ignore, and the next one might matter. It is gone.
+- **MARC Serials Toolkit** — Whether you saw it at all depended on which Python you run. On 3.10 and 3.11 the same message is suppressed, so the tool looked clean on one machine and not on another. That is why it went unnoticed for so long, and the suite now checks for it on every version rather than only where it happens to be printed.
+- **MARC Serials Toolkit** — Nothing about conversion changes in this version. All 117 statements in the test collection convert to exactly the fields they did in 0.11.1 — 90 cleanly, 22 with a warning, 5 held for review, and none losing a value silently.
+
 ## 0.11.1 — 2026-09-16
 
 Confirming a pattern now says what your answer will change — the reading of a statement, a caption, or nothing at all — and stops asking where the answer would change nothing.
