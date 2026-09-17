@@ -15,6 +15,15 @@ more than one release; numbering resumed with 0.6.1. Reasoning behind the
 parser and converter decisions, including the defects a real corpus exposed and
 what was done about each, is in [CORPUS-FINDINGS.md](CORPUS-FINDINGS.md).
 
+## 0.12.2 — 2026-09-17
+
+A record with a part of its statement the tool could not read is now marked as needing attention, instead of only carrying a warning you would have to open the row to see.
+
+- **MARC Serials Toolkit** — Where a statement has several parts separated by commas and one of them cannot be read — "v. 4 (1990), 3rd series" — the readable part still converts and the part left out is still named. What changes is that the record now shows in "needs attention" on the Convert step, rather than looking converted with the explanation hidden inside the row.
+- **MARC Serials Toolkit** — This is the same decision made in 0.9.6 for wording a coded subfield cannot hold: a warning only appears once you open a row, and nobody opens a row that looks finished. One path had been left out of that rule.
+- **MARC Serials Toolkit** — It matters most where the part left out contains a number. "v. 4 (1990), lacks 7" and "v. 4 (1990), see also v. 9" both do, and nothing in the tool can tell a note about an issue you do not hold from one you do. That judgment needs a person, so the record is put in front of one.
+- **MARC Serials Toolkit** — Nothing else changes. A statement the tool reads in full is not marked, and no statement in the test collection is affected — all 117 convert exactly as they did, with the same warnings.
+
 ## 0.12.1 — 2026-09-17
 
 A statement beginning with an ordinal — "50th Anniversary Issue" — is still refused, but the message no longer quotes a piece of a word that was never there.

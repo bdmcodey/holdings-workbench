@@ -347,6 +347,19 @@ class ParseResult:
     success: bool = True
     needs_review: bool = False   # values were found but could not be placed
 
+    # Segments the parser could make nothing of and passed over, kept as text.
+    #
+    # A comma-separated segment that yields neither enumeration nor chronology
+    # is skipped with a warning naming it. Recorded here as well, because the
+    # converter has to put the record where a cataloguer will see it: a warning
+    # alone only shows when the row is opened, and nobody opens a row that
+    # looks converted. That is the reasoning 0.9.6 applied to chronology
+    # wording a coded subfield cannot hold; this is the same shape.
+    #
+    # Held as a list rather than a flag so the caller can say which segment,
+    # and so nothing has to read it back out of a warning string.
+    skipped_segments: List[str] = field(default_factory=list)
+
     def caption_union(self) -> dict:
         """
         Union of levels across all ranges.
@@ -1560,6 +1573,7 @@ def parse_866(text: str) -> ParseResult:
         hr = _parse_one_range(seg, seg_notes)
         notes.extend(w for w in seg_notes if w not in notes)
         if not hr.start.has_enum() and not hr.start.has_chron():
+            result.skipped_segments.append(seg)
             result.warnings.append(
                 f"Could not parse segment: '{seg}' — it will be skipped."
             )

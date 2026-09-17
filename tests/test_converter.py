@@ -1278,3 +1278,57 @@ def test_a_month_beside_prose_still_declares_the_level():
         parse_866("v. 15 no. 6 - v. 23 nos. 2/3 "
                   "(Nov/Dec 1994 - Late Summer 2002)"))
     assert sub(conv.field_853, "j") is not None
+
+
+# ---------------------------------------------------------------------------
+# A segment the parser passed over puts the record where it will be seen
+# ---------------------------------------------------------------------------
+#
+# 0.9.6 settled this for chronology wording a coded subfield cannot hold: "a
+# warning only shows once you open a row, and nobody opens a row that looks
+# converted", so the record is flagged as well as warned. A skipped segment is
+# the same shape and was not flagged, which is the inconsistency these pin.
+#
+# Not needs_review: what the other segments wrote is sound, and withholding a
+# whole statement over a trailing note would lose holdings the tool read
+# correctly. Flagged says the fields are written and the tool is not vouching
+# for the whole statement.
+
+
+@pytest.mark.parametrize("statement,segment", [
+    ("v. 4 (1990), 3rd series", "3rd series"),
+    ("v. 4 (1990), n.s.", "n.s."),
+    ("v. 4 (1990), lacks 7", "lacks 7"),
+    ("v. 4 (1990), see also v. 9", "see also v. 9"),
+])
+def test_a_skipped_segment_flags_the_record(statement, segment):
+    """
+    The last two matter most: both carry a number, and nothing in the tool can
+    tell a gap note ("lacks 7" -- not held) from holdings ("v. 9" -- held).
+    That is precisely the judgment a cataloguer has to make, so the record has
+    to reach them.
+    """
+    conv = convert_holdings(parse_866(statement))
+    assert conv.flagged, f"{statement!r} should be flagged for review"
+    assert not conv.needs_review, (
+        "what the other segments wrote is sound, so the statement is not withheld")
+    assert conv.fields_863, "the readable part still converts"
+    assert any(segment in w for w in conv.warnings), (
+        "and the skipped segment is still named")
+
+
+def test_a_statement_with_nothing_skipped_is_not_flagged():
+    """The guard on the guard: flagging everything would flag nothing."""
+    conv = convert_holdings(parse_866("v. 1 no. 2 (1990)"))
+    assert not conv.flagged
+    assert not conv.needs_review
+
+
+def test_the_skipped_segment_is_recorded_as_text_not_a_warning_string():
+    """
+    Read from the parse result rather than sniffed out of a warning. A caller
+    that has to parse its own error messages back is one rename away from
+    silently doing nothing.
+    """
+    result = parse_866("v. 4 (1990), 3rd series")
+    assert result.skipped_segments == ["3rd series"]
