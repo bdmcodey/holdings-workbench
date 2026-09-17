@@ -102,7 +102,29 @@ EXAMPLES = [
 
 def make_record(n, title, holdings, existing_853):
     rec = Record()
-    rec.leader = "00522cx  a22001453  4500"
+    # Leader/06 y, Leader/18 n, and both were wrong until 0.12.5.
+    #
+    # docs/marc/hdleader.md:
+    #   /06  y - Serial item holdings   (was x - Single-part item holdings)
+    #   /17  3 - Holdings level 3: "summary holdings information, that is,
+    #            holdings at the first level of enumeration and chronology"
+    #   /18  n - No item information   (was a blank, which is not a value /18
+    #            defines; the choices are i and n, and these records carry no
+    #            876-878 Item Information fields)
+    #
+    # /06 is the one that mattered. These are serials with volumes and issues,
+    # coded as single-part items -- and 863-865 says first indicator 3 "is not
+    # applicable to a single-part item (Leader/06, code x)", so the fixtures
+    # were quietly ruling out a value the standard allows for what they hold.
+    # Nothing in the toolkit reads the Leader yet; the first change that does
+    # would have been calibrated against records describing the wrong kind of
+    # thing.
+    #
+    # /17 stays 3 and is right for these records: what they carry is 866
+    # summary statements. Whether conversion into detailed 853/863 ought to
+    # raise the record to level 4 is a real question and a separate one -- see
+    # CORPUS-FINDINGS.
+    rec.leader = "00522cy  a22001453n 4500"
     rec.add_field(Field(tag="001", data=f"messy{n:04d}"))
     rec.add_field(Field(tag="008", data="1011252u    8  4001uueng0000000"))
     rec.add_field(Field(tag="245", indicators=["0", "0"],

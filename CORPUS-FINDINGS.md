@@ -1923,6 +1923,52 @@ printing a number that reads as a score to drive to zero. A reader comparing
 
 ---
 
+## The fixtures said single-part · **0.12.5**
+
+*17 September 2026. From reading the Leader, now at
+[docs/marc/hdleader.md](docs/marc/hdleader.md).*
+
+Both `.mrc` files in `data/` were coded **`Leader/06 = x`, single-part item
+holdings**, on all sixteen records, while carrying serial holdings — volumes,
+issues, years. `Leader/18` was a blank, which is not a value it defines; the
+choices are `i` and `n`, and neither file has an 876-878 Item Information
+field. Now `y` and `n`.
+
+**It changed no behaviour, and that is the point.** Nothing in the toolkit
+reads the Leader, so the mis-coding was invisible to all 573 tests and to the
+corpus report. What it would have done is mislead the *next* change: 863-865
+says first indicator `3` *"is not applicable to a single-part item (Leader/06,
+code x)"*, so fixtures coded `x` quietly rule out a value the standard allows
+for what they hold. Any work on the first indicator calibrated against them
+would have inherited the error — and reading the Leader is precisely what makes
+that work possible.
+
+Found only because the documentation was in hand. No amount of running the
+corpus would have surfaced it: the tool does not look at the Leader, so the
+Leader could say anything.
+
+`Leader/17` stays `3` and is right for these records as generated: what they
+carry is 866 summary statements, and level 3 is *"summary holdings information,
+that is, holdings at the first level of enumeration and chronology"*. The 853
+on `messy_holdings.mrc` record 3 is a caption pattern for the conform path, not
+holdings, so it does not raise the level.
+
+**Left open, and worth stating because it follows directly.** Conversion turns
+an 866-only record into one carrying detailed 853/863 across several levels,
+which is the definition of level 4 — *"the first and all subsequent levels of
+enumeration and chronology"*. So whether the converter should raise `Leader/17`
+on the records it writes is a real question, and nothing does it today. It
+belongs with the other Leader question (the 863 first indicator, open since
+D18), because both need the same thing: something in the tool that reads and
+writes the Leader.
+
+**Pinned, but not as an `any_corpus` invariant.** A real library's records are
+coded however they are coded, and it is not the suite's business to insist
+otherwise. What is its business is that the files this project commits say what
+they mean, so the test names the two committed fixtures.
+
+---
+
 ## Form of holdings describes the field, not the tool · **0.12.4**
 
 *17 September 2026. From reading 863-865, now at
