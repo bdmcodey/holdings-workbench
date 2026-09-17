@@ -1,6 +1,6 @@
 {
   "name": "MARC Serials Toolkit",
-  "version": "0.12.4",
+  "version": "0.12.5",
   "released": "2026-09-17",
   "status": "Proof of concept — under active development. Check your output before loading it into the catalog.",
   "description": "One tool for MARC serials holdings. Upload a MARC file, find the patterns in its 866 statements, confirm what each part of a pattern means, and convert to structured 853 caption/pattern and 863 enumeration/chronology fields. Statements no pattern matches are converted by the standard parser.",
@@ -9,6 +9,33 @@
   "contact": "Matthew Codey, codey@usc.edu",
   "_comment": "Written for cataloging staff, not developers. Say what changed about the output or the screen, not how the code changed. Newest version first.",
   "changelog": [
+    {
+      "version": "0.12.5",
+      "date": "2026-09-17",
+      "summary": "Convert shows ten records at a time instead of the whole file, so the buttons below the list are no longer a long scroll away.",
+      "changes": [
+        {
+          "tool": "MARC Serials Toolkit",
+          "text": "The Convert step had a pager underneath the records, and it was telling the truth about which records it had fetched details for — but the list above it was showing every record in the file regardless. On a 320-record file that was the whole 320, about thirty-nine screens of scrolling to reach 'Convert all records' and 'Download'. The list now shows the ten the pager names."
+        },
+        {
+          "tool": "MARC Serials Toolkit",
+          "text": "Ten a page rather than the fifty the pager used before. Fifty rows was still around eight screens."
+        },
+        {
+          "tool": "MARC Serials Toolkit",
+          "text": "The line above the list now reads '29 of 320 match · 0 of 320 reviewed'. It used to say how many rows were on screen, which with a page of ten is only ever ten; what is useful is how much of the file the filter is showing you, with the pager saying where in it you are."
+        },
+        {
+          "tool": "MARC Serials Toolkit",
+          "text": "The Patterns step pages the same way, but only the cards still wanting an answer from you, and only when there are more than ten of them. The confirmed, parser-read, skipped and too-complex groups are folded away already, so paging them would hide what is hidden."
+        },
+        {
+          "tool": "MARC Serials Toolkit",
+          "text": "Nothing about conversion changes. The same records convert the same way, the filters still answer for the whole file rather than the page on screen, and moving between pages does not lose which records you have ticked as reviewed or skipped."
+        }
+      ]
+    },
     {
       "version": "0.12.4",
       "date": "2026-09-17",
