@@ -1923,6 +1923,72 @@ printing a number that reads as a score to drive to zero. A reader comparing
 
 ---
 
+## Form of holdings describes the field, not the tool · **0.12.4**
+
+*17 September 2026. From reading 863-865, now at
+[docs/marc/hd863865.md](docs/marc/hd863865.md).*
+
+**The rule.** *"Compressed means that the stated field is expressed in a
+summarized form containing the enumeration and chronology of more than one part
+expressed as a range of holdings and comprising multiple holdings items.
+Uncompressed means that each holdings item is itemized, and thus recorded
+separately."* So the second indicator is a fact about the field it sits on.
+
+**What was wrong.** 0.6.1 (D18) changed it from `1` to `0` for every 863,
+because saying "uncompressed" of `$a 41-43` is false. That was right about the
+fields it looked at and wrong as a blanket: the same sentence read the other way
+makes `0` false of `$a 8`, one volume out of a discontinuous list. **45 of the
+137 fields the corpus produces** were single parts claiming to be ranges.
+
+This is D18 completed rather than reversed. Its principle was that the
+indicator must describe the field; it was applied uniformly when it needed
+applying per field.
+
+**One statement shows both**, which is why it is the pinned case:
+
+```
+v. 19 nos. 1, 3, 5, 7-12 (Jan, Mar, May, Jul-Dec 1915)
+
+863 41 $8 1.1 $a 19 $b 1     $i 1915 $j 01    $w g   one issue
+863 41 $8 1.2 $a 19 $b 3     $i 1915 $j 03    $w g   one issue
+863 41 $8 1.3 $a 19 $b 5     $i 1915 $j 05    $w g   one issue
+863 40 $8 1.4 $a 19 $b 7-12  $i 1915 $j 07-12        a range
+```
+
+Every example in the standard agrees: a range takes `0` or `2`, a single item
+`1` or `3`.
+
+**Measured.** 92 compressed, 45 uncompressed, and 0 fields whose indicator
+contradicts their content, from 45 before. No enumeration, chronology or caption
+value changes; `--drift` reports none, and the clean rate stays at 90 (77%).
+
+**Three tests changed, and the rule for that was checked first.** Each asserted
+a whole 863 display string in which the indicator was incidental — the gap-run
+test is about one 863 per run, the split-year tests about `$i` holding
+`1996/1997` whole. None carried a docstring defending the indicator, so under
+CONTRIBUTING's rule they describe a mechanism rather than an outcome and were
+fair to update. That the only diff in each was the expected character, with
+nothing else moving, is the evidence the change is right rather than convenient.
+
+**The first indicator is still not derived, and now there is a reason on file.**
+It looked at first as though `3` (summary) belonged wherever the 853 declares
+levels the 863 does not fill — 20 fields — and two examples supported it. Then:
+
+```
+853 23 $8 1 $a v. $i (year)
+863 32 $8 1.1 $a 36-40 $i 1961-1965      fills all it declares, yet 3
+```
+
+No rule from field content fits every example, which is what D18 said in
+different words: the first indicator tracks Leader/17 at record level, and
+nothing here reads the Leader. It stays `4` until something does.
+
+**An invariant, not a case.** `test_form_of_holdings_agrees_with_the_field`
+checks every 863 on every corpus. A single character with no effect on screen
+is exactly what drifts unnoticed, and this one has drifted before.
+
+---
+
 ## Checked against the standard itself · **0.12.3**
 
 *17 September 2026. The cataloguer supplied the LC documentation for 853-855

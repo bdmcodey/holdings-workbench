@@ -439,3 +439,36 @@ def test_v_never_describes_the_first_level_of_enumeration(client, any_corpus):
     assert not offenders, (
         "853 $v may not describe the first level of enumeration:\n  "
         + "\n  ".join(offenders))
+
+
+def form_of_holdings_contradicts_content(record) -> list[str]:
+    """
+    863s whose Form of holdings indicator disagrees with what they hold.
+
+    Compressed (0, or 2 for textual display) means the field states a range of
+    more than one part; uncompressed (1, 3) means one itemised part. A range is
+    written with a hyphen in an enumeration or chronology subfield, which is the
+    only notation this tool uses for one.
+    """
+    offenders = []
+    for field in record.get_fields("863"):
+        ranged = any("-" in sf.value for sf in field.subfields
+                     if sf.code in ENUM_CODES + "ghijklm")
+        compressed = field.indicator2 in ("0", "2")
+        if ranged != compressed:
+            offenders.append(str(field))
+    return offenders
+
+
+def test_form_of_holdings_agrees_with_the_field(client, any_corpus):
+    """
+    A single character with no effect on screen, which is exactly why it needs
+    an invariant: nothing else would notice it drifting, and it has drifted
+    before -- 0.6.1 fixed it in one direction and left it wrong in the other.
+    """
+    offenders = []
+    for record in _records(_convert(client, any_corpus)):
+        offenders.extend(form_of_holdings_contradicts_content(record))
+    assert not offenders, (
+        "863 Form of holdings disagrees with the field's contents:\n  "
+        + "\n  ".join(offenders))

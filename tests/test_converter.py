@@ -827,10 +827,13 @@ def test_a_gapped_statement_becomes_one_863_per_run():
 
     assert result.field_853.display() == (
         "853 31 $8 1 $a v. $b no. $i (year) $j (month)")
+    # Indicator 2 is 1 (uncompressed) on the single-issue runs and 0
+    # (compressed) on "no. 7-12": Form of holdings describes each field, and
+    # only the last of these states a range.  See docs/marc/hd863865.md.
     assert [f.display() for f in result.fields_863] == [
-        "863 40 $8 1.1 $a 19 $b 1 $i 1915 $j 01 $w g",
-        "863 40 $8 1.2 $a 19 $b 3 $i 1915 $j 03 $w g",
-        "863 40 $8 1.3 $a 19 $b 5 $i 1915 $j 05 $w g",
+        "863 41 $8 1.1 $a 19 $b 1 $i 1915 $j 01 $w g",
+        "863 41 $8 1.2 $a 19 $b 3 $i 1915 $j 03 $w g",
+        "863 41 $8 1.3 $a 19 $b 5 $i 1915 $j 05 $w g",
         "863 40 $8 1.4 $a 19 $b 7-12 $i 1915 $j 07-12",
     ]
     assert result.warnings == []
@@ -1176,8 +1179,10 @@ def test_a_split_year_reaches_the_year_subfield_whole():
 
     assert result.field_853.display() == \
         "853 31 $8 1 $a v. $b no. $i (year) $j (season)"
+    # 41, not 40: one issue, so the field is uncompressed.  A year slash-joined
+    # across the turn of one is a single publication year, not a range.
     assert result.fields_863[0].display() == \
-        "863 40 $8 1.1 $a 12 $b 4 $i 1996/1997 $j 24"
+        "863 41 $8 1.1 $a 12 $b 4 $i 1996/1997 $j 24"
     assert result.warnings == []
 
 
@@ -1332,3 +1337,37 @@ def test_the_skipped_segment_is_recorded_as_text_not_a_warning_string():
     """
     result = parse_866("v. 4 (1990), 3rd series")
     assert result.skipped_segments == ["3rd series"]
+
+
+def test_863_form_of_holdings_describes_the_field_it_is_on():
+    """
+    Indicator 2 is Form of holdings, and it is about *this field*, not about
+    the tool's general habits. docs/marc/hd863865.md: "Compressed means that
+    the stated field is expressed in a summarized form containing the
+    enumeration and chronology of more than one part expressed as a range of
+    holdings and comprising multiple holdings items. Uncompressed means that
+    each holdings item is itemized, and thus recorded separately."
+
+    One statement showing both, which is why it is the one pinned here: three
+    single issues and one run of six, from the same 866 under the same 853.
+
+    0.6.1 set this to 0 for every field, on the grounds that saying
+    "uncompressed" of "$a 41-43" is false. It is -- and the same rule read the
+    other way makes 0 false of "$a 19 $b 1", one issue recorded on its own.
+    """
+    result = convert_holdings(
+        parse_866("v. 19 nos. 1, 3, 5, 7-12 (Jan, Mar, May, Jul-Dec 1915)"))
+    forms = [(f.indicator2, sub(f, "b")) for f in result.fields_863]
+    assert forms == [("1", "1"), ("1", "3"), ("1", "5"), ("0", "7-12")]
+
+
+def test_a_single_part_863_is_not_called_compressed():
+    """The plain case, stated on its own so a failure names it."""
+    result = convert_holdings(parse_866("v. 6 (1935)"))
+    assert indicators(result.fields_863[0]) == ("4", "1")
+
+
+def test_a_range_863_is_still_called_compressed():
+    """And the other side of it, which 0.6.1 got right."""
+    result = convert_holdings(parse_866("v. 1 (1990)-v. 5 (1994)"))
+    assert indicators(result.fields_863[0]) == ("4", "0")
