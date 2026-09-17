@@ -1218,6 +1218,16 @@ def convert_holdings(
     # being able to vouch for all of them. Distinct from needs_review, which
     # writes nothing. "Needs attention" on the review screen is held or flagged.
     flags: set = set()
+
+    # A segment the parser passed over is a place in the statement the tool
+    # could not read. What is written from the other segments is sound, so the
+    # record is not withheld -- but the tool is not vouching for the whole
+    # statement, which is what flagged means. "v. 4 (1990), lacks 7" and
+    # "v. 4 (1990), see also v. 9" both reach here carrying a number, and
+    # nothing here can tell a gap note from holdings; a cataloguer has to look.
+    if parse_result.skipped_segments:
+        flags.add("skipped_segment")
+
     levels = parse_result.caption_union()
 
     # A caller may pass a fully-resolved spec (from the UI) or just a preset
