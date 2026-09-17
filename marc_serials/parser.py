@@ -421,6 +421,20 @@ _ENUM_LEVEL_RE = re.compile(
     re.IGNORECASE | re.VERBOSE,
 )
 
+# An ordinal written out -- "50th", "3rd", "21st".
+#
+# The value pattern above ends in an optional letter, which is there for a
+# genuine suffix: "v. 4a" is volume 4a and writes $a 4a.  An ordinal defeats it
+# by being one letter longer, so "50th" matched as the value "50t" and left a
+# stray "h" for the rest of the statement to account for.  That produced the
+# refusal message "Read '50t' but could not account for 'h Anniversary Issue
+# (2017)'", which points a cataloguer at a place reading never stopped.
+#
+# An ordinal is not an enumeration value in any case: "50th Anniversary Issue"
+# numbers nothing, and the statement is refused either way.  Recognising it
+# here is what makes the refusal say something true.
+_ORDINAL_RE = re.compile(r"^\d+(?:st|nd|rd|th)(?![a-zA-Z])", re.IGNORECASE)
+
 # What separates one enumeration level from the next: ":", "," or whitespace.
 _LEVEL_SEP_RE = re.compile(r"^[\s:,]\s*")
 
@@ -468,6 +482,10 @@ def _parse_enum_levels(text: str) -> Tuple[List[EnumLevel], int]:
 
         m = _ENUM_LEVEL_RE.match(chunk)
         if not m or not m.group("num"):
+            break
+        # An ordinal, not a value with a suffix.  Checked against the text at
+        # the number's own start, so a caption in front of it does not matter.
+        if _ORDINAL_RE.match(chunk[m.start("num"):]):
             break
         # A second or later level must name itself.  Without that rule the
         # "18" of "Apr 18, 1996" or a stray number after a caption would be

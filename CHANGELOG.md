@@ -15,6 +15,16 @@ more than one release; numbering resumed with 0.6.1. Reasoning behind the
 parser and converter decisions, including the defects a real corpus exposed and
 what was done about each, is in [CORPUS-FINDINGS.md](CORPUS-FINDINGS.md).
 
+## 0.12.1 — 2026-09-17
+
+A statement beginning with an ordinal — "50th Anniversary Issue" — is still refused, but the message no longer quotes a piece of a word that was never there.
+
+- **MARC Serials Toolkit** — "50th Anniversary Issue (2017)" was refused with the message: Read '50t' but could not account for 'h Anniversary Issue (2017)'. The tool had split the word "50th" down the middle, so the message pointed at a place where reading never stopped. It now says only that no holdings ranges could be recognised, which is what actually happened.
+- **MARC Serials Toolkit** — The same applied to any statement opening with a written ordinal — "3rd Series", "21st Century" — which were read as the values "3r" and "21s". None of them converted before and none convert now; only the explanation changes.
+- **MARC Serials Toolkit** — Why a statement like this is refused at all has not changed: "50th Anniversary Issue" numbers nothing, so there is no volume or issue to record. A cataloguer who knows what the run contains can supply it by confirming a pattern on the Patterns step.
+- **MARC Serials Toolkit** — A volume genuinely numbered with a letter is unaffected. "v. 4a" still records volume 4a, and "v. 12b no. 3" still records volume 12b, issue 3 — the trailing letter there is part of the number, which is why the tool allows one.
+- **MARC Serials Toolkit** — Where the tool really does read part of a statement and stop, it still says so. "v. 58 Suppl. (Sep 2003)" is still refused with: Read 'v. 58' but could not account for 'Suppl. (Sep 2003)' — which is true, and tells you the supplement is the part it could not place.
+
 ## 0.12.0 — 2026-09-16
 
 The 853 now declares every level a statement shows the serial has, including one its own 863 cannot record a value for — and stops declaring a month where the statement never gave one.
