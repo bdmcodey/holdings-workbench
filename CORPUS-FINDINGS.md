@@ -1748,7 +1748,16 @@ Of the 10 disagreements the pattern was wrong in 9. Eight declared a `$j`
 caption in the 853 that their own 863 never filled; one lost `[Sum]`; one
 produced nothing where the parser converted correctly. The tenth,
 `v. 15 (1998 Buyers Guide)`, is a parser defect (D5) the pattern happened to
-sidestep. Of the 5 the pattern alone converted, 3 were supplements belonging in
+sidestep.
+
+> **Revisited in 0.12.0.** Those eight are no longer counted as the pattern
+> being wrong. An 853 caption its own 863 never fills is ordinary: the 853 maps
+> the structure the serial can have, the 863 records what one holding pins
+> down. Where the statement states the month — `v. 78 - v. 93 no. 3
+> (1981 - Sep 1996)` does — declaring `$j` was right. The rest of this section
+> stands; see "The 853 is a map, not a summary" below. The measurement that
+> made the two paths agree is unaffected either way, because both paths have
+> read through `parse_866()` since 0.10.0 and still write the same 863. Of the 5 the pattern alone converted, 3 were supplements belonging in
 an 867, and one produced no fields at all.
 
 So the second implementation's only wins were statements it converted into the
@@ -1840,6 +1849,77 @@ meantime.
 The cost is more questions: across the corpus the screen asks about 9 rather
 than 6, and every one it adds is a supplement, an unnumbered special issue, a
 bare number no caption reaches, or the brace-note statement. No false positives.
+
+---
+
+## The 853 is a map, not a summary · **DONE in 0.12.0**
+
+*16 September 2026. A judgment from 0.10.0 revisited, on the cataloguer's
+reading of the standard.*
+
+**What was decided before.** 0.10.0 measured both conversion paths against each
+other and found ten disagreements, nine of which the pattern lost. Eight of
+those nine were the same thing: the pattern declared a `$j` caption in the 853
+that its own 863 never filled. That was recorded as the pattern being wrong,
+and the fix made it stop declaring. `v. 78 - v. 93 no. 3 (1981 - Sep 1996)` is
+named in that section as one of the eight.
+
+**Why that is now judged the wrong way round.** Under MARC 21 the 853
+establishes the hierarchical structure the serial can have; the 863 populates
+the values a particular holding pins down. They answer different questions. An
+853 caption with nothing under it in the 863 is therefore ordinary — it says
+the serial is numbered that way, not that this holding records it.
+
+And `v. 78 - v. 93 no. 3 (1981 - Sep 1996)` *states a month*. The statement
+says Sep. Declaring `$j (month)` was right; removing it described a serial that
+is not numbered by month, which the 866 contradicts.
+
+**What the code was actually doing.** Both questions were answered by one test:
+did a value survive parsing? `_pair_or_drop()` drops a month stated at one end
+only — settled, and unchanged, see "One rule for both ends" — and returned
+`None`, so `caption_levels()` never learned the level existed. The same test
+ran the other way for `v. 15 (1998 Buyers Guide)`, where the literal string
+`Buyers Guide` sat in the month slot long enough to earn a caption on its way
+to being dropped and named.
+
+So the 853 was decided by where in a statement the chronology happened to be
+written, which is not a fact about the serial:
+
+```
+v. 1 (1973)-v. 11 no. 9 (Sep 1983)      853 $a v. $b no. $i (year) $j (month)
+v. 78 - v. 93 no. 3 (1981 - Sep 1996)   853 $a v. $b no. $i (year)
+```
+
+Same shape to a reader, different map out.
+
+**What was changed.** `EnumChron` gained `demonstrated`, the levels a
+boundary's wording shows the serial has whether or not a value survived;
+`_pair_or_drop()` records the level as it drops the value. `caption_levels()`
+counts a level when a codeable value survives *or* the wording demonstrated it.
+`is_codeable()` moved from the converter to the parser, because the 853 needs
+the same question one step earlier and two copies of one rule drift.
+
+**Measured.** Nine statements change, and **no 863 changes at all** — every one
+of the 27 field groups the report prints is byte-identical. Seven gain `$j`,
+one gains `$k`, one loses `$j`. Silent losses stay at 0, the clean rate stays
+at 90 (77%), `--drift` reports none.
+
+**What the measurement caught that the reasoning missed.** The first attempt
+answered the 853's question with `is_codeable()`, the converter's predicate,
+and moved *ten* statements rather than nine. The tenth was
+`v. 15 no. 6 - v. 23 nos. 2/3 (Nov/Dec 1994 - Late Summer 2002)`, whose month
+slot holds `11/12-Late Summer`: unwritable as a whole, so `is_codeable()` says
+no — but Nov/Dec is a month, and that serial has a month level. Predicting nine
+and measuring ten is the only reason it was caught, which is the argument for
+counting before and after rather than reading the diff. `demonstrates_level()`
+now answers the 853's question and `is_codeable()` the 863's; they are two
+predicates because they are two questions, and they agreed until a value turned
+out to be half of each.
+
+**What it costs.** The count of "853s declaring a caption their own 863 never
+fills" is no longer a defect count, and the corpus report says so rather than
+printing a number that reads as a score to drive to zero. A reader comparing
+0.11.2 output with 0.12.0 will see captions appear; nothing under them changed.
 
 ---
 

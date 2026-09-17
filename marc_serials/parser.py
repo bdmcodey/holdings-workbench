@@ -27,7 +27,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from typing import Optional, List, Tuple
+from typing import Optional, List, Tuple, Set
 
 # ---------------------------------------------------------------------------
 # Month / season normalisation
@@ -79,6 +79,63 @@ def chron_unit_code(raw: str) -> Optional[str]:
     """Return the MARC chronology code for a month/season name, or None."""
     return MARC_CHRON_CODES.get(raw.strip().rstrip(".").lower())
 
+
+# ---------------------------------------------------------------------------
+# What a coded chronology subfield can hold
+# ---------------------------------------------------------------------------
+#
+# This lived in converter.py until 0.12.0, where it decided whether a value
+# could be written into an 863.  The 853 has to answer the same question one
+# step earlier -- a level whose only value is prose is not a level the serial
+# has -- so it sits here, below the code table it tests against, and the
+# converter imports it.  Two copies of one rule drift.
+
+# A chronology subfield an 853 labels "(month)" or "(season)" holds MARC codes:
+# months 01-12, seasons 21-24, joined by "-" for a range and "/" for a combined
+# issue.  Anything else is prose.
+_CHRON_CODE = r"(?:0[1-9]|1[0-2]|2[1-4])"
+_CHRON_VALUE_RE = re.compile(rf"^{_CHRON_CODE}(?:[-/]{_CHRON_CODE})*-?$")
+
+# A year subfield holds four-digit years, likewise joined.
+_YEAR_VALUE_RE = re.compile(r"^\d{4}(?:[-/]\d{4})*-?$")
+
+# A day subfield holds days of the month, joined the same way.
+_DAY_VALUE_RE = re.compile(r"^(?:0?[1-9]|[12]\d|3[01])(?:[-/](?:0?[1-9]|[12]\d|3[01]))*-?$")
+
+
+def is_codeable(level, value: str) -> bool:
+    """Whether `value` may be written into the coded subfield for `level`."""
+    if level == "month":
+        return bool(_CHRON_VALUE_RE.match(value))
+    if level == "year":
+        return bool(_YEAR_VALUE_RE.match(value))
+    if level == "day":
+        return bool(_DAY_VALUE_RE.match(value))
+    return True
+
+
+def demonstrates_level(level, value: str) -> bool:
+    """
+    Whether `value` shows the serial *has* this level, which is a different
+    question from whether the value can be written.
+
+    "v. 15 no. 6 - v. 23 nos. 2/3 (Nov/Dec 1994 - Late Summer 2002)" carries
+    '11/12-Late Summer'.  No subfield can hold that, so the 863 writes no $j
+    and says why -- but Nov/Dec is a month, and a serial with a November/
+    December issue has a month level whatever the other end of the range is
+    called.  The 853 declares it; the 863 still records nothing.
+
+    "v. 15 (1998 Buyers Guide)" carries 'Buyers Guide', where no part is a
+    month at all, and gets no caption.
+
+    Not a second copy of is_codeable(): that one answers "may this be
+    written?", which governs the 863, and this one answers "does the serial
+    have this level?", which governs the 853.  They gave the same answer until
+    a value turned out to be half of each.
+    """
+    return any(is_codeable(level, part)
+               for part in re.split(r"[-/]", value) if part)
+
 def normalise_chron_unit(raw: str) -> str:
     """Normalise a month or season string to MARC-standard form."""
     raw = raw.strip().rstrip(".")
@@ -119,6 +176,16 @@ class EnumChron:
     year: Optional[str] = None       # four-digit year string
     month: Optional[str] = None      # month or season (normalised)
     day: Optional[str] = None        # day (uncommon for journals)
+
+    # Chronology levels this boundary's wording demonstrates but whose value
+    # could not be written -- "1981 - Sep 1996" states a month at one end only,
+    # so there is no range to record and _pair_or_drop() drops the value.  The
+    # serial still has a month level, and the 853 has to declare it: the 853
+    # maps the whole structure a serial can have, while the 863 carries the
+    # values one holding actually pins down.  Without this the level vanished
+    # with the value, and an 866 stating a month produced an 853 saying the
+    # serial has none.
+    demonstrated: Set[str] = field(default_factory=set)
 
     def level(self, index: int) -> Optional[EnumLevel]:
         """The enumeration level at `index`, or None when there is none."""
@@ -256,12 +323,18 @@ class HoldingsRange:
         for ec in [self.start, self.end]:
             if ec is None:
                 continue
-            if ec.year is not None:
-                levels["year"] = True
-            if ec.month is not None:
-                levels["month"] = True
-            if ec.day is not None:
-                levels["day"] = True
+            for name, value in (("year", ec.year),
+                                ("month", ec.month),
+                                ("day", ec.day)):
+                # A value that cannot be coded is prose on its way to being
+                # dropped and named -- "v. 15 (1998 Buyers Guide)" puts
+                # 'Buyers Guide' in the month slot.  It occupies the slot; it
+                # does not show the serial has that level, so it must not earn
+                # a caption the 863 will never fill with anything.
+                if value is not None and demonstrates_level(name, value):
+                    levels[name] = True
+            for name in ec.demonstrated:
+                levels[name] = True
         return levels
 
 
@@ -760,11 +833,13 @@ def _parse_distributed_list(text: str,
             # about which level it is.  Inside a list it is not on its own: it
             # is the only enumeration level there is, and the 853 writes "(*)"
             # for a level with no caption rather than guessing at one.
-            year, month, day = (_parse_chron(chron, warnings) if chron
+            shown: Set[str] = set()
+            year, month, day = (_parse_chron(chron, warnings, shown) if chron
                                 else (None, None, None))
             hr = HoldingsRange(
                 start=EnumChron(enum=[EnumLevel(value=item)],
-                                year=year, month=month, day=day),
+                                year=year, month=month, day=day,
+                                demonstrated=shown),
                 open_ended=last and open_ended,
                 raw=item,
             )
@@ -914,6 +989,7 @@ def _parse_chron_single(raw: str,
 
 def _parse_chron(raw: str,
                  warnings: Optional[List[str]] = None,
+                 demonstrated: Optional[Set[str]] = None,
                  ) -> Tuple[Optional[str], Optional[str], Optional[str]]:
     """
     Parse a chronology string, including ranges within a single group:
@@ -945,11 +1021,13 @@ def _parse_chron(raw: str,
         else:
             year = l_year or r_year
 
-        month = _pair_or_drop(l_month, r_month, raw, "month or season", warnings)
+        month = _pair_or_drop(l_month, r_month, raw, "month or season", warnings,
+                              demonstrated, "month")
         # The day follows exactly the same rule, and for the same reason: a
         # lone '18' in $k pairs positionally with whatever $i and $j hold, so
         # it would claim a precision the other end of the range never gave.
-        day = _pair_or_drop(l_day, r_day, raw, "day", warnings)
+        day = _pair_or_drop(l_day, r_day, raw, "day", warnings,
+                            demonstrated, "day")
 
         if year or month or day:
             return year, month, day
@@ -964,7 +1042,9 @@ def _parse_chron(raw: str,
 
 
 def _pair_or_drop(left: Optional[str], right: Optional[str], raw: str,
-                  what: str, warnings: Optional[List[str]]) -> Optional[str]:
+                  what: str, warnings: Optional[List[str]],
+                  demonstrated: Optional[Set[str]] = None,
+                  level: Optional[str] = None) -> Optional[str]:
     """
     Join the two ends of one chronology level, or drop a value only one gives.
 
@@ -986,8 +1066,13 @@ def _pair_or_drop(left: Optional[str], right: Optional[str], raw: str,
         return f"{left}-{right}"
     if not (left or right):
         return None
+    lone = left or right
+    # The value goes; the level stays.  One end of this range said the serial
+    # is numbered by month -- that is true of the serial however little of it
+    # this range can record, and the 853 has to say so.
+    if demonstrated is not None and level and demonstrates_level(level, lone):
+        demonstrated.add(level)
     if warnings is not None:
-        lone = left or right
         note = (
             f"Only one end of '{raw}' gives a {what} ({lone}); with nothing at "
             "the other end it cannot be recorded as a range, so it was left out."
@@ -1059,9 +1144,12 @@ def _parse_unit(text: str,
     ec = EnumChron(enum=levels)
 
     if chron:
-        ec.year, ec.month, ec.day = _parse_chron(chron.group("chron_raw"), warnings)
+        ec.year, ec.month, ec.day = _parse_chron(
+            chron.group("chron_raw"), warnings, ec.demonstrated)
 
-    return ec if (ec.has_enum() or ec.has_chron()) else None
+    # A boundary whose chronology was entirely dropped still demonstrates the
+    # levels it named, so it is not empty even though every value went.
+    return ec if (ec.has_enum() or ec.has_chron() or ec.demonstrated) else None
 
 
 def _parse_one_range(raw: str,

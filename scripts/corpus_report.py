@@ -232,13 +232,20 @@ class Outcome:
             if unannounced:
                 self.status = "loss"
 
-        # Levels the 853 declares that its own 863s never fill. A caption with
-        # no value under it is a promise the record does not keep.
+        # Levels the 853 declares that its own 863s never fill.
         #
-        # Reported, but never on its own a loss: the block grammar makes one 863
-        # per item and its items are legitimately sparse, so a missing subfield
-        # there says nothing. end_only below is the check that is specific
-        # enough to call it.
+        # Counted, and no longer called a defect. Until 0.12.0 the heading here
+        # read "a promise the record does not keep", which took the 853 to be a
+        # summary of this holding. Under MARC 21 it is not: the 853 establishes
+        # the whole hierarchical structure the serial can have, and the 863
+        # populates the values one holding pins down. A serial whose 866 states
+        # a month has a month level even where a compressed 863 cannot pair it,
+        # so a declared caption with nothing under it is ordinary and correct.
+        #
+        # What would be wrong is the reverse -- an 853 declaring a level the
+        # statement never demonstrates, or omitting one it does. Neither is
+        # visible from this count, which is why it is printed as context rather
+        # than as a score to drive to zero.
         self.undeclared: list[str] = []
         f853 = self.conversion.field_853
         if f853 and produced:
@@ -562,7 +569,8 @@ def report(detail: bool = False, drift_only: bool = False) -> int:
     print(f"  produced no fields at all    {by_status['fail']:3d}")
 
     undeclared = [o for o in outcomes if o.undeclared and o.status != "fail"]
-    print(f"\n  853s declaring a caption their own 863 never fills: {len(undeclared)}")
+    print(f"\n  853s declaring a level their own 863 never fills: {len(undeclared)}"
+          "  (expected: the 853 maps the serial, the 863 records one holding)")
 
     print("\n  by defect id:")
     for did in sorted(by_defect, key=lambda d: int(d[1:])):

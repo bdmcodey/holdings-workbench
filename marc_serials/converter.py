@@ -24,7 +24,11 @@ except ImportError:
     HAS_PYMARC = False
 
 from marc_serials.parser import (ParseResult, HoldingsRange, EnumChron,
-                             SEASON_CODES, MARC_CHRON_CODES)
+                             SEASON_CODES, MARC_CHRON_CODES, is_codeable)
+
+# The converter's own name for it, kept so the call sites below read as they
+# always did.
+_is_codeable = is_codeable
 
 
 # ---------------------------------------------------------------------------
@@ -713,29 +717,10 @@ def _enum_label(caption: Optional[str], index: int) -> tuple:
     return (article, f"'{word}' level")
 
 
-# A chronology subfield an 853 labels "(month)" or "(season)" holds MARC codes:
-# months 01-12, seasons 21-24, joined by "-" for a range and "/" for a combined
-# issue.  Anything else is prose.
-_CHRON_CODE = r"(?:0[1-9]|1[0-2]|2[1-4])"
-_CHRON_VALUE_RE = re.compile(rf"^{_CHRON_CODE}(?:[-/]{_CHRON_CODE})*-?$")
-
-# A year subfield holds four-digit years, likewise joined.
-_YEAR_VALUE_RE = re.compile(r"^\d{4}(?:[-/]\d{4})*-?$")
-
-
-# A day subfield holds days of the month, joined the same way.
-_DAY_VALUE_RE = re.compile(r"^(?:0?[1-9]|[12]\d|3[01])(?:[-/](?:0?[1-9]|[12]\d|3[01]))*-?$")
-
-
-def _is_codeable(level, value: str) -> bool:
-    """Whether `value` may be written into the coded subfield for `level`."""
-    if level == "month":
-        return bool(_CHRON_VALUE_RE.match(value))
-    if level == "year":
-        return bool(_YEAR_VALUE_RE.match(value))
-    if level == "day":
-        return bool(_DAY_VALUE_RE.match(value))
-    return True
+# The codeability predicate moved to parser.py in 0.12.0, because the 853 has
+# to answer the same question before the converter ever runs: a level whose
+# only value is prose is not a level the serial has.  Imported rather than
+# restated -- two copies of one rule drift.
 
 
 def _note_unplaceable(warnings: Optional[List[str]], which: str,

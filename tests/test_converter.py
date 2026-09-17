@@ -1199,3 +1199,82 @@ def test_a_split_year_is_a_value_the_year_subfield_accepts():
     from marc_serials.converter import _is_codeable
     assert _is_codeable("year", "1996/1997") is True
     assert _is_codeable("year", "1996-1996/1997") is True
+
+
+# ---------------------------------------------------------------------------
+# What the 853 declares, and what the 863 fills, are different questions
+# ---------------------------------------------------------------------------
+#
+# Under MARC 21 the 853 establishes the whole hierarchical structure the serial
+# can have; the 863 populates the values one holding pins down. So a level the
+# statement demonstrates belongs in the 853 even where a compressed 863 cannot
+# record a value for it -- and a level the statement never demonstrates does
+# not, however much prose happens to sit in that slot.
+#
+# Before 0.12.0 both questions were answered by "did a value survive?", so a
+# month dropped for want of a pair took its caption down with it, and an
+# unencodable phrase earned one. These pin both directions.
+
+
+@pytest.mark.parametrize("statement", [
+    "v. 78 - v. 93 no. 3 (1981 - Sep 1996)",
+    "v. 1-v. 17 no. 3 (1981-October 1997)",
+    "v. 18-v. 19 no. 2 (1998-Summer 1999)",
+    "v. 40-45 no. 4 (1974-Apr 1979)",
+    "v. 1 no. 8-v. 2 (Aug 1984-1985)",
+    "v. 1-v. 2 no. 2 (1984-Mar/Apr 1985)",
+    "v. 25 no. 2-v. 33 (Feb 1921-1929)",
+])
+def test_a_month_at_one_end_still_declares_the_level(statement):
+    """
+    The value cannot be written -- a compressed 863 pairs its subfields
+    positionally, so a month at one end only would claim the other end said the
+    same thing. That is settled, and the value is dropped and named.
+
+    The serial still has a month level. The 866 says so.
+    """
+    conv = convert_holdings(parse_866(statement))
+    assert sub(conv.field_853, "j") is not None, (
+        f"{statement} states a month; the 853 should declare the level")
+    assert all(sub(f, "j") is None for f in conv.fields_863), (
+        "the value itself is still not written -- only the caption is")
+    assert any("month or season" in w for w in conv.warnings), (
+        "and the dropped value is still named")
+
+
+def test_a_day_at_one_end_still_declares_the_level():
+    """The same rule, one level down."""
+    conv = convert_holdings(
+        parse_866("v. 34 no. 8/9-v. 35 no. 23/24 (Apr 18, 1996-Dec 1997)"))
+    assert sub(conv.field_853, "k") is not None
+    assert all(sub(f, "k") is None for f in conv.fields_863)
+
+
+def test_prose_in_the_month_slot_declares_no_month():
+    """
+    'Buyers Guide' occupies the month slot on its way to being dropped and
+    named, but no part of it is a month. A serial whose 866 never states one
+    has no month level to declare.
+    """
+    conv = convert_holdings(parse_866("v. 15 (1998 Buyers Guide)"))
+    assert sub(conv.field_853, "j") is None
+    assert sub(conv.field_853, "i") is not None, "the year is still declared"
+    assert any("Buyers Guide" in w for w in conv.warnings)
+
+
+def test_a_month_beside_prose_still_declares_the_level():
+    """
+    The case that a first pass at this got wrong, which is why it is pinned.
+
+    '(Nov/Dec 1994 - Late Summer 2002)' reaches the month slot as
+    '11/12-Late Summer'. No subfield can hold that, so the 863 writes nothing
+    and says why -- but Nov/Dec is a month, and a serial with a November/
+    December issue has a month level whatever the other end is called.
+
+    Answering the 853's question with the 863's predicate drops the caption
+    here, which is wrong in the opposite direction from 'Buyers Guide'.
+    """
+    conv = convert_holdings(
+        parse_866("v. 15 no. 6 - v. 23 nos. 2/3 "
+                  "(Nov/Dec 1994 - Late Summer 2002)"))
+    assert sub(conv.field_853, "j") is not None
