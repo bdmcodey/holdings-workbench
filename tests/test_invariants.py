@@ -472,3 +472,42 @@ def test_form_of_holdings_agrees_with_the_field(client, any_corpus):
     assert not offenders, (
         "863 Form of holdings disagrees with the field's contents:\n  "
         + "\n  ".join(offenders))
+
+
+# ---------------------------------------------------------------------------
+# The committed fixtures must describe the kind of thing they contain
+# ---------------------------------------------------------------------------
+
+def test_the_committed_fixtures_are_coded_as_serial_holdings():
+    """
+    Both .mrc files in data/ carry serial holdings -- volumes, issues, years --
+    and until 0.12.5 both were coded Leader/06 = x, single-part item holdings.
+
+    It changed no behaviour, because nothing in the toolkit reads the Leader.
+    It mattered because of what it would have done to the first change that
+    did: 863-865 says first indicator 3 "is not applicable to a single-part
+    item (Leader/06, code x)", so fixtures coded x rule out a value the
+    standard allows for what they actually hold, and any work calibrated
+    against them would have inherited that.
+
+    Leader/18 was a blank, which is not a value it defines -- the choices are
+    i and n -- and these records carry no 876-878 Item Information fields.
+
+    Not an `any_corpus` invariant on purpose. A real library's records are
+    coded however they are coded, and it is not this suite's business to
+    insist otherwise; what is its business is that the files this project
+    commits say what they mean. See docs/marc/hdleader.md.
+    """
+    from conftest import EXAMPLE_MRC, MESSY_MRC
+
+    for path in (EXAMPLE_MRC, MESSY_MRC):
+        records = _records(path.read_bytes())
+        assert records, f"{path.name} holds no readable records"
+        for index, record in enumerate(records):
+            leader = record.leader
+            assert leader[6] == "y", (
+                f"{path.name} record {index}: Leader/06 is {leader[6]!r}, "
+                "expected 'y' (serial item holdings)")
+            assert leader[18] in ("i", "n"), (
+                f"{path.name} record {index}: Leader/18 is {leader[18]!r}, "
+                "which is not a value it defines")
