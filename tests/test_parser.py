@@ -914,3 +914,71 @@ def test_a_bare_split_year_reaches_the_year_subfield():
     result = convert_holdings(parse_866("1996/97"))
     assert result.fields_863[0].display() == "863 40 $8 1.1 $i 1996/1997"
     assert result.warnings == []
+
+
+# ---------------------------------------------------------------------------
+# An ordinal is not an enumeration value
+# ---------------------------------------------------------------------------
+#
+# The enumeration value pattern ends in an optional letter, for a genuine
+# suffix: "v. 4a" is volume 4a. An ordinal is one letter longer, so "50th"
+# matched as the value "50t" and left a stray "h" behind -- and the refusal
+# message then read "Read '50t' but could not account for 'h Anniversary Issue
+# (2017)'", pointing a cataloguer at a place reading never stopped.
+#
+# The statement is refused either way. What these pin is that it is refused
+# for a reason the message states truthfully.
+
+
+@pytest.mark.parametrize("statement", [
+    "50th Anniversary Issue (2017)",
+    "3rd Series v. 4 (1990)",
+    "21st Century Review (2001)",
+])
+def test_an_ordinal_is_not_read_as_a_value(statement):
+    """No warning may quote a fragment of a word the statement never broke."""
+    result = parse_866(statement)
+    for warning in result.warnings:
+        assert "50t" not in warning, warning
+        assert "3r'" not in warning, warning
+        assert "21s" not in warning, warning
+
+
+@pytest.mark.parametrize("statement", [
+    "50th Anniversary Issue (2017)",
+    "21st Century Review (2001)",
+])
+def test_a_statement_that_is_only_an_ordinal_phrase_is_refused(statement):
+    """
+    Unchanged behaviour, pinned because the fix is next to it: a phrase and a
+    date carry no enumeration, so there is nothing to convert. D7 records why
+    this is the right answer rather than a gap.
+    """
+    result = parse_866(statement)
+    assert not any(r.start and r.start.has_enum() for r in result.ranges)
+
+
+@pytest.mark.parametrize("statement,value", [
+    ("v. 4a (1990)", "4a"),
+    ("v. 12b no. 3 (1991)", "12b"),
+])
+def test_a_genuine_letter_suffix_survives(statement, value):
+    """
+    The reason the value pattern allows a trailing letter at all. Narrowing it
+    to exclude ordinals must not take this with it: a serial really can number
+    a volume 4a, and that letter is part of the value.
+    """
+    result = parse_866(statement)
+    assert result.ranges[0].start.enum[0].value == value
+
+
+def test_the_suppl_refusal_still_says_where_reading_stopped():
+    """
+    The message this fix is about is worth keeping where it is true. "v. 58
+    Suppl. (Sep 2003)" really is read as far as "v. 58" and no further, and
+    saying so is what tells a cataloguer the supplement is the part the tool
+    could not place.
+    """
+    result = parse_866("v. 58 Suppl. (Sep 2003)")
+    assert any("Read 'v. 58'" in w and "Suppl. (Sep 2003)" in w
+               for w in result.warnings), result.warnings
