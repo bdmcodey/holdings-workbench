@@ -15,6 +15,15 @@ more than one release; numbering resumed with 0.6.1. Reasoning behind the
 parser and converter decisions, including the defects a real corpus exposed and
 what was done about each, is in [CORPUS-FINDINGS.md](CORPUS-FINDINGS.md).
 
+## 0.12.3 — 2026-09-17
+
+A serial numbered by volume alone no longer gets a numbering-continuity code the standard does not allow there.
+
+- **MARC Serials Toolkit** — The 853's $v says whether a level's numbering restarts when the level above it completes — issue numbers starting again at 1 with each new volume. MARC 21 allows it on any level of enumeration except the first, because the first level has nothing above it to restart against.
+- **MARC Serials Toolkit** — The tool was putting $v on whichever level came last, so a statement with only one level put it on the first. "v. 6 (1935)" produced "853 $a v. $v r", claiming the volume numbering restarts against nothing. Eighteen of the 117 statements in the test collection were affected — every single-level one. Those 853s now end after the caption, as they should.
+- **MARC Serials Toolkit** — A statement with two or more levels is unchanged. "v. 1 no. 2 (1990)" still gives "853 $a v. $b no. $v r", where $v describes the issue level and is correct.
+- **MARC Serials Toolkit** — Nothing about enumeration or chronology values changes — no 863 is affected, and all 117 statements convert to the same holdings they did before. Only the pattern subfield on the 853 moves.
+
 ## 0.12.2 — 2026-09-17
 
 A record with a part of its statement the tool could not read is now marked as needing attention, instead of only carrying a warning you would have to open the row to see.

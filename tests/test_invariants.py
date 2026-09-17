@@ -389,3 +389,53 @@ def test_the_two_paths_write_the_same_863():
             differ[text] = (by_parser, by_pattern)
 
     assert not differ, f"the two paths disagree about an 863: {differ}"
+
+
+# ---------------------------------------------------------------------------
+# Conformance to MARC 21 853-855: where $v may appear
+# ---------------------------------------------------------------------------
+#
+# From the standard: "$v - Numbering continuity ... May be used with each level
+# of enumeration except the first level (subfield $a or $g)." The code it
+# carries says the numbering "restarts at the completion of the unit" -- the
+# unit being the next higher level -- so the question only arises where there
+# is a level above the one it describes. Every example in the standard puts $v
+# after $b, $c or $d; none puts it after $a.
+#
+# Until 0.12.3 $v followed whichever enumeration level came last, so a serial
+# numbered by volume alone put it on the first: 18 of the 117 corpus
+# statements, every one of them a single level deep.
+#
+# Written as an invariant rather than a case because it is a rule about the
+# field, not about any statement: no input may produce it.
+
+ENUM_CODES = "abcdef"
+
+
+def v_on_first_enumeration_level(record) -> list[str]:
+    """853s in `record` whose $v describes the first level of enumeration."""
+    offenders = []
+    for field in record.get_fields("853"):
+        codes = [sf.code for sf in field.subfields]
+        enum = [c for c in codes if c in ENUM_CODES]
+        if not enum:
+            continue
+        first = enum[0]
+        for i, code in enumerate(codes):
+            if code == "v" and i and codes[i - 1] == first:
+                offenders.append(str(field))
+    return offenders
+
+
+def test_v_never_describes_the_first_level_of_enumeration(client, any_corpus):
+    """
+    A serial numbered by volume alone has no higher unit for its numbering to
+    restart against, so $v has nothing to say about it and the standard
+    excludes it there.
+    """
+    offenders = []
+    for record in _records(_convert(client, any_corpus)):
+        offenders.extend(v_on_first_enumeration_level(record))
+    assert not offenders, (
+        "853 $v may not describe the first level of enumeration:\n  "
+        + "\n  ".join(offenders))

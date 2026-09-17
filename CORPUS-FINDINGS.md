@@ -1923,6 +1923,81 @@ printing a number that reads as a score to drive to zero. A reader comparing
 
 ---
 
+## Checked against the standard itself · **0.12.3**
+
+*17 September 2026. The cataloguer supplied the LC documentation for 853-855
+and asked whether the tool's 853s conform. Most of what follows is
+confirmation; one thing was wrong.*
+
+**`$v` on the first level of enumeration — wrong, 18 statements.** From the
+standard: *"$v - Numbering continuity ... May be used with each level of
+enumeration except the first level (subfield $a or $g)"*, and the code says the
+numbering *"restarts at the completion of the unit"* — the unit being the level
+above. `$v` was appended after whichever enumeration level came last, so a
+single-level statement put it on the first:
+
+```
+v. 6 (1935)        853 $a v. $v r          <- claims v. restarts against nothing
+v. 1 no. 2 (1990)  853 $a v. $b no. $v r   <- correct: the issue restarts
+```
+
+Eighteen of the 117 statements, every one of them one level deep. Every example
+in the standard puts `$v` after `$b`, `$c` or `$d`; none after `$a`. Fixed by
+withholding `$v` where there is only one enumeration level, and pinned in
+`tests/test_invariants.py` rather than as a case, because it is a rule about
+the field that no input may break. The invariant fails on both `.mrc` fixtures
+before the fix.
+
+**`(*)` — confirmed correct, and by LC's own example.** D7 reasoned to `(*)`
+from the sentence about an invented caption or *"an asterisk used in place of
+data"*. The document also carries the example
+
+```
+853 20$81$aannee$b(*)$u12$vr$cpt.$u2 $vr$zbcLatn$i(year)$ws$x01
+```
+
+— the asterisk parenthesised exactly as this tool writes it — and states
+*"Parentheses are used around a caption to suppress display."* So `(*)` and the
+parenthesised `(year)`/`(month)` are both right, and D7's reading was sound.
+
+**The correlation requirement runs the way 0.12.0 assumed.** *"Compression and
+expansion require that the caption subfields ($a-$m) for each of the applicable
+levels of enumeration and chronology subfields ($a-$m) must be present in the
+853/854 field that is linked."* The requirement is that the 853 covers the 863,
+not that the two match: an 853 caption with nothing under it is ordinary, and
+an 863 subfield with no caption in the 853 is the violation. Audited across the
+corpus: **0 statements** produce an 863 subfield the 853 does not declare.
+
+**An enumeration restart needs no new `$8` — and the suggestion that it might
+was wrong.** Raised while discussing the in-house "Series n" convention, which
+was introduced in a pre-MARC ILS to mark a publication restarting its
+numbering. The standard settles it under Field Repeatability: *"Single 853-855
+Captions and Pattern field may apply to more than one 863-865 field if the
+contents of the subfields remain constant. The 853-855 fields are repeated when
+the contents of the subfields varies."* In a pure restart the captions and
+pattern are identical, so one 853 governs both 863s and the current behaviour
+conforms. The restart is carried by the two 863s themselves — `$8 1.1` and
+`$8 1.2`, with values that do not ascend — not by the caption field.
+
+**First indicator `3` (compressibility unknown) is the honest value.**
+*"Compression of the contents of subfields $a-$m in field 863 or 864 requires
+information in subfields $u and $v."* The tool writes `$v` but never `$u`,
+because an 866 rarely states how many issues a volume holds and inventing a
+number would claim a pattern nobody verified. Declaring `1` or `2` would assert
+a capability these records do not support, so `3` is correct as long as `$u` is
+absent. Worth knowing that `$u` is the only thing standing between this output
+and machine-compressible holdings, if that ever matters.
+
+**Left alone, with the reasoning recorded.** Second indicator `1` is *"Captions
+verified; all levels may not be present"* — captions as they appear on the
+item. Where the tool writes `(*)`, or a caption supplied on the Patterns step,
+"as they appear on the item" is not strictly true and `3` would be defensible.
+Against that, the standard's own `(*)` example uses second indicator `0`
+("captions verified"), so the asterisk evidently does not unverify a field. Not
+changed; noted so the next person does not have to re-derive it.
+
+---
+
 ## Requested, not yet started
 
 Raised 1 September 2026 alongside D15–D18, recorded here so they are not lost.

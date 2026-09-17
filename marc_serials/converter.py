@@ -658,12 +658,32 @@ def _build_853(
 
     # Sorted by subfield so the field reads correctly under either convention
     # (HOUSE puts the year first, in $a).
+    # $v (numbering continuity) belongs to the level that renumbers, which is
+    # the last enumeration level -- but only where there is a level above it to
+    # renumber against.
+    #
+    # MARC 21 853-855: "$v ... May be used with each level of enumeration
+    # except the first level (subfield $a or $g)", and the code it carries says
+    # the numbering "restarts at the completion of the unit" -- the unit being
+    # the next higher level.  A serial numbered by volume alone has no higher
+    # unit, so there is nothing for its numbering to restart against and the
+    # question $v answers does not arise.  Every example in the standard puts
+    # $v after $b, $c or $d; none puts it after $a.
+    #
+    # Until 0.12.3 it went after whichever enumeration level came last, so a
+    # single-level statement put it on the first -- 18 of the 117 corpus
+    # statements, every one of them one level deep.
+    #
+    # $u (bibliographic units per next higher level) is never guessed. The
+    # standard pairs $u with $v and requires both for machine compression,
+    # which is why the first indicator says compressibility is unknown: an 866
+    # rarely states how many issues a volume holds, and inventing a number
+    # would claim a pattern nobody verified.
     last_enum_code = planned[len(declared) - 1][0] if declared else None
+    if len(declared) < 2:
+        last_enum_code = None
     for code, value in sorted(planned, key=lambda p: p[0]):
         sfs.append(SubfieldData(code, value))
-        # $v (numbering continuity) belongs to the level that renumbers, which
-        # is the last enumeration level.  $u (units per higher level) is never
-        # guessed.
         if numbering_continuity and code == last_enum_code:
             sfs.append(SubfieldData("v", numbering_continuity))
 

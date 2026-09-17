@@ -1,6 +1,6 @@
 {
   "name": "MARC Serials Toolkit",
-  "version": "0.12.2",
+  "version": "0.12.3",
   "released": "2026-09-17",
   "status": "Proof of concept — under active development. Check your output before loading it into the catalog.",
   "description": "One tool for MARC serials holdings. Upload a MARC file, find the patterns in its 866 statements, confirm what each part of a pattern means, and convert to structured 853 caption/pattern and 863 enumeration/chronology fields. Statements no pattern matches are converted by the standard parser.",
@@ -9,6 +9,29 @@
   "contact": "Matthew Codey, codey@usc.edu",
   "_comment": "Written for cataloging staff, not developers. Say what changed about the output or the screen, not how the code changed. Newest version first.",
   "changelog": [
+    {
+      "version": "0.12.3",
+      "date": "2026-09-17",
+      "summary": "A serial numbered by volume alone no longer gets a numbering-continuity code the standard does not allow there.",
+      "changes": [
+        {
+          "tool": "MARC Serials Toolkit",
+          "text": "The 853's $v says whether a level's numbering restarts when the level above it completes — issue numbers starting again at 1 with each new volume. MARC 21 allows it on any level of enumeration except the first, because the first level has nothing above it to restart against."
+        },
+        {
+          "tool": "MARC Serials Toolkit",
+          "text": "The tool was putting $v on whichever level came last, so a statement with only one level put it on the first. \"v. 6 (1935)\" produced \"853 $a v. $v r\", claiming the volume numbering restarts against nothing. Eighteen of the 117 statements in the test collection were affected — every single-level one. Those 853s now end after the caption, as they should."
+        },
+        {
+          "tool": "MARC Serials Toolkit",
+          "text": "A statement with two or more levels is unchanged. \"v. 1 no. 2 (1990)\" still gives \"853 $a v. $b no. $v r\", where $v describes the issue level and is correct."
+        },
+        {
+          "tool": "MARC Serials Toolkit",
+          "text": "Nothing about enumeration or chronology values changes — no 863 is affected, and all 117 statements convert to the same holdings they did before. Only the pattern subfield on the 853 moves."
+        }
+      ]
+    },
     {
       "version": "0.12.2",
       "date": "2026-09-17",
