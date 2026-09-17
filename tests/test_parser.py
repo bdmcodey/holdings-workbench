@@ -912,7 +912,8 @@ def test_a_bare_split_year_reaches_the_year_subfield():
     from marc_serials.converter import convert_holdings
 
     result = convert_holdings(parse_866("1996/97"))
-    assert result.fields_863[0].display() == "863 40 $8 1.1 $i 1996/1997"
+    # Uncompressed (indicator 2 = 1): one year, not a range of them.
+    assert result.fields_863[0].display() == "863 41 $8 1.1 $i 1996/1997"
     assert result.warnings == []
 
 

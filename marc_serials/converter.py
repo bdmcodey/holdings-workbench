@@ -917,6 +917,14 @@ def _note_unpairable_under_range(warnings: Optional[List[str]], label: tuple,
         warnings.append(note)
 
 
+# The subfields Form of holdings is decided from: a range in any enumeration or
+# chronology subfield makes the field compressed.  Named here rather than spelled
+# as a literal at the point of use, because the same two groups are what "level"
+# means everywhere in this module.
+_ENUM_SUBFIELDS = "abcdefgh"
+_CHRON_SUBFIELDS = "ijklm"
+
+
 def _note_uncodeable(warnings: Optional[List[str]], label: tuple,
                      value: str, flags: Optional[set] = None) -> None:
     """
@@ -1173,18 +1181,33 @@ def _build_863_for_range(
 
     # Indicator 1 is Field encoding level, matching Leader/17: 3, 4 or 5.  4 is
     # holdings level 4 -- enumeration and chronology recorded -- which is what
-    # this field carries.
+    # this field carries.  Reconciling it with the record's own Leader/17 is
+    # still open (D18): the standard's examples do not support deriving it from
+    # the field's contents, and nothing here reads the Leader.
+    # docs/marc/hd863865.md has the values; two of its examples give 3 and 4 to
+    # fields of the same shape, which is why this is not a guess made per field.
     #
-    # Indicator 2 is Form of holdings: 0 compressed, 1 uncompressed, 2 and 3 the
-    # same pair where the display comes from a linked 866.  Every field built
-    # here states the first part held and the last part held as a range
-    # ("$a 41-43 $i 1984-1986"), which is the definition of compressed, so it is
-    # 0.  It was 1 -- uncompressed, meaning each part itemised separately --
-    # which said the opposite of what the field contains.
+    # Indicator 2 is Form of holdings, and it describes *this field*: 0
+    # compressed, 1 uncompressed, 2 and 3 the same pair where the display comes
+    # from a linked 866.  docs/marc/hd863865.md: "Compressed means that the
+    # stated field is expressed in a summarized form containing the enumeration
+    # and chronology of more than one part expressed as a range of holdings and
+    # comprising multiple holdings items.  Uncompressed means that each holdings
+    # item is itemized, and thus recorded separately."
+    #
+    # So the value follows from whether this field holds a range.  0.6.1 (D18)
+    # changed it from 1 to 0 because the fields it looked at were ranges and
+    # saying "uncompressed" of "$a 41-43" is false; the same rule read the other
+    # way makes 0 false of "$a 8", one volume out of a discontinuous list, which
+    # is 45 of the 137 fields the corpus produces.  Every example in the
+    # standard agrees: a range takes 0 or 2, a single item 1 or 3.
+    ranged = any("-" in sf.value
+                 for sf in sfs
+                 if sf.code in _ENUM_SUBFIELDS + _CHRON_SUBFIELDS)
     return FieldData(
         tag="863",
         indicator1="4",  # field encoding level 4: enumeration and chronology
-        indicator2="0",  # form of holdings: compressed
+        indicator2="0" if ranged else "1",  # form of holdings
         subfields=sfs,
     )
 

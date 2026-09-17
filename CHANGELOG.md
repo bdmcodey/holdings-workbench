@@ -15,6 +15,16 @@ more than one release; numbering resumed with 0.6.1. Reasoning behind the
 parser and converter decisions, including the defects a real corpus exposed and
 what was done about each, is in [CORPUS-FINDINGS.md](CORPUS-FINDINGS.md).
 
+## 0.12.4 — 2026-09-17
+
+An 863 recording a single issue no longer describes itself as a compressed range. The code that says which it is now matches the field it sits on.
+
+- **MARC Serials Toolkit** — Every 863 carries a code saying whether it records a range of parts — the first and last held — or a single part on its own. The tool was writing "compressed" on all of them, so "863 $a 8", one volume out of a list, claimed to be a range. Forty-five of the 137 fields the test collection produces were affected.
+- **MARC Serials Toolkit** — "v. 19 nos. 1, 3, 5, 7-12 (Jan, Mar, May, Jul-Dec 1915)" shows both in one statement. The three single issues are now marked as single parts and "nos. 7-12" as a range, where before all four claimed to be ranges.
+- **MARC Serials Toolkit** — Nothing about your holdings changes — no enumeration, chronology or caption is touched, and all 117 statements in the test collection convert to the same values they did before. What changes is one character that tells a receiving system how to read the field.
+- **MARC Serials Toolkit** — A year written across the turn of one — "1996/97" — counts as a single year rather than a range, so "v. 12 no. 4 (Winter 1996/97)" is recorded as one part. It is one issue of one publication year, which is what the slash means.
+- **MARC Serials Toolkit** — The MARC 21 documentation this is drawn from is now kept in the repository under docs/marc, so the reason for a decision like this one can be traced to the paragraph it came from.
+
 ## 0.12.3 — 2026-09-17
 
 A serial numbered by volume alone no longer gets a numbering-continuity code the standard does not allow there.
