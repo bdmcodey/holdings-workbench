@@ -28,6 +28,10 @@
         },
         {
           "tool": "MARC Serials Toolkit",
+          "text": "A field two records share is still offered, but marked. A title is the case that matters: two holdings of the same serial carry the same 245, so a title can be different on three records out of four — enough to look like a way of naming a record, and not enough to be one, because picking it would label two rows identically. Such a field now says \"some records share one\" beside it, and the list no longer claims that everything it offers is distinct."
+        },
+        {
+          "tool": "MARC Serials Toolkit",
           "text": "The change takes effect at once. The list is relabelled where it stands, without re-uploading the file and without disturbing the Reviewed, Skip or Keep-patterns-separate boxes you have already ticked."
         },
         {

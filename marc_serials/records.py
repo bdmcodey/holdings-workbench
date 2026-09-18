@@ -90,7 +90,10 @@ def identifier_candidates(records, limit: int = 6) -> list[dict]:
       * it is on every record -- one missing is a row that cannot be found;
       * it appears at most once per record -- a repeated field is data about
         the record, not a name for it;
-      * its values are distinct -- a field with one value is a label.
+      * its values are distinct on every record that carries it -- not merely
+        more than one value between them. Two holdings of the same serial
+        share a title, so 245 $a can be distinct on two records out of three:
+        enough to look like a candidate, not enough to name a row.
 
     Measured against a 372-record Alma export, those three together return
     exactly the four identifiers it carries (001, 004, 999 $b, 999 $d) and
@@ -144,10 +147,25 @@ def identifier_candidates(records, limit: int = 6) -> list[dict]:
             "total": total,
             "distinct": distinct,
             "repeated": repeats.get(key, 1) > 1,
+            # Distinct on every record that has it, rather than merely having
+            # more than one value. A title is the case that forced this: two
+            # holdings of the same serial share one, so 245 $a can come back
+            # distinct on 2 of 3 records -- enough to look like a candidate,
+            # and not enough to name a row, because choosing it would label
+            # two rows identically. Carried rather than filtered, so a file
+            # with nothing better still offers its best and says what is
+            # wrong with it.
+            "unique": distinct == present,
             "sample": sample,
         })
 
+    # Order of the two tests matters and is not arbitrary. "Appears once in
+    # this record" comes first because a repeated field has no single value to
+    # put beside a row at all; "distinct across records" comes second, because
+    # a field that does have one value per record but shares it between two is
+    # still displayable, just ambiguous. Structure before distinctiveness.
     out.sort(key=lambda c: (not c["repeated"],
+                            c["unique"],
                             c["present"] / total,
                             c["distinct"] / max(c["present"], 1)),
              reverse=True)

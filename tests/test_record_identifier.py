@@ -319,3 +319,58 @@ def test_a_field_that_is_not_a_field_is_refused_rather_than_stored(client):
     # And the working field it had before is still in force.
     still = upload_marc(client, _as_file(_record(mms="991000485469603731"))).get_json()
     assert still["identifier_field"] == DEFAULT_IDENTIFIER_SPEC
+
+
+def test_a_field_two_records_share_is_marked_as_not_naming_a_row():
+    """
+    The cataloguer's correction, and the case that exposed the loose version.
+
+    Distinctness was coded as "more than one value between them", which is not
+    the same as "a value of its own on every record". Two holdings of the same
+    serial share a title, so 245 $a comes back distinct on two records out of
+    three -- enough to be offered, and choosing it labels two rows identically.
+
+    Kept in the list rather than dropped, because a file with nothing better
+    should still see its closest option, but flagged so the screen can say
+    what is wrong with it instead of claiming every suggestion is distinct.
+    """
+    from pymarc import Field, Subfield
+    from marc_serials.records import identifier_candidates
+
+    def titled(title, control):
+        rec = _record(control=control)
+        rec.add_field(Field(tag="245", indicators=["0", "0"],
+                            subfields=[Subfield(code="a", value=title)]))
+        return rec
+
+    records = [titled("Journal of Dentistry.", "c1"),
+               titled("Journal of Dentistry.", "c2"),
+               titled("Oral Surgery Today.", "c3")]
+    found = {c["spec"]: c for c in identifier_candidates(records)}
+
+    assert found["245$a"]["unique"] is False, (
+        "a title two records share cannot name either of them")
+    assert found["245$a"]["distinct"] == 2 and found["245$a"]["present"] == 3
+    assert found["001"]["unique"] is True
+
+    specs = list(found)
+    assert specs.index("001") < specs.index("245$a"), (
+        "a field with a value of its own on every record must be offered "
+        "ahead of one that repeats")
+
+
+def test_a_holdings_only_export_offers_what_it_has(client):
+    """
+    Alma keeps holdings and bibliographic records apart, so a holdings export
+    carries no 245 at all -- the 372-record file this was built against had
+    none, and no 022 either. Nothing may depend on a bibliographic field
+    being there to find.
+    """
+    from marc_serials.records import identifier_candidates
+
+    records = [_record(mms="991000485469603731", control="h1"),
+               _record(mms="991000218369603731", control="h2")]
+    specs = [c["spec"] for c in identifier_candidates(records)]
+    assert "245$a" not in specs
+    assert {"001", "999$b"} <= set(specs)
+    assert all(c["unique"] for c in identifier_candidates(records))

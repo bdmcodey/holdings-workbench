@@ -184,6 +184,7 @@
       overflow-wrap: anywhere;
     }
     .id-option .tally { color: var(--text-muted); font-size: var(--fs-xs); }
+    .id-option.not-unique .tally { color: var(--warn, var(--text-muted)); }
     .id-picker-actions { display: flex; gap: var(--sp-2); align-items: flex-end;
                          flex-wrap: wrap; }
     /* The identifier is how a row is told apart from the 371 around it when
@@ -1356,18 +1357,28 @@ function openIdentifierPicker() {
   const list   = document.getElementById('identifier-options');
   if (!picker) return;
 
-  lead.textContent = identifierCandidates.length
-    ? 'These fields are on every record in this file, appear once each, and '
-      + 'have a different value on every record — so any of them could name a row.'
-    : 'Nothing in this file is on every record with a distinct value, so there '
-      + 'is no identifier to suggest. Name a field yourself, or show none.';
+  // What the list can honestly claim depends on what is in it. Saying "a
+  // different value on every record" above a field that repeats one would be
+  // the screen telling the cataloguer something the file contradicts.
+  const anyUnique = identifierCandidates.some(c => c.unique);
+  lead.textContent = !identifierCandidates.length
+    ? 'Nothing in this file is on every record with a value of its own, so '
+      + 'there is no identifier to suggest. Name a field yourself, or show none.'
+    : anyUnique
+    ? 'These fields are on every record in this file and appear once each. '
+      + 'The ones marked below share a value between records, so they would '
+      + 'label two rows the same.'
+    : 'Nothing in this file has a value of its own on every record. These are '
+      + 'the closest, and each would label some rows the same.';
 
   list.innerHTML = identifierCandidates.map(c => `
-    <button type="button" class="id-option${c.spec === identifierSpec ? ' chosen' : ''}"
+    <button type="button" class="id-option${c.spec === identifierSpec ? ' chosen' : ''}${
+      c.unique ? '' : ' not-unique'}"
             onclick="chooseIdentifier('${escHtml(c.spec)}')">
       <span class="spec">${escHtml(c.spec)}</span>
       <span class="sample">${escHtml(c.sample || '')}</span>
-      <span class="tally">on ${c.present} of ${c.total} · ${c.distinct} different</span>
+      <span class="tally">on ${c.present} of ${c.total} · ${c.distinct} different${
+        c.unique ? '' : ' — some records share one'}</span>
     </button>`).join('');
 
   document.getElementById('identifier-custom').value =
