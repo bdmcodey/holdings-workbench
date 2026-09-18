@@ -72,6 +72,8 @@ from marc_serials.records import (
     apply_record_conversion as _apply_record_conversion,
     display_marc_field as _display_marc_field,
     encoding_level_conflict,
+    encoding_level_differs,
+    encoding_level_summary,
     match_866_sources as _match_866_sources,
     read_marc_file as _read_marc_file,
     records_from_bytes,
@@ -364,10 +366,15 @@ def _review_row(record, index, *, patterns, fallback, conv_opts, captions,
         "sources": [],
         "has_866": False,
         "skipped": skipped,
-        # Set when the record's Leader/17 no longer describes what conversion
-        # wrote into it. Reported, never corrected: see
-        # records.encoding_level_conflict().
+        # Set when the holdings written exceed the level the cataloguer
+        # declared -- a per-record fact, and the one worth a marker. Reported,
+        # never corrected: see records.encoding_level_conflict().
         "leader_note": None,
+        # Set when this record's own Leader/17 disagrees with that level. Not
+        # a marker, because on a real file it is true of every row and the
+        # count belongs in one line above the list -- but carried so the
+        # filter can still find them.
+        "leader_mismatch": False,
     }
     if with_previews:
         row["previews"] = []
@@ -402,6 +409,7 @@ def _review_row(record, index, *, patterns, fallback, conv_opts, captions,
     row["sources"] = sorted({p["source"] for p in previews})
     row["leader_note"] = encoding_level_conflict(record, rc.fields_863,
                                                  holdings_level)
+    row["leader_mismatch"] = encoding_level_differs(record, holdings_level)
     if with_previews:
         row["previews"] = previews
     return row
@@ -1329,7 +1337,13 @@ def api_review_index():
                         units_per_higher=units_per_higher)
             for index, record in enumerate(all_records)
         ]
-        return jsonify({"records": rows, "total": len(all_records)})
+        # The file-wide half of the encoding-level question, counted once.
+        # A marker on every row said this badly; one line says it well.
+        return jsonify({
+            "records": rows,
+            "total": len(all_records),
+            "encoding_level": encoding_level_summary(all_records, holdings_level),
+        })
     except Exception as exc:
         app.logger.exception("Request failed")
         return jsonify({"error": str(exc)}), 500

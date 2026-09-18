@@ -435,38 +435,115 @@ def display_marc_field(fld) -> str:
 _LEVELS_WITHOUT_A_CLAIM = {"m", "u", "z", " ", ""}
 
 
+# Enumeration runs $a-$f and chronology $i-$l, most significant first, so
+# "more than one of either" is "more than the first-order designator".
+_ENUM_SUBFIELDS = "abcdef"
+_CHRON_SUBFIELDS = "ijkl"
+
+
+def _exceeds_summary(field_863) -> bool:
+    """Whether a generated 863 records past the first level of enum or chron."""
+    codes = [sf.code for sf in field_863.subfields if sf.code != "8"]
+    return (sum(1 for c in codes if c in _ENUM_SUBFIELDS) > 1
+            or sum(1 for c in codes if c in _CHRON_SUBFIELDS) > 1)
+
+
 def encoding_level_conflict(record, fields_863,
                             declared: str = DEFAULT_HOLDINGS_LEVEL
                             ) -> Optional[str]:
     """
-    Whether this record's Leader/17 still describes what conversion wrote.
+    Whether the holdings being written exceed the level the cataloguer declared.
 
-    `declared` is the holdings level the cataloguer reports at, which is also
-    what goes into each 863's first indicator.  A record whose Leader/17 says
-    something else now disagrees with its own fields: declaring level 3 says
-    the holdings are summary -- "only the highest levels (first-order
-    designators)", Z39.71 4.3 -- and writing detailed 863s into it makes that
-    untrue.
+    This asks about *this record* and nothing else, which is the point of the
+    rewrite. It used to compare the record's Leader/17 against the declared
+    level, and that is a fact about the file rather than about a record: a
+    372-record Alma export declaring level 3 throughout, converted by a library
+    reporting at level 4, put the marker on 371 rows. A signal that fires on
+    every row carries nothing, and it swamped "Needs attention" with the whole
+    file. The cataloguer who reported it was right to call it overkill.
 
-    Reported and never corrected, deliberately.  Encoding level is an assertion
-    the library makes about its own holdings statements, and rewriting one on a
+    So the file-wide comparison moved to where a file-wide fact belongs -- one
+    line above the list, see encoding_level_summary() -- and what remains here
+    is the question that genuinely varies from record to record:
+
+        Level 3 is summary holdings, "only the highest levels (first-order
+        designators)" (Z39.71 4.3). An 863 carrying "$a 1-5 $b 1-4 $i 1990-1994
+        $j 01-12" is not that.
+
+    Declaring level 4 therefore never flags anything: level 4 is "the most
+    specific levels (including all hierarchical levels)", so no amount of
+    detail can exceed it, and a serial with one level of enumeration is not
+    under-reporting by having only one. On the export above this takes the
+    marker from 371 records to none at the default, and to 242 of 371 at level
+    3 -- where it means something specific, and the other 129 genuinely are
+    summary.
+
+    Reported and never corrected, deliberately. The encoding level is an
+    assertion the library makes about its own holdings, and rewriting one on a
     cataloguer's behalf is a different kind of act from adding the fields they
     asked for.
 
     Returns the note to show, or None when there is nothing to say.
     """
-    # str() because pymarc's Leader is an object, not a string: indexing works
-    # but len() does not, and a record with no leader must not raise here.
-    leader = str(getattr(record, "leader", "") or "")
-    current = leader[17] if len(leader) > 17 else ""
-    if current in _LEVELS_WITHOUT_A_CLAIM or current == declared:
+    if declared != "3" or not fields_863:
         return None
-    if not fields_863:
+    if not any(_exceeds_summary(f) for f in fields_863):
         return None
     return (
-        f"This record's Leader/17 is {current}, and the holdings written for "
-        f"it are being recorded at level {declared}. The encoding level was "
-        "left as it is: it is your statement about your holdings, not "
-        f"something this tool should change. Set it to {declared} if the "
-        "record should say what it now carries."
+        "You are recording at level 3, which is summary holdings -- the first "
+        "level of enumeration and chronology only. The fields written for this "
+        "record go further than that, so its 863s claim less than they carry. "
+        "Record at level 4 if these holdings are detailed."
     )
+
+
+def encoding_level_differs(record, declared: str = DEFAULT_HOLDINGS_LEVEL) -> bool:
+    """
+    Whether this record's own Leader/17 disagrees with the declared level.
+
+    True on nearly every record of a file whose library records at one level
+    and whose Leader says another, which is why it is deliberately *not* a
+    marker beside a row -- 371 identical badges say less than one line saying
+    371. It is carried per record all the same, so the filter can still gather
+    exactly those records when there are few enough for that to be the useful
+    thing to do.
+    """
+    leader = str(getattr(record, "leader", "") or "")
+    current = leader[17] if len(leader) > 17 else ""
+    if current in _LEVELS_WITHOUT_A_CLAIM:
+        return False
+    return current != declared
+
+
+def encoding_level_summary(records, declared: str = DEFAULT_HOLDINGS_LEVEL
+                           ) -> Optional[dict]:
+    """
+    How the file's own Leader/17 values stand against the declared level.
+
+    A file-wide fact said once, rather than a marker repeated down a list of
+    372 rows that all say the same thing. Whoever acts on this acts on it in
+    their ILS, in one operation, not record by record.
+
+    Returns None when every record already agrees, so the screen stays quiet
+    when there is nothing to say.
+    """
+    counts: dict = {}
+    total = 0
+    for record in records:
+        if record is None:
+            continue
+        total += 1
+        leader = str(getattr(record, "leader", "") or "")
+        current = leader[17] if len(leader) > 17 else ""
+        if current in _LEVELS_WITHOUT_A_CLAIM or current == declared:
+            continue
+        counts[current] = counts.get(current, 0) + 1
+
+    if not counts:
+        return None
+    return {
+        "declared": declared,
+        "records": sum(counts.values()),
+        "total": total,
+        "levels": dict(sorted(counts.items())),
+    }

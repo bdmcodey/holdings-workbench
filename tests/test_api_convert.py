@@ -304,27 +304,72 @@ def test_an_edited_statement_never_deletes_an_866(client,
 # Encoding level: reported, never rewritten
 # ---------------------------------------------------------------------------
 
-def test_a_record_whose_leader_no_longer_fits_is_reported(client, example_marc_bytes):
+def test_a_file_whose_leader_disagrees_is_reported_once_not_per_record(
+        client, example_marc_bytes):
     """
-    A record declaring Leader/17 = 3 says its holdings are summary -- first
-    level of enumeration and chronology only. Converting an 866 into
-    "$a 1-5 $b 1-4 $i 1990-1994 $j 01-12" puts detailed holdings into a record
-    that says it has none.
+    Replaces a check that fired on every row.
 
-    The review row says so. It does not fix it: encoding level is the library's
-    assertion about its own holdings, and the value cannot be inferred safely
-    either -- it tracks levels defined in ANSI/NISO Z39.71, and the MARC
-    examples contradict every rule derivable from field content. See
-    CORPUS-FINDINGS.
+    It used to compare each record's Leader/17 against the declared level and
+    mark the row when they differed. On a real 372-record Alma export -- every
+    record declaring level 3, a library recording at level 4 -- that marked 371
+    of them, and pushed all 371 into "Needs attention". The cataloguer who hit
+    it said a signal on almost every record takes away the value it is supposed
+    to provide, and was right: that comparison is a fact about the file, and no
+    per-row marker can carry one.
+
+    It is now counted once. The records stay reachable through a filter, which
+    is what serves the other file -- the one where three records disagree and
+    finding those three is the whole job.
+    """
+    upload_marc(client, example_marc_bytes)
+    body = client.post("/api/review-index", json={}).get_json()
+
+    summary = body["encoding_level"]
+    assert summary, "a file declaring level 3 throughout must say so once"
+    assert summary["declared"] == "4"
+    assert summary["records"] == summary["total"] == len(body["records"])
+    assert summary["levels"] == {"3": summary["records"]}
+
+    assert [r for r in body["records"] if r.get("leader_note")] == [], (
+        "a file-wide fact must not be a marker on every row")
+    assert all(r["leader_mismatch"] for r in body["records"]), (
+        "the records must stay findable even without a marker")
+
+
+def test_recording_at_level_3_marks_the_records_that_are_not_summary(
+        client, example_marc_bytes):
+    """
+    The per-record question, which genuinely varies.
+
+    Level 3 is summary holdings -- "only the highest levels (first-order
+    designators)", Z39.71 4.3. An 863 carrying a volume, an issue, a year and a
+    month is not that, and saying so about the records where it is true is
+    worth a marker. On the export above this is 242 records of 371; the other
+    129 are summary and are left alone.
+    """
+    upload_marc(client, example_marc_bytes)
+    rows = client.post("/api/review-index",
+                       json={"holdings_level": "3"}).get_json()["records"]
+
+    noted = [r for r in rows if r.get("leader_note")]
+    assert noted, "no record was reported as carrying more than level 3"
+    assert len(noted) < len(rows), (
+        "every record flagged is the defect this replaced, not a finding")
+    assert "level 3" in noted[0]["leader_note"]
+
+
+def test_recording_at_level_4_marks_nothing_because_nothing_can_exceed_it(
+        client, example_marc_bytes):
+    """
+    Level 4 is "the most specific levels (including all hierarchical levels)",
+    so no amount of detail contradicts it -- and a serial numbered by volume
+    alone is not under-reporting by having one level. The default therefore
+    marks no records at all, which is what makes the marker mean something
+    when it does appear.
     """
     upload_marc(client, example_marc_bytes)
     rows = client.post("/api/review-index", json={}).get_json()["records"]
-
-    noted = [r for r in rows if r.get("leader_note")]
-    assert noted, "no record reported a Leader/17 that stopped fitting"
-    note = noted[0]["leader_note"]
-    assert "Leader/17" in note
-    assert "left as it is" in note, "the note must say nothing was changed"
+    assert [r for r in rows if r.get("leader_note")] == []
 
 
 def test_the_leader_is_not_rewritten(client, example_marc_bytes):
@@ -389,25 +434,25 @@ def test_a_record_already_at_the_declared_level_is_not_reported(client):
     assert [r for r in rows if r.get("leader_note")] == []
 
 
-def test_declaring_the_level_a_record_already_says_silences_the_note(client):
+def test_declaring_the_level_a_record_already_says_silences_the_summary(client):
     """
-    The other side of it, and the reason the setting exists. A record saying
-    level 3 is reported without complaint once the library says it reports at
-    level 3 -- and its 863s then carry 3 too, so the record agrees with itself
-    throughout.
+    The other side of it, and the reason the setting exists. A file of records
+    declaring level 3 has nothing to report once the library says it records
+    at level 3 -- and their 863s then carry 3 too, so each record agrees with
+    itself throughout.
     """
-    # /17 = 3, the level the two committed fixtures declare.
     data = _one_record_file("00522cy  a22001453n 4500", "v. 1 no. 2 (1990)")
     upload_marc(client, data)
 
-    default = client.post("/api/review-index", json={}).get_json()["records"]
-    assert [r for r in default if r.get("leader_note")], (
-        "with the default level 4 this record should be reported")
+    default = client.post("/api/review-index", json={}).get_json()
+    assert default["encoding_level"], (
+        "with the default level 4 this file should be reported once")
 
     declared3 = client.post("/api/review-index",
-                            json={"holdings_level": "3"}).get_json()["records"]
-    assert [r for r in declared3 if r.get("leader_note")] == [], (
-        "declaring level 3 should agree with a record that says 3")
+                            json={"holdings_level": "3"}).get_json()
+    assert declared3["encoding_level"] is None, (
+        "declaring level 3 should agree with a file that says 3")
+    assert not any(r["leader_mismatch"] for r in declared3["records"])
 
     preview = client.post("/api/preview-records",
                           json={"indices": [0], "holdings_level": "3"}).get_json()

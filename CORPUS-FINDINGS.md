@@ -1947,6 +1947,53 @@ whatever the note says, every byte of `Leader/05-11` and `Leader/17` onward
 comes back as it went in. Positions 00-04 and 12-16 are the record length and
 base address, recomputed by pymarc on write, and are not ours.
 
+### A signal that fires on every record is not a signal · **0.16.1**
+
+*18 September 2026. Reported from use, on a real file, and the correction is a
+design one rather than a bug fix.*
+
+The check above shipped, and then the setting arrived in the same release and
+quietly changed the question it asked. It stopped asking *"do the holdings
+written into this record exceed what the record claims?"* and started asking
+*"does this record's `Leader/17` equal the level the cataloguer declared?"* —
+which reads as more precise and is strictly worse, because **the second
+question is about the file, not about the record.**
+
+Measured on a 372-record Alma export, `Leader/17 = 3` on 371 of them, converted
+by a library recording at level 4:
+
+| | records marked |
+|---|---|
+| `Leader/17` ≠ declared level (what shipped) | **370 of 371** |
+| the written 863s exceed what the declared level permits | **0** at level 4, **242** at level 3 |
+
+371 markers all saying the same thing, and — worse — all 371 in
+`Needs attention`, which stopped meaning anything at all. The cataloguer put it
+exactly right: *"having it trigger on (almost) every record takes away the
+value it's supposed to be providing."*
+
+**The two questions are separated and surfaced differently**, because they
+differ in kind and not just in wording:
+
+- *Does this file's `Leader/17` match your practice?* — uniform across a file,
+  so it is counted once in a line above the list. Whoever acts on it acts in
+  their ILS, in one operation, not row by row.
+- *Do the holdings being written exceed the level you declared?* — genuinely
+  per record, so it keeps the marker. Level 4 is *"the most specific levels
+  (including all hierarchical levels)"*, so nothing can exceed it and the
+  default marks nothing; level 3 is summary, and 242 of the 371 are not.
+
+`Needs attention` went from **371 to 11** on that file. The records the line
+counts are still reachable, through an `Encoding level` chip of their own — for
+the other file, where three records disagree and finding those three is the
+whole job.
+
+The general rule this leaves behind, which the identifier work had already
+found from the other direction: **a fact that is true of nearly every row
+belongs above the list, not on it.** Repeating it per row does not make it more
+visible, it makes the rows less readable and buries whatever else they were
+saying.
+
 ### The 863 first indicator is a declaration, not a derivation · **measured**
 
 Three derivations were tried before the standard was in hand, and each was
