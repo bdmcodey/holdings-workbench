@@ -497,6 +497,43 @@ def encoding_level_conflict(record, fields_863,
     )
 
 
+def single_part_conflict(record, fields_863) -> bool:
+    """
+    Whether Leader/06 calls this a single-part item while its holdings are not.
+
+    Leader/06 = x is "Single-part item holdings" -- a thing complete in one
+    part. A record whose holdings name a volume or an issue is describing
+    something with numbered parts, and one whose chronology spans a range is
+    describing more than one of them. Either way x is contradicted.
+
+    What it should be instead is deliberately not decided here. v is multipart
+    item holdings and y is serial item holdings, and telling a finite set of
+    volumes from a continuing publication is a cataloguing judgement a holdings
+    statement does not settle -- the same reasoning D18 reached for the
+    encoding level. The tool says x cannot be right; the cataloguer says what
+    is.
+
+    Measured on a real 372-record Alma export, migrated from an ILS that kept
+    no MARC holdings: 334 records coded x, of which 330 are contradicted, 3
+    could genuinely be single-part ("(2010)", a year with nothing numbered),
+    and 1 produced nothing to judge by. All 38 records coded y are correct,
+    and 13 of those are the only ones in the file carrying an 853 -- the ones
+    somebody had already worked on by hand.
+    """
+    leader = str(getattr(record, "leader", "") or "")
+    if (leader[6] if len(leader) > 6 else "") != "x":
+        return False
+    if len(fields_863) > 1:
+        return True                      # several runs is several parts
+    for field in fields_863:
+        if any(sf.code in _ENUM_SUBFIELDS for sf in field.subfields):
+            return True                  # "v. 2" says there is a v. 1
+        if any(sf.code in _CHRON_SUBFIELDS and "-" in sf.value
+               for sf in field.subfields):
+            return True                  # a span of more than one
+    return False
+
+
 def encoding_level_differs(record, declared: str = DEFAULT_HOLDINGS_LEVEL) -> bool:
     """
     Whether this record's own Leader/17 disagrees with the declared level.

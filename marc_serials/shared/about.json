@@ -1,6 +1,6 @@
 {
   "name": "MARC Serials Toolkit",
-  "version": "0.16.1",
+  "version": "0.17.0",
   "released": "2026-09-18",
   "status": "Proof of concept — under active development. Check your output before loading it into the catalog.",
   "description": "One tool for MARC serials holdings. Upload a MARC file, find the patterns in its 866 statements, confirm what each part of a pattern means, and convert to structured 853 caption/pattern and 863 enumeration/chronology fields. Statements no pattern matches are converted by the standard parser.",
@@ -9,6 +9,33 @@
   "contact": "Matthew Codey, codey@usc.edu",
   "_comment": "Written for cataloging staff, not developers. Say what changed about the output or the screen, not how the code changed. Newest version first.",
   "changelog": [
+    {
+      "version": "0.17.0",
+      "date": "2026-09-18",
+      "summary": "A run of years written as a list no longer loses all but the first of them, and records coded as single items while holding serials are counted for you.",
+      "changes": [
+        {
+          "tool": "MARC Serials Toolkit",
+          "text": "A statement like \"(1986-1988, 1993-1994)\" converted to a single 863 reading 1986, and 1988, 1993 and 1994 were dropped — with no warning, nothing marked for review, and nothing to tell you it had happened. It now converts to two 863s, one for each run, with the break between them recorded. This is the thing this tool is least willing to do, and it was doing it: one statement in 1057 on the file it was found in."
+        },
+        {
+          "tool": "MARC Serials Toolkit",
+          "text": "The same shape written with enumeration — \"v. 24 nos. 2-5, 8-10 (Apr-Jul, Oct-Dec 1920)\" — has always converted correctly. A list written as dates alone was the case nothing covered, because the list sits inside the parentheses with nothing in front of them to read it from."
+        },
+        {
+          "tool": "MARC Serials Toolkit",
+          "text": "A statement that names its year once for the whole list, like \"(Jan, Mar-May, Sep, Oct 1982)\", is left exactly as it was: it still reports that it could not encode those dates. Reading it as a list would have filed three of those runs under a month in no particular year, which is worse than saying so."
+        },
+        {
+          "tool": "MARC Serials Toolkit",
+          "text": "The Convert step now also counts records whose Leader calls them single-part item holdings while their holdings name a volume, an issue, or a span of more than one part. A single-part item is complete in one piece, so that coding cannot be right for them. Whether they should be serials or multipart items is a cataloguing decision, so the tool counts them and says nothing more."
+        },
+        {
+          "tool": "MARC Serials Toolkit",
+          "text": "Like the encoding level, it is one line above the list rather than a marker on every row, because on a file migrated from a system that kept no MARC holdings it is true of nearly all of them. The Leader is still never changed."
+        }
+      ]
+    },
     {
       "version": "0.16.1",
       "date": "2026-09-18",

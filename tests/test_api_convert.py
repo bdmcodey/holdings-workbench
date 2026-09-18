@@ -509,3 +509,46 @@ def test_the_default_level_is_what_the_tool_wrote_before_the_setting(client):
         for field in fields:
             assert field.indicator1 == "4", (
                 f"{payload} produced level {field.indicator1}, not the default 4")
+
+
+def test_a_single_part_coding_contradicted_by_its_own_holdings_is_counted(client):
+    """
+    Leader/06 = x is "Single-part item holdings" -- complete in one piece. A
+    record whose holdings name a volume is not that.
+
+    Counted for the file rather than marked per row, for the reason 0.16.1
+    settled: on a file migrated from an ILS that kept no MARC holdings this is
+    true of almost every record, and a marker on almost every row carries
+    nothing. Measured on a real 372-record export: 334 coded x, 331 of them
+    contradicted.
+
+    What it should be instead is not decided here -- v is multipart and y is
+    serial, and no holdings statement settles which.
+    """
+    from pymarc import Field, MARCWriter, Record, Subfield
+    import io
+
+    def one(leader06: str, statement: str) -> Record:
+        rec = Record()
+        rec.leader = f"00522c{leader06}  a22001453n 4500"
+        rec.add_field(Field(tag="866", indicators=[" ", "0"],
+                            subfields=[Subfield(code="a", value=statement)]))
+        return rec
+
+    buf = io.BytesIO()
+    writer = MARCWriter(buf)
+    writer.write(one("x", "v. 1-5 (1990-1994)"))   # contradicted: numbered parts
+    writer.write(one("x", "(2010)"))               # left alone: could be one part
+    writer.write(one("y", "v. 1-5 (1990-1994)"))   # already coded as a serial
+    writer.close(close_fh=False)
+
+    upload_marc(client, buf.getvalue())
+    body = client.post("/api/review-index", json={}).get_json()
+
+    assert body["single_part"] == 1, (
+        "only the record coded x whose holdings name numbered parts counts")
+    flagged = [r for r in body["records"] if r["single_part"]]
+    assert len(flagged) == 1 and flagged[0]["index"] == 0
+
+    # And it is counted, not marked: nothing new appears beside a row.
+    assert all(not r.get("leader_note") for r in body["records"])

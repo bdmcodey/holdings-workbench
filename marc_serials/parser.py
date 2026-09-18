@@ -825,6 +825,62 @@ def is_distributed_list(text: str) -> bool:
     return _expand_distributed_list(text) is not None
 
 
+def _parse_chronology_list(text: str,
+                           warnings: Optional[List[str]] = None,
+                           ) -> Optional[List[HoldingsRange]]:
+    """
+    One HoldingsRange per run of "(1986-1988, 1993-1994)".
+
+    The enumerated form of this has worked since the distributed-list work:
+    "v. 24 nos. 2-5, 8-10 (Apr-Jul, Oct-Dec 1920)" becomes two 863s with a gap
+    between them.  The chronology-only form did not, because the list lives
+    entirely inside the parentheses and _expand_distributed_list() has nothing
+    before them to drive the expansion from.  So the statement was read as far
+    as the first year and the rest was dropped -- and dropped *silently*, with
+    no warning, no flag and nothing held for review, which is the fourth state
+    rule 4 says must not exist.  Found while auditing a real 372-record file:
+    one statement of 1057, "(1986-1988, 1993-1994)", which converted to
+    "$i 1986" and lost 1988, 1993 and 1994 without saying so.
+
+    Deliberately narrow.  Every part must read as chronology on its own and
+    none may carry enumeration, so "(Jan, Mar-May, Sep, Oct 1982)" -- where the
+    year is stated once at the end and the parts are not chronologies -- is not
+    a list by this definition and keeps the behaviour it already had, which
+    names what it could not encode rather than dropping it.
+    """
+    head = text.strip()
+    match = _TRAILING_CHRON_RE.search(head)
+    if not match:
+        return None
+    if head[:match.start()].strip():
+        return None                     # something before the parentheses
+
+    parts = [p for p in (q.strip() for q in
+                         _split_top_level(match.group("chron"))) if p]
+    if len(parts) < 2:
+        return None
+
+    ranges: List[HoldingsRange] = []
+    for part in parts:
+        hr = _parse_one_range(f"({part})", warnings)
+        # A year of its own on every part, not merely "some chronology". The
+        # first version of this asked for chronology and turned
+        # "(Jan, Mar-May, Sep, Oct 1982)" -- where the year is stated once, at
+        # the end, for all of them -- into four 863s of which three carried a
+        # month and no year at all. Holdings filed under a month in no
+        # particular year are worse than the warning that shape already had.
+        if hr.start.has_enum() or not hr.start.year:
+            return None                 # not a list of chronologies after all
+        hr.raw = f"({part})"
+        ranges.append(hr)
+
+    # Non-consecutive runs, so each but the last ends at a gap. $w g, the same
+    # break indicator the enumerated form of this already writes.
+    for hr in ranges[:-1]:
+        hr.break_after = "g"
+    return ranges
+
+
 def _parse_distributed_list(text: str,
                             warnings: Optional[List[str]] = None,
                             ) -> Optional[List[HoldingsRange]]:
@@ -1620,6 +1676,16 @@ def parse_866(text: str) -> ParseResult:
         if listed is not None:
             notes.extend(w for w in seg_notes if w not in notes)
             result.ranges.extend(listed)
+            continue
+
+        # A list stated as chronology alone, "(1986-1988, 1993-1994)". Tried
+        # before the unit parser for the same reason the enumerated list is:
+        # the unit parser reads the first run and drops the rest.
+        seg_notes = []
+        chron_runs = _parse_chronology_list(seg, seg_notes)
+        if chron_runs is not None:
+            notes.extend(w for w in seg_notes if w not in notes)
+            result.ranges.extend(chron_runs)
             continue
 
         seg_notes = []

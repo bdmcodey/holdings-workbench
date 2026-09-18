@@ -1570,7 +1570,7 @@ async function loadReviewIndex() {
   try {
     const data = await postJson('api/review-index', conventionPayload());
     recordIndex = new Map(data.records.map(row => [row.index, row]));
-    showEncodingLevelNotice(data.encoding_level);
+    showLeaderNotices(data);
   } catch (err) {
     console.error(err);
   }
@@ -1588,16 +1588,49 @@ async function loadReviewIndex() {
  * The rows are still reachable, through the "Encoding level" chip, for the
  * file where only a handful disagree and finding those is the point.
  */
-function showEncodingLevelNotice(summary) {
+function showLeaderNotices(data) {
   const box = document.getElementById('encoding-level-notice');
   if (!box) return;
-  if (!summary || !summary.records) { box.hidden = true; box.innerHTML = ''; return; }
+  const parts = [encodingLevelLine(data.encoding_level),
+                 singlePartLine(data.single_part, data.total)].filter(Boolean);
+  box.innerHTML = parts.join('');
+  box.hidden = parts.length === 0;
+}
+
+/**
+ * Leader/06 says single-part item; the holdings say otherwise.
+ *
+ * Counted rather than marked, like the encoding level and for the same
+ * reason: on a file migrated from an ILS that kept no MARC holdings this is
+ * true of almost every record, so it describes the file.
+ *
+ * What it should be instead is left alone. "v" is multipart item holdings and
+ * "y" is serial item holdings, and telling a finite set of volumes from a
+ * continuing publication is a cataloguing judgement no holdings statement
+ * settles. The line says "x" cannot be right, not which to use.
+ */
+function singlePartLine(count, total) {
+  if (!count) return '';
+  const many = count !== 1;
+  return `<div class="alert alert-info mt-2">
+    ${count} of ${total} record${many ? 's are' : ' is'} coded in the Leader as
+    single-part item holdings (<code>06 = x</code>), while the holdings
+    ${many ? 'name' : 'names'} a volume, an issue, or a span of more than one
+    part. A single-part item is complete in one piece, so that coding cannot be
+    right for ${many ? 'them' : 'it'} — but whether ${many ? 'they are' : 'it is'}
+    a serial (<code>y</code>) or a multipart item (<code>v</code>) is a
+    cataloguing decision this tool does not make. The Leader is never changed.
+  </div>`;
+}
+
+function encodingLevelLine(summary) {
+  if (!summary || !summary.records) return '';
 
   const levels = Object.entries(summary.levels || {})
     .map(([value, n]) => `${n} at <code>${escHtml(value)}</code>`)
     .join(', ');
   const many = summary.records !== 1;
-  box.innerHTML = `<div class="alert alert-info">
+  return `<div class="alert alert-info">
     ${summary.records} of ${summary.total} record${many ? 's' : ''}
     declare${many ? '' : 's'} an encoding level in the Leader that is not the
     level you are recording at (${levels}, against
@@ -1607,7 +1640,6 @@ function showEncodingLevelNotice(summary) {
     they now carry, or record at that level instead.
     <button type="button" class="btn btn-ghost btn-sm"
             onclick="filterTo('encoding')">Show them</button></div>`;
-  box.hidden = false;
 }
 
 /** Switch the review filter from somewhere other than a chip. */
@@ -1726,7 +1758,8 @@ function recordMatchesFilter(entry, index) {
     // landed here and the filter stopped meaning anything. Encoding level has
     // a chip of its own now, and "Needs attention" is about conversion again.
     case 'held':       return entry.held > 0 || entry.flagged > 0;
-    case 'encoding':   return !!entry.leader_note || !!entry.leader_mismatch;
+    case 'encoding':   return !!entry.leader_note || !!entry.leader_mismatch
+                             || !!entry.single_part;
     case 'pattern':    return entry.sources.some(
                         sc => sc !== 'parser' && sc !== 'unmatched' && sc !== 'skipped');
     case 'parser':     return entry.sources.includes('parser');
