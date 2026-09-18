@@ -74,6 +74,7 @@ from marc_serials.records import (
     encoding_level_conflict,
     encoding_level_differs,
     encoding_level_summary,
+    single_part_conflict,
     match_866_sources as _match_866_sources,
     read_marc_file as _read_marc_file,
     records_from_bytes,
@@ -375,6 +376,11 @@ def _review_row(record, index, *, patterns, fallback, conv_opts, captions,
         # count belongs in one line above the list -- but carried so the
         # filter can still find them.
         "leader_mismatch": False,
+        # Set when Leader/06 says single-part item and the holdings say
+        # otherwise. Counted for the file rather than marked per row, for the
+        # same reason as the encoding level: on a migrated file it is true of
+        # nearly all of them.
+        "single_part": False,
     }
     if with_previews:
         row["previews"] = []
@@ -410,6 +416,7 @@ def _review_row(record, index, *, patterns, fallback, conv_opts, captions,
     row["leader_note"] = encoding_level_conflict(record, rc.fields_863,
                                                  holdings_level)
     row["leader_mismatch"] = encoding_level_differs(record, holdings_level)
+    row["single_part"] = single_part_conflict(record, rc.fields_863)
     if with_previews:
         row["previews"] = previews
     return row
@@ -1343,6 +1350,8 @@ def api_review_index():
             "records": rows,
             "total": len(all_records),
             "encoding_level": encoding_level_summary(all_records, holdings_level),
+            # Leader/06, counted the same way and for the same reason.
+            "single_part": sum(1 for r in rows if r.get("single_part")),
         })
     except Exception as exc:
         app.logger.exception("Request failed")

@@ -1013,3 +1013,69 @@ def test_the_suppl_refusal_still_says_where_reading_stopped():
     result = parse_866("v. 58 Suppl. (Sep 2003)")
     assert any("Read 'v. 58'" in w and "Suppl. (Sep 2003)" in w
                for w in result.warnings), result.warnings
+
+
+# ---------------------------------------------------------------------------
+# A list stated as chronology alone
+# ---------------------------------------------------------------------------
+
+def test_a_list_of_year_ranges_is_every_run_not_just_the_first():
+    """
+    Found by auditing a real file, and the worst kind of defect this project
+    recognises: a silent one.
+
+    "(1986-1988, 1993-1994)" converted to "$i 1986" and lost 1988, 1993 and
+    1994 -- with no warning, no flag and nothing held for review. That is the
+    fourth state rule 4 says must not exist. One statement in 1057, which is
+    why no test and no corpus tag had caught it.
+
+    The enumerated form of the same shape has worked for releases:
+    "v. 24 nos. 2-5, 8-10 (Apr-Jul, Oct-Dec 1920)" becomes two 863s. The list
+    here lives entirely inside the parentheses, so there was nothing in front
+    of them to expand it from.
+    """
+    from marc_serials.converter import convert_holdings
+
+    r = parse_866("(1986-1988, 1993-1994)")
+    assert r.success is True
+    assert len(r.ranges) == 2
+    # A span is held as one value, which is what "$i 1986-1988" needs.
+    assert r.ranges[0].start.year == "1986-1988"
+    assert r.ranges[1].start.year == "1993-1994"
+    # Non-consecutive, so the first run ends at a gap.
+    assert r.ranges[0].break_after == "g"
+    assert not r.ranges[1].break_after
+
+    # What actually reaches the record, which is the point of the fix.
+    written = [" ".join(f"${sf.code} {sf.value}" for sf in f.subfields)
+               for f in convert_holdings(r).fields_863]
+    assert written == ["$8 1.1 $i 1986-1988 $w g", "$8 1.2 $i 1993-1994"], written
+
+
+def test_single_years_in_a_list_are_runs_of_their_own():
+    r = parse_866("(1986, 1993)")
+    assert [hr.start.year for hr in r.ranges] == ["1986", "1993"]
+
+
+def test_a_year_stated_once_for_the_whole_list_is_not_such_a_list():
+    """
+    The guard, and the reason it asks for a year on every part rather than for
+    chronology on every part.
+
+    "(Jan, Mar-May, Sep, Oct 1982)" states its year once, at the end, for all
+    four runs. The first version of the list parser read chronology on each
+    part and produced four 863s of which three carried a month and no year --
+    holdings filed in no particular year, which is worse than the warning this
+    shape already had. It keeps that warning.
+    """
+    r = parse_866("(Jan, Mar-May, Sep, Oct 1982)")
+    months = [hr.start.month for hr in r.ranges]
+    assert not any(hr.start.month and not hr.start.year for hr in r.ranges), (
+        f"a run carries a month with no year: {months}")
+
+
+def test_an_ordinary_chronology_range_is_untouched():
+    """One run, not a list: the comma is what makes a list."""
+    r = parse_866("(Oct 1969-May/Jun 1984)")
+    assert len(r.ranges) == 1
+    assert r.ranges[0].start.year == "1969-1984"

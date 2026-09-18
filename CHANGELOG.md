@@ -15,6 +15,16 @@ more than one release; numbering resumed with 0.6.1. Reasoning behind the
 parser and converter decisions, including the defects a real corpus exposed and
 what was done about each, is in [CORPUS-FINDINGS.md](CORPUS-FINDINGS.md).
 
+## 0.17.0 — 2026-09-18
+
+A run of years written as a list no longer loses all but the first of them, and records coded as single items while holding serials are counted for you.
+
+- **MARC Serials Toolkit** — A statement like "(1986-1988, 1993-1994)" converted to a single 863 reading 1986, and 1988, 1993 and 1994 were dropped — with no warning, nothing marked for review, and nothing to tell you it had happened. It now converts to two 863s, one for each run, with the break between them recorded. This is the thing this tool is least willing to do, and it was doing it: one statement in 1057 on the file it was found in.
+- **MARC Serials Toolkit** — The same shape written with enumeration — "v. 24 nos. 2-5, 8-10 (Apr-Jul, Oct-Dec 1920)" — has always converted correctly. A list written as dates alone was the case nothing covered, because the list sits inside the parentheses with nothing in front of them to read it from.
+- **MARC Serials Toolkit** — A statement that names its year once for the whole list, like "(Jan, Mar-May, Sep, Oct 1982)", is left exactly as it was: it still reports that it could not encode those dates. Reading it as a list would have filed three of those runs under a month in no particular year, which is worse than saying so.
+- **MARC Serials Toolkit** — The Convert step now also counts records whose Leader calls them single-part item holdings while their holdings name a volume, an issue, or a span of more than one part. A single-part item is complete in one piece, so that coding cannot be right for them. Whether they should be serials or multipart items is a cataloguing decision, so the tool counts them and says nothing more.
+- **MARC Serials Toolkit** — Like the encoding level, it is one line above the list rather than a marker on every row, because on a file migrated from a system that kept no MARC holdings it is true of nearly all of them. The Leader is still never changed.
+
 ## 0.16.1 — 2026-09-18
 
 The encoding level is reported once for the file instead of on almost every record, and "Needs attention" means something again.
