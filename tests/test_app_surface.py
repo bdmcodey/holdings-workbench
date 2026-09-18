@@ -39,6 +39,8 @@ JOINED_ROUTES = {
     "/api/pattern-preview", "/api/patterns",
     "/api/patterns/export", "/api/patterns/import",
     "/api/preview-records", "/api/review-index",
+    # Changing which field records are found by, without re-uploading them.
+    "/api/identifier",
 }
 
 

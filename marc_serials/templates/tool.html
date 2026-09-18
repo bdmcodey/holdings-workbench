@@ -160,6 +160,33 @@
       flex: 1 1 22rem; min-width: 0;
     }
     .search-input:focus { border-color: var(--accent); outline: none; }
+    .id-picker-body {
+      border: 2px solid var(--border); border-radius: var(--radius);
+      padding: var(--sp-2); background: var(--surface);
+    }
+    .id-options { display: flex; flex-direction: column; gap: var(--sp-1); }
+    .id-option {
+      display: flex; gap: var(--sp-2); align-items: baseline; flex-wrap: wrap;
+      font: inherit; font-size: var(--fs-sm); text-align: left;
+      padding: var(--sp-1) var(--sp-2); cursor: pointer;
+      border: 2px solid var(--border); border-radius: var(--radius);
+      background: var(--bg); color: var(--text);
+    }
+    .id-option:hover { background: var(--surface-2); }
+    .id-option.chosen { border-color: var(--accent); }
+    .id-option .spec {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-weight: 600;
+    }
+    .id-option .sample {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      color: var(--text-muted); font-size: var(--fs-xs);
+      overflow-wrap: anywhere;
+    }
+    .id-option .tally { color: var(--text-muted); font-size: var(--fs-xs); }
+    .id-option.not-unique .tally { color: var(--warn, var(--text-muted)); }
+    .id-picker-actions { display: flex; gap: var(--sp-2); align-items: flex-end;
+                         flex-wrap: wrap; }
     /* The identifier is how a row is told apart from the 371 around it when
        the records carry no title, so it reads as a label, not as metadata. */
     .rec-id {
@@ -808,6 +835,25 @@ v.6(1995)-"></textarea>
           whichever filter is selected rather than replacing it.
         </div>
         <div id="identifier-notice" class="mt-2" hidden></div>
+        <div id="identifier-picker" class="mt-2" hidden>
+          <div class="id-picker-body">
+            <div class="small" id="identifier-picker-lead"></div>
+            <div id="identifier-options" class="id-options mt-2"></div>
+            <div class="form-row mt-2">
+              <div class="form-group">
+                <label for="identifier-custom" class="small dim">Or name a field</label>
+                <input type="text" id="identifier-custom" class="search-input"
+                       placeholder="999$b" />
+              </div>
+              <div class="form-group id-picker-actions">
+                <button type="button" class="btn btn-sm" id="btn-identifier-use">Use this field</button>
+                <button type="button" class="btn btn-ghost btn-sm" id="btn-identifier-none">Show no identifier</button>
+                <button type="button" class="btn btn-ghost btn-sm" id="btn-identifier-close">Close</button>
+              </div>
+            </div>
+            <div id="identifier-error" class="small mt-1" hidden></div>
+          </div>
+        </div>
         <div class="filter-row mt-2" role="group" aria-label="Show which records">
           <button type="button" class="chip active" data-filter="all">All</button>
           <button type="button" class="chip" data-filter="held">Needs attention</button>
@@ -1246,18 +1292,151 @@ async function uploadMarcFile(file) {
  * Choosing a different field is the next change; for now this names the field
  * looked for, which is what someone needs in order to ask for another.
  */
+let identifierSpec       = '';   // the field records are currently found by
+let identifierCandidates = [];   // what this file could be found by instead
+
+/**
+ * Say what this file is identified by, and offer the alternatives it carries.
+ *
+ * A file with no 999 $b is the ordinary case for anyone whose ILS is not
+ * Alma, and the useful response is not "type a field" -- that asks the
+ * cataloguer to guess at a MARC structure they may not have in front of them.
+ * The server has read the file and knows which of its fields are on every
+ * record, unrepeated and distinct, so the screen offers those with a sample
+ * value beside each. "991000485469603731" is recognisable to whoever uses it;
+ * "999$b" is not.
+ */
 function showIdentifierNotice(data) {
   const notice = document.getElementById('identifier-notice');
   if (!notice) return;
-  const missing = data.identifier_found === false && (data.total || 0) > 0;
-  notice.hidden = !missing;
+  identifierSpec       = data.identifier_field || '';
+  identifierCandidates = data.identifier_candidates || [];
+
+  const none    = identifierSpec === '';
+  const missing = data.identifier_found === false && (data.total || 0) > 0 && !none;
+
+  notice.hidden = false;
   if (missing) {
     notice.innerHTML = `<div class="alert alert-info">No
-      <code>${escHtml(data.identifier_field || '')}</code> in this file, so its
-      records are listed without an identifier. Searching still works on
-      whatever else a record carries.</div>`;
+      <code>${escHtml(identifierSpec)}</code> in this file, so its records are
+      listed without an identifier.
+      <button type="button" class="btn btn-ghost btn-sm" onclick="openIdentifierPicker()"
+        >Use a different field</button></div>`;
+    openIdentifierPicker();
+  } else {
+    // Findable rather than shouted about: a working identifier needs no alert,
+    // but the field it came from should never be a mystery either.
+    notice.innerHTML = `<div class="small dim">Records are identified by
+      ${none ? 'nothing' : `<code>${escHtml(identifierSpec)}</code>`} ·
+      <button type="button" class="btn btn-ghost btn-sm" onclick="openIdentifierPicker()"
+        >Change</button></div>`;
   }
 }
+
+/** Put the current identifiers onto rows that are already built. */
+function paintIdentifiers() {
+  document.querySelectorAll('.rec-row').forEach(row => {
+    const rec = allRecords[Number(row.dataset.index)];
+    const toggle = row.querySelector('.rec-toggle');
+    if (!toggle) return;
+    let slot = row.querySelector('.rec-id');
+    const value = rec && rec.identifier ? rec.identifier : '';
+    if (!value) { if (slot) slot.remove(); return; }
+    if (!slot) {
+      slot = document.createElement('span');
+      slot.className = 'rec-id';
+      toggle.insertBefore(slot, row.querySelector('.rec-title'));
+    }
+    slot.textContent = value;
+  });
+}
+
+function openIdentifierPicker() {
+  const picker = document.getElementById('identifier-picker');
+  const lead   = document.getElementById('identifier-picker-lead');
+  const list   = document.getElementById('identifier-options');
+  if (!picker) return;
+
+  // What the list can honestly claim depends on what is in it. Saying "a
+  // different value on every record" above a field that repeats one would be
+  // the screen telling the cataloguer something the file contradicts.
+  const anyUnique = identifierCandidates.some(c => c.unique);
+  lead.textContent = !identifierCandidates.length
+    ? 'Nothing in this file is on every record with a value of its own, so '
+      + 'there is no identifier to suggest. Name a field yourself, or show none.'
+    : anyUnique
+    ? 'These fields are on every record in this file and appear once each. '
+      + 'The ones marked below share a value between records, so they would '
+      + 'label two rows the same.'
+    : 'Nothing in this file has a value of its own on every record. These are '
+      + 'the closest, and each would label some rows the same.';
+
+  list.innerHTML = identifierCandidates.map(c => `
+    <button type="button" class="id-option${c.spec === identifierSpec ? ' chosen' : ''}${
+      c.unique ? '' : ' not-unique'}"
+            onclick="chooseIdentifier('${escHtml(c.spec)}')">
+      <span class="spec">${escHtml(c.spec)}</span>
+      <span class="sample">${escHtml(c.sample || '')}</span>
+      <span class="tally">on ${c.present} of ${c.total} · ${c.distinct} different${
+        c.unique ? '' : ' — some records share one'}</span>
+    </button>`).join('');
+
+  document.getElementById('identifier-custom').value =
+    identifierCandidates.some(c => c.spec === identifierSpec) ? '' : identifierSpec;
+  document.getElementById('identifier-error').hidden = true;
+  picker.hidden = false;
+}
+
+/** Apply a field and repaint the rows, without re-uploading the file. */
+async function chooseIdentifier(spec) {
+  const err = document.getElementById('identifier-error');
+  // Cleared first: a message about the last thing typed must not outlive it
+  // and appear to be about this one.
+  err.hidden = true;
+  err.innerHTML = '';
+  try {
+    const res  = await fetch('api/identifier', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ spec }),
+    });
+    const data = await res.json();
+    if (data.error) {
+      err.innerHTML = `<div class="alert alert-warn">${escHtml(data.error)}</div>`;
+      err.hidden = false;
+      return;
+    }
+    identifierSpec = data.spec || '';
+    (data.identifiers || []).forEach(row => {
+      if (allRecords[row.index]) allRecords[row.index].identifier = row.identifier;
+    });
+    // Updated in place rather than by re-rendering the list. renderRecordList()
+    // rebuilds every row from scratch, which would silently clear the reviewed,
+    // skip and keep-separate boxes a cataloguer had already ticked -- a far
+    // worse thing to do than the one they asked for.
+    paintIdentifiers();
+    showIdentifierNotice({
+      identifier_field: identifierSpec,
+      identifier_found: data.found,
+      identifier_candidates: identifierCandidates,
+      total: allRecords.length,
+    });
+    document.getElementById('identifier-picker').hidden = true;
+    if (allRecords.length) loadReviewPage();
+  } catch (e) {
+    err.innerHTML = '<div class="alert alert-warn">Could not change the field.</div>';
+    err.hidden = false;
+    console.error(e);
+  }
+}
+
+document.getElementById('btn-identifier-use').addEventListener('click', () =>
+  chooseIdentifier(document.getElementById('identifier-custom').value.trim()));
+document.getElementById('btn-identifier-none').addEventListener('click', () =>
+  chooseIdentifier(''));
+document.getElementById('btn-identifier-close').addEventListener('click', () => {
+  document.getElementById('identifier-picker').hidden = true;
+});
 
 function renderRecordList(records) {
   const box = document.getElementById('records-accordion');

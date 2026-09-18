@@ -15,6 +15,18 @@ more than one release; numbering resumed with 0.6.1. Reasoning behind the
 parser and converter decisions, including the defects a real corpus exposed and
 what was done about each, is in [CORPUS-FINDINGS.md](CORPUS-FINDINGS.md).
 
+## 0.15.0 — 2026-09-18
+
+When a file carries no 999 $b, the tool offers the fields that file does carry, instead of leaving a blank where the number should be.
+
+- **MARC Serials Toolkit** — Version 0.14.0 read each record's identifier from 999 $b — Ex Libris Alma's MMS ID. A library on a different system has the number somewhere else, and the tool's only answer was to say it had not found one.
+- **MARC Serials Toolkit** — Now it reads the file and offers what is actually in it. A field is proposed when it is on every record, appears only once in each, and has a different value on every one — the three things that make a field a name for a record rather than data about it. Each suggestion comes with a real value from your file beside it, because "991000485469603731" is recognisable to whoever uses those numbers and "999 $b" is not.
+- **MARC Serials Toolkit** — You can also name a field yourself, written as 999$b or 001, or say to show no identifier at all. Something that is not a MARC field is refused with an explanation rather than accepted and shown as a column of blanks — a mistyped field and a field your records do not carry need different things from you, so the tool does not make them look alike.
+- **MARC Serials Toolkit** — A field two records share is still offered, but marked. A title is the case that matters: two holdings of the same serial carry the same 245, so a title can be different on three records out of four — enough to look like a way of naming a record, and not enough to be one, because picking it would label two rows identically. Such a field now says "some records share one" beside it, and the list no longer claims that everything it offers is distinct.
+- **MARC Serials Toolkit** — The change takes effect at once. The list is relabelled where it stands, without re-uploading the file and without disturbing the Reviewed, Skip or Keep-patterns-separate boxes you have already ticked.
+- **MARC Serials Toolkit** — Your choice is remembered for the next file, because it describes your library's system rather than one export. Choosing to show no identifier is remembered too, so the tool does not keep asking a question you have already answered. Where the identifier is working, the field it came from is named quietly above the record list with a Change beside it.
+- **MARC Serials Toolkit** — Nothing about conversion changes. The identifier is read and displayed only: it is never written to a record and never altered.
+
 ## 0.14.0 — 2026-09-18
 
 Each record on the Convert step now shows the number you look it up by, and a Find box searches the whole file for one.
