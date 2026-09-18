@@ -15,6 +15,16 @@ more than one release; numbering resumed with 0.6.1. Reasoning behind the
 parser and converter decisions, including the defects a real corpus exposed and
 what was done about each, is in [CORPUS-FINDINGS.md](CORPUS-FINDINGS.md).
 
+## 0.16.1 — 2026-09-18
+
+The encoding level is reported once for the file instead of on almost every record, and "Needs attention" means something again.
+
+- **MARC Serials Toolkit** — Version 0.13.0 marked a record whose Leader said one encoding level while you were recording at another. On a real file that turned out to be every record: an export of 372 holdings records, all of them declaring level 3, converted by a library recording at level 4, put the marker on 371 rows. A marker on almost every row tells you nothing, and it had also pushed all 371 records into "Needs attention", so that filter stopped being usable.
+- **MARC Serials Toolkit** — The trouble was the question, not the counting. Whether your records' Leader matches the level you record at is a fact about the file — it is the same answer on every row — so it is now said once, in a line above the list: how many records disagree, what they say, and what you are recording at. Acting on it means changing those records in your catalogue, which is one operation there rather than a row-by-row job here.
+- **MARC Serials Toolkit** — What stays beside a record is the question that actually differs from record to record: whether the fields being written go beyond the level you declared. Level 4 means every level the statement gives, so nothing can exceed it and recording at 4 now marks no records at all. Level 3 means summary — the first level of enumeration and chronology only — and on that same file 242 of 371 records carry more than that, while 129 genuinely are summary.
+- **MARC Serials Toolkit** — "Needs attention" is about conversion again, and on that file went from 371 records to 11. The encoding level has a filter of its own beside it, so the records are still one click away — which is what matters for the file where only three of them disagree and finding those three is the point.
+- **MARC Serials Toolkit** — The Leader is still never changed, and the test whose only job is to check that is untouched. Nothing about conversion changes.
+
 ## 0.16.0 — 2026-09-18
 
 You can state how many issues make a volume, and the tool writes it into the 853 where the standard puts it.
