@@ -150,6 +150,25 @@
       border-bottom: 2px solid var(--border-soft);
     }
     .filter-row { display: flex; gap: var(--sp-2); flex-wrap: wrap; }
+    .search-row { display: flex; gap: var(--sp-2); align-items: center; flex-wrap: wrap; }
+    .search-input {
+      font: inherit; font-size: var(--fs-sm);
+      padding: var(--sp-1) var(--sp-2);
+      min-height: var(--control-min);
+      border: 2px solid var(--border); border-radius: var(--radius);
+      background: var(--bg); color: var(--text);
+      flex: 1 1 22rem; min-width: 0;
+    }
+    .search-input:focus { border-color: var(--accent); outline: none; }
+    /* The identifier is how a row is told apart from the 371 around it when
+       the records carry no title, so it reads as a label, not as metadata. */
+    .rec-id {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: var(--fs-xs); color: var(--text);
+      background: var(--surface-2);
+      padding: 0 var(--sp-1); border-radius: var(--radius);
+      white-space: nowrap;
+    }
     .review-meta { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; }
     .chip {
       font: inherit; font-size: var(--fs-xs); font-weight: 600;
@@ -776,7 +795,20 @@ v.6(1995)-"></textarea>
       </details>
 
       <div id="review-bar" class="review-bar mt-2" hidden>
-        <div class="filter-row" role="group" aria-label="Show which records">
+        <div class="search-row">
+          <label for="review-search" class="small dim">Find</label>
+          <input type="search" id="review-search" class="search-input"
+                 placeholder="Identifier, title, ISSN, location, or 866 text"
+                 aria-describedby="review-search-help" />
+          <button type="button" class="btn btn-ghost btn-sm" id="btn-search-clear"
+                  hidden>Clear</button>
+        </div>
+        <div id="review-search-help" class="small dim mt-1">
+          Searches every record in the file, not the page on screen, and narrows
+          whichever filter is selected rather than replacing it.
+        </div>
+        <div id="identifier-notice" class="mt-2" hidden></div>
+        <div class="filter-row mt-2" role="group" aria-label="Show which records">
           <button type="button" class="chip active" data-filter="all">All</button>
           <button type="button" class="chip" data-filter="held">Needs attention</button>
           <button type="button" class="chip" data-filter="pattern">Read by a pattern</button>
@@ -793,6 +825,8 @@ v.6(1995)-"></textarea>
              Below the record list it would be past 120 rows of scrolling. -->
         <div id="review-notice" class="mt-2" hidden></div>
       </div>
+
+      <div id="review-empty" class="mt-2" hidden></div>
 
       <div class="check-row mt-2">
         <input type="checkbox" id="batch-remove866" />
@@ -928,6 +962,7 @@ let skipRecords    = new Set();   // records to leave exactly as they are
 let recordIndex    = new Map();
 let reviewFilter   = 'all';
 let reviewOffset   = 0;
+let reviewSearch   = '';    // what the Find box is narrowing the list to
 
 // Ten a page, in both steps.
 //
@@ -1176,6 +1211,7 @@ async function uploadMarcFile(file) {
     allRecords    = data.records;
     allStatements = data.statements;
     renderRecordList(data.records);
+    showIdentifierNotice(data);
     recordPreviews.clear();
     reviewed.clear();
     keepSeparate.clear();
@@ -1199,12 +1235,37 @@ async function uploadMarcFile(file) {
   }
 }
 
+/**
+ * Say when this file carries no identifier, once, rather than drawing an empty
+ * slot beside every row.
+ *
+ * A cataloguer looking at 372 rows with nothing where the number should be
+ * cannot tell whether the file lacks the field or the tool has failed to read
+ * it. Those want different actions, so the screen says which.
+ *
+ * Choosing a different field is the next change; for now this names the field
+ * looked for, which is what someone needs in order to ask for another.
+ */
+function showIdentifierNotice(data) {
+  const notice = document.getElementById('identifier-notice');
+  if (!notice) return;
+  const missing = data.identifier_found === false && (data.total || 0) > 0;
+  notice.hidden = !missing;
+  if (missing) {
+    notice.innerHTML = `<div class="alert alert-info">No
+      <code>${escHtml(data.identifier_field || '')}</code> in this file, so its
+      records are listed without an identifier. Searching still works on
+      whatever else a record carries.</div>`;
+  }
+}
+
 function renderRecordList(records) {
   const box = document.getElementById('records-accordion');
   box.innerHTML = records.map((rec, i) => `
     <div class="rec-row" data-index="${i}">
       <button type="button" class="rec-toggle" onclick="selectRecord(${i})">
         <span class="rec-caret" aria-hidden="true">▸</span>
+        ${rec.identifier ? `<span class="rec-id">${escHtml(rec.identifier)}</span>` : ''}
         <span class="rec-title">${escHtml(rec.title)}</span>
         <span class="rec-status"></span>
         <span class="rec-meta">${escHtml(rec.issn || '–')} · ${escHtml(rec.location || 'no location')}</span>
@@ -1277,9 +1338,13 @@ async function loadReviewIndex() {
 
 /** The records the current filter shows, in file order. */
 function filteredIndices() {
+  // Search narrows the chosen filter rather than replacing it, and both are
+  // applied here rather than at the two call sites, so the pager, the count
+  // line and the rows on screen can never disagree about what matches.
   return allRecords
     .map((_, i) => i)
-    .filter(i => recordMatchesFilter(recordIndex.get(i), i));
+    .filter(i => recordMatchesFilter(recordIndex.get(i), i)
+              && recordMatchesSearch(i));
 }
 
 /**
@@ -1346,6 +1411,29 @@ function paintRecordStatus() {
   });
 }
 
+/**
+ * Whether a record answers what is typed in the Find box.
+ *
+ * Deliberately not just the identifier. A holdings record carries no 245, so
+ * on a real file every row reads "Record 412" and the identifier is the only
+ * thing that tells two apart -- but the cataloguer who remembers a statement
+ * rather than a number is the same cataloguer, and everything here is already
+ * in the browser from the upload. Searching the file costs nothing extra.
+ *
+ * Matched case-insensitively, as a substring: an MMS ID is long enough that
+ * nobody types it whole, and the last six digits should find it.
+ */
+function recordMatchesSearch(index) {
+  if (!reviewSearch) return true;
+  const rec = allRecords[index];
+  if (!rec) return false;
+  const hay = [
+    rec.identifier, rec.title, rec.issn, rec.location,
+    ...(rec.fields_866 || []).map(f => f.a || ''),
+  ].join(' ').toLowerCase();
+  return hay.includes(reviewSearch);
+}
+
 function recordMatchesFilter(entry, index) {
   // Nothing known about this record yet. It cannot be said to match, and
   // saying it does is the bug this replaced: previews were loaded a page at a
@@ -1389,6 +1477,21 @@ function applyReviewFilter() {
   document.getElementById('review-count').textContent =
     `${matching.length} of ${total} match · ${done} of ${allRecords.length} reviewed`
     + (set_aside ? ` · ${set_aside} skipped` : '');
+
+  // An empty list under a filter chip explains itself; an empty list under a
+  // search box looks like the search is broken. Say which it is.
+  const empty = document.getElementById('review-empty');
+  if (empty) {
+    const nothing = matching.length === 0 && allRecords.length > 0;
+    empty.hidden = !nothing;
+    if (nothing) {
+      empty.innerHTML = reviewSearch
+        ? `<div class="alert alert-info">Nothing in this file matches
+           "${escHtml(reviewSearch)}"${reviewFilter !== 'all'
+             ? ' under the filter you have selected' : ''}.</div>`
+        : '<div class="alert alert-info">No records match this filter.</div>';
+    }
+  }
 }
 
 /**
@@ -1423,6 +1526,50 @@ function renderPager(data) {
   document.getElementById('btn-page-prev').disabled = data.offset === 0;
   document.getElementById('btn-page-next').disabled = last >= data.total;
 }
+
+/**
+ * The Find box.
+ *
+ * Deliberately not reloadReview(): the per-record counts the filters read do
+ * not depend on what is typed here, so re-fetching the whole index on every
+ * keystroke would be a request per character to learn nothing new. The page of
+ * previews does change, because the page is a slice of what matches, and
+ * loadReviewPage() is exactly that much work.
+ *
+ * Debounced because a cataloguer pasting an MMS ID types eighteen characters,
+ * and each one would otherwise ask the server for a page nobody will see.
+ */
+(function () {
+  const box   = document.getElementById('review-search');
+  const clear = document.getElementById('btn-search-clear');
+  let timer   = null;
+
+  function apply() {
+    const next = box.value.trim().toLowerCase();
+    if (next === reviewSearch) return;
+    reviewSearch = next;
+    clear.hidden = !next;
+    // A narrower list means the first page of it, not wherever the last one
+    // had got to -- the same reason the filter chips reset the offset.
+    reviewOffset = 0;
+    if (allRecords.length) loadReviewPage();
+  }
+
+  box.addEventListener('input', () => {
+    clearTimeout(timer);
+    timer = setTimeout(apply, 180);
+  });
+  // Enter should not wait out the debounce, and should not submit anything.
+  box.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); clearTimeout(timer); apply(); }
+  });
+  clear.addEventListener('click', () => {
+    box.value = '';
+    clearTimeout(timer);
+    apply();
+    box.focus();
+  });
+})();
 
 document.querySelectorAll('.filter-row .chip').forEach(chip =>
   chip.addEventListener('click', () => {

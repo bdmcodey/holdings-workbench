@@ -100,6 +100,35 @@ def test_a_changed_template_is_reread_without_restarting(marc_app):
         "would auto-reload anyway and the config would prove nothing")
 
 
+def test_the_find_box_narrows_the_filter_rather_than_replacing_it():
+    """
+    Search and the filter chips have to be applied in the same place.
+
+    They were nearly applied in two: the chips at the point rows are hidden,
+    search at the point previews are fetched. That is the exact shape of the
+    0.12.5 defect, where the pager counted one set of records and the screen
+    showed another. Both predicates meet in filteredIndices(), and this pins
+    them there.
+    """
+    script = (TEMPLATES / "tool.html").read_text(encoding="utf-8")
+    assert "function recordMatchesSearch(" in script
+    combined = re.search(
+        r"function filteredIndices\(\)\s*\{(.*?)\n\}", script, re.S)
+    assert combined, "filteredIndices() has moved or been renamed"
+    body = combined.group(1)
+    assert "recordMatchesFilter(" in body and "recordMatchesSearch(" in body, (
+        "search and the chips must both be applied in filteredIndices(), or the "
+        "pager and the rows on screen can disagree about what matches")
+
+
+def test_the_find_box_and_its_controls_are_on_the_page(client):
+    """The markup the search handler binds to, so a rename cannot go unnoticed."""
+    page = client.get("/").get_data(as_text=True)
+    for element in ('id="review-search"', 'id="btn-search-clear"',
+                    'id="review-empty"', 'id="identifier-notice"'):
+        assert element in page, f"{element} is missing from the page"
+
+
 def test_the_stylesheet_is_served(client):
     response = client.get("/ui.css")
     assert response.status_code == 200
