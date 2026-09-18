@@ -62,6 +62,9 @@ from marc_serials.converter import (DEFAULT_HOLDINGS_LEVEL,
                                     resolve_holdings_level)
 from marc_serials.records import (
     DEFAULT_IDENTIFIER_SPEC,
+    identifier_candidates,
+    parse_identifier_spec,
+    record_identifier,
     add_853 as _add_853,
     apply_record_conversion as _apply_record_conversion,
     display_marc_field as _display_marc_field,
@@ -249,6 +252,23 @@ def _record_title(record) -> str:
     if not field:
         return ""
     return " ".join(field.get_subfields("a", "b")).strip().rstrip(" /:")
+
+
+def _identifier_spec() -> str:
+    """
+    The field this cataloguer finds records by.
+
+    Absent from the session means nobody has chosen, so the default applies.
+    Present and empty means somebody chose "no identifier", which is a
+    different thing and must survive a reload -- otherwise the tool keeps
+    re-offering a choice that has already been made.
+
+    Kept in the session rather than in the file, because it describes the
+    library's ILS rather than this upload: the next file from the same
+    institution wants the same field.
+    """
+    spec = session.get("identifier_spec")
+    return DEFAULT_IDENTIFIER_SPEC if spec is None else spec
 
 
 def _load_all_records() -> Optional[list]:
@@ -597,7 +617,8 @@ def api_upload_marc():
 
     try:
         file_bytes = f.read()
-        records = _read_marc_file(io.BytesIO(file_bytes))
+        spec = _identifier_spec()
+        records = _read_marc_file(io.BytesIO(file_bytes), identifier_spec=spec)
 
         # Checked before anything is stored, so a refused file leaves the
         # cataloguer's current file and pattern library exactly as they were.
@@ -621,12 +642,68 @@ def api_upload_marc():
             "total": len(records),
             "statements": statements,
             "count": len(statements),
-            "identifier_field": DEFAULT_IDENTIFIER_SPEC,
+            "identifier_field": spec,
             "identifier_found": any(r.get("identifier") for r in records),
+            # What this file could be identified by instead, so a cataloguer
+            # whose ILS is not Alma is offered its actual fields rather than
+            # asked to guess one.
+            "identifier_candidates": identifier_candidates(
+                records_from_bytes(file_bytes)),
         })
     except Exception as exc:
         app.logger.exception("Request failed")
         return jsonify({"error": str(exc)}), 500
+
+
+@app.route("/api/identifier", methods=["POST"])
+def api_identifier():
+    """
+    Change the field records are found by, without re-uploading.
+
+    The record list is built once, at upload, so a naive version of this
+    setting would take effect "next time you upload a file" -- which is the
+    lag the frequency and numbering-continuity controls already have and which
+    is worth not adding a third of.  Recomputing costs one pass over the
+    stored file, so the screen can simply be told the new identifiers.
+
+    Returns the identifier for every record rather than the whole summary:
+    nothing else about a record changes when the field does, and a 372-record
+    file's summaries are most of a megabyte.
+
+    POST JSON: {"spec": "999$b"}.  An empty spec means "no identifier", which
+    is a choice and is remembered as one.
+    """
+    if not HAS_PYMARC:
+        return jsonify({"error": "pymarc is not installed on the server."}), 500
+
+    data = request.get_json(force=True) or {}
+    raw = data.get("spec", "")
+    spec = "" if raw is None else str(raw).strip()
+
+    # A spec that is neither empty nor a MARC field is a typo, and saying so
+    # beats storing it and showing an empty column that looks like the file's
+    # fault.
+    if spec and parse_identifier_spec(spec) is None:
+        return jsonify({
+            "error": f"{spec!r} is not a MARC field. Write it as 999$b, "
+                     "or 001 for a control field.",
+        }), 400
+
+    session["identifier_spec"] = spec
+
+    records = _load_all_records()
+    if records is None:
+        # Nothing uploaded yet is not an error: the choice is still recorded,
+        # and the next upload will use it.
+        return jsonify({"spec": spec, "identifiers": [], "found": False})
+
+    identifiers = [record_identifier(rec, spec) if spec else "" for rec in records]
+    return jsonify({
+        "spec": spec,
+        "identifiers": [{"index": i, "identifier": v}
+                        for i, v in enumerate(identifiers)],
+        "found": any(identifiers),
+    })
 
 
 @app.route("/api/detect", methods=["POST"])

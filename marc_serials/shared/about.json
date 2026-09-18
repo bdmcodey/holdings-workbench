@@ -1,6 +1,6 @@
 {
   "name": "MARC Serials Toolkit",
-  "version": "0.14.0",
+  "version": "0.15.0",
   "released": "2026-09-18",
   "status": "Proof of concept — under active development. Check your output before loading it into the catalog.",
   "description": "One tool for MARC serials holdings. Upload a MARC file, find the patterns in its 866 statements, confirm what each part of a pattern means, and convert to structured 853 caption/pattern and 863 enumeration/chronology fields. Statements no pattern matches are converted by the standard parser.",
@@ -9,6 +9,37 @@
   "contact": "Matthew Codey, codey@usc.edu",
   "_comment": "Written for cataloging staff, not developers. Say what changed about the output or the screen, not how the code changed. Newest version first.",
   "changelog": [
+    {
+      "version": "0.15.0",
+      "date": "2026-09-18",
+      "summary": "When a file carries no 999 $b, the tool offers the fields that file does carry, instead of leaving a blank where the number should be.",
+      "changes": [
+        {
+          "tool": "MARC Serials Toolkit",
+          "text": "Version 0.14.0 read each record's identifier from 999 $b — Ex Libris Alma's MMS ID. A library on a different system has the number somewhere else, and the tool's only answer was to say it had not found one."
+        },
+        {
+          "tool": "MARC Serials Toolkit",
+          "text": "Now it reads the file and offers what is actually in it. A field is proposed when it is on every record, appears only once in each, and has a different value on every one — the three things that make a field a name for a record rather than data about it. Each suggestion comes with a real value from your file beside it, because \"991000485469603731\" is recognisable to whoever uses those numbers and \"999 $b\" is not."
+        },
+        {
+          "tool": "MARC Serials Toolkit",
+          "text": "You can also name a field yourself, written as 999$b or 001, or say to show no identifier at all. Something that is not a MARC field is refused with an explanation rather than accepted and shown as a column of blanks — a mistyped field and a field your records do not carry need different things from you, so the tool does not make them look alike."
+        },
+        {
+          "tool": "MARC Serials Toolkit",
+          "text": "The change takes effect at once. The list is relabelled where it stands, without re-uploading the file and without disturbing the Reviewed, Skip or Keep-patterns-separate boxes you have already ticked."
+        },
+        {
+          "tool": "MARC Serials Toolkit",
+          "text": "Your choice is remembered for the next file, because it describes your library's system rather than one export. Choosing to show no identifier is remembered too, so the tool does not keep asking a question you have already answered. Where the identifier is working, the field it came from is named quietly above the record list with a Change beside it."
+        },
+        {
+          "tool": "MARC Serials Toolkit",
+          "text": "Nothing about conversion changes. The identifier is read and displayed only: it is never written to a record and never altered."
+        }
+      ]
+    },
     {
       "version": "0.14.0",
       "date": "2026-09-18",
