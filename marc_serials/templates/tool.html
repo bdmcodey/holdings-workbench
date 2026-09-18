@@ -731,6 +731,26 @@ v.6(1995)-"></textarea>
       </div>
       <div class="form-row mt-2">
         <div class="form-group">
+          <label for="batch-units">Issues per volume (853 $u)</label>
+          <input type="text" id="batch-units" class="search-input"
+                 placeholder="(not specified)" inputmode="numeric" />
+          <div id="batch-units-error" class="small mt-1" hidden></div>
+        </div>
+      </div>
+      <div class="small dim mt-1">
+        How many parts of the second level make one of the level above it — 12
+        issues to a volume for a monthly with annual volumes, 4 for a quarterly.
+        Written into the 853 beside the caption it describes, and only there:
+        the first level has nothing above it to count against, so a serial
+        numbered by volume alone never takes one. <code>var</code> and
+        <code>und</code> are accepted where the number varies or is unknown.
+        Left empty nothing is written, which is what previous versions did —
+        this is a fact about how the serial is published, and a holdings
+        statement does not state it.
+      </div>
+
+      <div class="form-row mt-2">
+        <div class="form-group">
           <label for="batch-holdings-level">Holdings reported at (863 first indicator)</label>
           <select id="batch-holdings-level">
             {% for code, label in holdings_levels.items() %}
@@ -1138,8 +1158,46 @@ function conventionPayload() {
     frequency: document.getElementById('batch-freq').value,
     numbering_continuity: document.getElementById('batch-continuity').value,
     holdings_level: document.getElementById('batch-holdings-level').value,
+    units_per_higher: unitsPerHigher(),
   };
 }
+
+/**
+ * The declared $u, or "" when the box holds nothing usable.
+ *
+ * Validated here rather than only on the server, because the server's fallback
+ * is silence: an unusable value writes no $u, and a cataloguer who typed "1 a
+ * year" would see nothing appear and have nothing to read about why. The
+ * message belongs beside the box they typed in.
+ */
+function unitsPerHigher() {
+  const box = document.getElementById('batch-units');
+  const err = document.getElementById('batch-units-error');
+  const raw = (box.value || '').trim().toLowerCase();
+
+  if (!raw) { err.hidden = true; return ''; }
+  const ok = raw === 'var' || raw === 'und'
+          || (/^[1-9][0-9]{0,2}$/.test(raw));
+  if (!ok) {
+    err.innerHTML = `<div class="alert alert-warn">A count of parts, or
+      <code>var</code> or <code>und</code>. Nothing is written to $u until this
+      reads as one of those.</div>`;
+    err.hidden = false;
+    return '';
+  }
+  err.hidden = true;
+  return raw;
+}
+
+document.getElementById('batch-units').addEventListener('change', () => {
+  // The same reasoning as the holdings level below: $u goes into every 853, so
+  // every preview on screen was built under the old value.
+  unitsPerHigher();
+  document.querySelectorAll('.pattern-card').forEach(card => {
+    if (!card.querySelector('.pc-body')?.hidden) refreshPreview(card);
+  });
+  if (allRecords.length) refreshReview();
+});
 
 document.getElementById('batch-holdings-level').addEventListener('change', () => {
   // The level goes into every 863 and decides which records are reported as

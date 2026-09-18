@@ -57,9 +57,12 @@ from marc_serials.store import (
     purge_old_stored_files as _purge_old_stored_files,
     save_file as _save_file,
 )
-from marc_serials.converter import (DEFAULT_HOLDINGS_LEVEL,
-                                    HOLDINGS_LEVELS,
-                                    resolve_holdings_level)
+from marc_serials.converter import (
+    DEFAULT_HOLDINGS_LEVEL,
+    HOLDINGS_LEVELS,
+    resolve_holdings_level,
+    resolve_units_per_higher,
+)
 from marc_serials.records import (
     DEFAULT_IDENTIFIER_SPEC,
     identifier_candidates,
@@ -339,7 +342,8 @@ def _requested_indices(data: dict, total: int, offset: int, limit: int) -> list:
 def _review_row(record, index, *, patterns, fallback, conv_opts, captions,
                 frequency, continuity, rejections, merge_patterns,
                 skipped: bool, with_previews: bool,
-                holdings_level: str = DEFAULT_HOLDINGS_LEVEL) -> dict:
+                holdings_level: str = DEFAULT_HOLDINGS_LEVEL,
+                units_per_higher: str = "") -> dict:
     """
     One record as the review screen sees it: what it would produce, and what
     read it.
@@ -381,6 +385,7 @@ def _review_row(record, index, *, patterns, fallback, conv_opts, captions,
         parsed, existing_853s=list(record.get_fields("853")), captions=captions,
         frequency=frequency, numbering_continuity=continuity,
         merge_patterns=merge_patterns, holdings_level=holdings_level,
+        units_per_higher=units_per_higher,
         **conv_opts,
     )
     previews = _previews_from(rc, rejections, list(record.get_fields("853")),
@@ -873,6 +878,7 @@ def api_pattern_preview():
     captions = data.get("captions") or None
     frequency = data.get("frequency", "")
     continuity = data.get("numbering_continuity", "r")
+    units_per_higher = resolve_units_per_higher(data.get("units_per_higher"))
     holdings_level = resolve_holdings_level(data.get("holdings_level"))
 
     if unresolved:
@@ -927,6 +933,7 @@ def api_pattern_preview():
                 numbering_continuity=continuity,
                 merge_patterns=record_index not in _keep_separate(data),
                 holdings_level=holdings_level,
+                units_per_higher=units_per_higher,
                 **conv_opts,
             )
             previews = _previews_from(rc, rejections, existing_853s,
@@ -959,7 +966,8 @@ def api_pattern_preview():
         conversion = convert_holdings(
             parse_result, linking_number=1, captions=captions,
             frequency=frequency, numbering_continuity=continuity,
-            holdings_level=holdings_level, **conv_opts,
+            holdings_level=holdings_level, units_per_higher=units_per_higher,
+            **conv_opts,
         )
         return {
             "field_853": conversion.field_853.display() if conversion.field_853 else None,
@@ -1236,6 +1244,7 @@ def api_preview_records():
     captions = data.get("captions") or None
     frequency = data.get("frequency", "")
     continuity = data.get("numbering_continuity", "r")
+    units_per_higher = resolve_units_per_higher(data.get("units_per_higher"))
     holdings_level = resolve_holdings_level(data.get("holdings_level"))
     patterns = _load_library()
     fallback = _parser_fallback(data)
@@ -1252,7 +1261,8 @@ def api_preview_records():
                         rejections=rejections,
                         merge_patterns=index not in keep_separate,
                         skipped=index in skip_records,
-                        with_previews=True, holdings_level=holdings_level)
+                        with_previews=True, holdings_level=holdings_level,
+                        units_per_higher=units_per_higher)
             for index in wanted
         ]
 
@@ -1299,6 +1309,7 @@ def api_review_index():
     captions = data.get("captions") or None
     frequency = data.get("frequency", "")
     continuity = data.get("numbering_continuity", "r")
+    units_per_higher = resolve_units_per_higher(data.get("units_per_higher"))
     holdings_level = resolve_holdings_level(data.get("holdings_level"))
     patterns = _load_library()
     fallback = _parser_fallback(data)
@@ -1314,7 +1325,8 @@ def api_review_index():
                         rejections=rejections,
                         merge_patterns=index not in keep_separate,
                         skipped=index in skip_records,
-                        with_previews=False, holdings_level=holdings_level)
+                        with_previews=False, holdings_level=holdings_level,
+                        units_per_higher=units_per_higher)
             for index, record in enumerate(all_records)
         ]
         return jsonify({"records": rows, "total": len(all_records)})
@@ -1398,6 +1410,7 @@ def api_batch_convert():
     data = request.get_json(force=True) or {}
     frequency = data.get("frequency", "")
     continuity = data.get("numbering_continuity", "r")
+    units_per_higher = resolve_units_per_higher(data.get("units_per_higher"))
     holdings_level = resolve_holdings_level(data.get("holdings_level"))
     # Defaults to keeping them: an ILS that regenerates 866s from 853/863 makes
     # the originals redundant rather than wrong, and keeping them means the file
@@ -1458,6 +1471,7 @@ def api_batch_convert():
                 numbering_continuity=continuity,
                 merge_patterns=rec_idx not in keep_separate,
                 holdings_level=holdings_level,
+                units_per_higher=units_per_higher,
                 **conv_opts,
             )
             _apply_record_conversion(record, rc)
@@ -1600,6 +1614,7 @@ def api_parse_text():
     captions = data.get("captions") or {}
     frequency = data.get("frequency", "")
     continuity = data.get("numbering_continuity", "r")
+    units_per_higher = resolve_units_per_higher(data.get("units_per_higher"))
     holdings_level = resolve_holdings_level(data.get("holdings_level"))
     linking = int(data.get("linking_number", 1))
 
@@ -1612,6 +1627,7 @@ def api_parse_text():
         frequency=frequency,
         numbering_continuity=continuity,
         holdings_level=holdings_level,
+        units_per_higher=units_per_higher,
         **conv_opts,
     )
     conversion.warnings.extend(rejections)
