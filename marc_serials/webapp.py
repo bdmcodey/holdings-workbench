@@ -61,6 +61,7 @@ from marc_serials.records import (
     add_853 as _add_853,
     apply_record_conversion as _apply_record_conversion,
     display_marc_field as _display_marc_field,
+    encoding_level_conflict,
     match_866_sources as _match_866_sources,
     read_marc_file as _read_marc_file,
     records_from_bytes,
@@ -319,6 +320,10 @@ def _review_row(record, index, *, patterns, fallback, conv_opts, captions,
         "sources": [],
         "has_866": False,
         "skipped": skipped,
+        # Set when the record's Leader/17 no longer describes what conversion
+        # wrote into it. Reported, never corrected: see
+        # records.encoding_level_conflict().
+        "leader_note": None,
     }
     if with_previews:
         row["previews"] = []
@@ -349,6 +354,7 @@ def _review_row(record, index, *, patterns, fallback, conv_opts, captions,
     # a pattern.
     row["flagged"] = sum(1 for p in previews if p.get("flagged"))
     row["sources"] = sorted({p["source"] for p in previews})
+    row["leader_note"] = encoding_level_conflict(record, rc.fields_863)
     if with_previews:
         row["previews"] = previews
     return row

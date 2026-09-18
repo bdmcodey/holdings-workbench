@@ -298,3 +298,82 @@ def test_an_edited_statement_never_deletes_an_866(client,
 
     record = _records(client.get("/api/download-converted").data)[0]
     assert len(record.get_fields("866")) == 2
+
+
+# ---------------------------------------------------------------------------
+# Encoding level: reported, never rewritten
+# ---------------------------------------------------------------------------
+
+def test_a_record_whose_leader_no_longer_fits_is_reported(client, example_marc_bytes):
+    """
+    A record declaring Leader/17 = 3 says its holdings are summary -- first
+    level of enumeration and chronology only. Converting an 866 into
+    "$a 1-5 $b 1-4 $i 1990-1994 $j 01-12" puts detailed holdings into a record
+    that says it has none.
+
+    The review row says so. It does not fix it: encoding level is the library's
+    assertion about its own holdings, and the value cannot be inferred safely
+    either -- it tracks levels defined in ANSI/NISO Z39.71, and the MARC
+    examples contradict every rule derivable from field content. See
+    CORPUS-FINDINGS.
+    """
+    upload_marc(client, example_marc_bytes)
+    rows = client.post("/api/review-index", json={}).get_json()["records"]
+
+    noted = [r for r in rows if r.get("leader_note")]
+    assert noted, "no record reported a Leader/17 that stopped fitting"
+    note = noted[0]["leader_note"]
+    assert "Leader/17" in note
+    assert "left as it is" in note, "the note must say nothing was changed"
+
+
+def test_the_leader_is_not_rewritten(client, example_marc_bytes):
+    """
+    The other half of the same decision, and the one worth a test of its own:
+    whatever the note says, the bytes that come back must carry the Leader the
+    file arrived with.
+    """
+    import io
+    from pymarc import MARCReader
+
+    before = [str(r.leader) for r in MARCReader(io.BytesIO(example_marc_bytes))
+              if r is not None]
+    upload_marc(client, example_marc_bytes)
+    client.post("/api/batch-convert", json={"convention": "standard"})
+    data = client.get("/api/download-converted").data
+    after = [str(r.leader) for r in MARCReader(io.BytesIO(data)) if r is not None]
+
+    assert len(after) == len(before)
+    for index, (was, now) in enumerate(zip(before, after)):
+        # Leader/00-04 is the record length and /12-16 the base address; both
+        # are recomputed when pymarc writes the record out and are not ours.
+        assert now[5:12] == was[5:12], f"record {index}: Leader/05-11 changed"
+        assert now[17:] == was[17:], f"record {index}: Leader/17 onward changed"
+
+
+def test_a_record_the_leader_still_fits_is_not_reported(client):
+    """
+    The guard on the guard. A record already declaring level 4 has nothing to
+    be told, and one whose statements convert to a single level has nothing
+    detailed to conflict with.
+    """
+    from pymarc import Record, Field, Subfield, MARCWriter
+    import io
+
+    buf = io.BytesIO()
+    writer = MARCWriter(buf)
+    rec = Record()
+    rec.leader = "00522cy  a22001453n 4500"
+    rec.add_field(Field(tag="001", data="lvl4rec"))
+    rec.add_field(Field(tag="245", indicators=["0", "0"],
+                        subfields=[Subfield(code="a", value="Level Four Serial.")]))
+    rec.add_field(Field(tag="866", indicators=[" ", "0"],
+                        subfields=[Subfield(code="a", value="v.1(1990)-v.10(1999)")]))
+    writer.write(rec)
+    writer.close(close_fh=False)
+
+    upload_marc(client, buf.getvalue())
+    rows = client.post("/api/review-index", json={}).get_json()["records"]
+    # "v.1(1990)-v.10(1999)" is one enumeration level and one chronology level,
+    # which is what level 3 describes, so there is no conflict to report.
+    assert [r for r in rows if r.get("leader_note")] == []

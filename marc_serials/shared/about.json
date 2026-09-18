@@ -1,7 +1,7 @@
 {
   "name": "MARC Serials Toolkit",
-  "version": "0.12.5",
-  "released": "2026-09-17",
+  "version": "0.13.0",
+  "released": "2026-09-18",
   "status": "Proof of concept — under active development. Check your output before loading it into the catalog.",
   "description": "One tool for MARC serials holdings. Upload a MARC file, find the patterns in its 866 statements, confirm what each part of a pattern means, and convert to structured 853 caption/pattern and 863 enumeration/chronology fields. Statements no pattern matches are converted by the standard parser.",
   "licensing": "No license is granted at this time; the repository is published for reference only while institutional intellectual property rights are reviewed. See NOTICE.md.",
@@ -9,6 +9,33 @@
   "contact": "Matthew Codey, codey@usc.edu",
   "_comment": "Written for cataloging staff, not developers. Say what changed about the output or the screen, not how the code changed. Newest version first.",
   "changelog": [
+    {
+      "version": "0.13.0",
+      "date": "2026-09-18",
+      "summary": "A record that says it holds summary holdings, and now carries detailed ones, is marked for your attention. The encoding level itself is left alone.",
+      "changes": [
+        {
+          "tool": "MARC Serials Toolkit",
+          "text": "Every holdings record declares an encoding level in its Leader. Level 3 means the holdings are summary — recorded at the first level of enumeration and chronology only. When this tool converts an 866 into something like \"$a 1-5 $b 1-4 $i 1990-1994 $j 01-12\", that record now carries detailed holdings while still saying it does not."
+        },
+        {
+          "tool": "MARC Serials Toolkit",
+          "text": "Those records now show an \"encoding level\" marker on the Convert step, and appear under \"Needs attention\". Hovering it explains what the record says, what was written, and that nothing was changed. In the sample file supplied with the tool, nine of the fifteen records with holdings are affected."
+        },
+        {
+          "tool": "MARC Serials Toolkit",
+          "text": "The tool does not change the encoding level, and that is deliberate. It is a statement your library makes about its own holdings, and correcting one on your behalf is a different kind of act from adding the fields you asked for. Set it to 4 yourself if the record should say it now carries detailed holdings."
+        },
+        {
+          "tool": "MARC Serials Toolkit",
+          "text": "Why the tool does not simply set it for you. The value follows levels defined in a separate standard, ANSI/NISO Z39.71, which does describe them in terms that could be applied automatically — but whether a record should assert detailed holdings is a cataloguing decision, and the MARC documentation's own examples do not follow that rule consistently. So the tool tells you and leaves the choice with you."
+        },
+        {
+          "tool": "MARC Serials Toolkit",
+          "text": "Nothing about conversion changes, and no byte of any record's Leader is rewritten — there is a test whose only job is to check that."
+        }
+      ]
+    },
     {
       "version": "0.12.5",
       "date": "2026-09-17",

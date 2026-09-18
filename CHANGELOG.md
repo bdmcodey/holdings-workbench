@@ -15,6 +15,16 @@ more than one release; numbering resumed with 0.6.1. Reasoning behind the
 parser and converter decisions, including the defects a real corpus exposed and
 what was done about each, is in [CORPUS-FINDINGS.md](CORPUS-FINDINGS.md).
 
+## 0.13.0 — 2026-09-18
+
+A record that says it holds summary holdings, and now carries detailed ones, is marked for your attention. The encoding level itself is left alone.
+
+- **MARC Serials Toolkit** — Every holdings record declares an encoding level in its Leader. Level 3 means the holdings are summary — recorded at the first level of enumeration and chronology only. When this tool converts an 866 into something like "$a 1-5 $b 1-4 $i 1990-1994 $j 01-12", that record now carries detailed holdings while still saying it does not.
+- **MARC Serials Toolkit** — Those records now show an "encoding level" marker on the Convert step, and appear under "Needs attention". Hovering it explains what the record says, what was written, and that nothing was changed. In the sample file supplied with the tool, nine of the fifteen records with holdings are affected.
+- **MARC Serials Toolkit** — The tool does not change the encoding level, and that is deliberate. It is a statement your library makes about its own holdings, and correcting one on your behalf is a different kind of act from adding the fields you asked for. Set it to 4 yourself if the record should say it now carries detailed holdings.
+- **MARC Serials Toolkit** — Why the tool does not simply set it for you. The value follows levels defined in a separate standard, ANSI/NISO Z39.71, which does describe them in terms that could be applied automatically — but whether a record should assert detailed holdings is a cataloguing decision, and the MARC documentation's own examples do not follow that rule consistently. So the tool tells you and leaves the choice with you.
+- **MARC Serials Toolkit** — Nothing about conversion changes, and no byte of any record's Leader is rewritten — there is a test whose only job is to check that.
+
 ## 0.12.5 — 2026-09-17
 
 Convert shows ten records at a time instead of the whole file, so the buttons below the list are no longer a long scroll away.

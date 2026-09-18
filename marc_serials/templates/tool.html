@@ -1298,6 +1298,13 @@ function paintRecordStatus() {
     if (entry.converted) bits.push(`<span class="pill has-866">${entry.converted} converted</span>`);
     if (entry.held) bits.push(`<span class="pill decide">${entry.held} held</span>`);
     if (entry.flagged) bits.push(`<span class="pill decide">${entry.flagged} to check</span>`);
+    // The record's own Leader/17 no longer describes what was written into it.
+    // Shown here rather than only inside the row, because a row that looks
+    // converted is a row nobody opens -- the same reason 0.9.6 gave.
+    if (entry.leader_note) {
+      bits.push(`<span class="pill decide" title="${escHtml(entry.leader_note)}"
+                       >encoding level</span>`);
+    }
     slot.innerHTML = bits.join(' ');
   });
 }
@@ -1309,7 +1316,8 @@ function recordMatchesFilter(entry, index) {
   // showed the rest of the file alongside its actual matches.
   if (!entry) return reviewFilter === 'all';
   switch (reviewFilter) {
-    case 'held':       return entry.held > 0 || entry.flagged > 0;
+    case 'held':       return entry.held > 0 || entry.flagged > 0
+                             || !!entry.leader_note;
     case 'pattern':    return entry.sources.some(
                         sc => sc !== 'parser' && sc !== 'unmatched' && sc !== 'skipped');
     case 'parser':     return entry.sources.includes('parser');

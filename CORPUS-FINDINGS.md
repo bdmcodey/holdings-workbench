@@ -1923,6 +1923,69 @@ printing a number that reads as a score to drive to zero. A reader comparing
 
 ---
 
+## The encoding level is surfaced, not corrected · **0.13.0**
+
+*18 September 2026. The half of the Leader question that did not need
+ANSI/NISO Z39.71 to answer.*
+
+**The defect.** A record declaring `Leader/17 = 3` says its holdings are
+summary — *"only the highest levels (first-order designators) are included"*.
+Conversion writes `$a 1-5 $b 1-4 $i 1990-1994 $j 01-12` into it, and the record
+then disagrees with itself. **19 of the 31** 863s the two fixtures produce
+record past the first level; **9 of the 15** records carrying holdings end up
+saying something untrue about themselves.
+
+**Reported, never corrected**, and the cataloguer chose that. Encoding level is
+an assertion the library makes about its own holdings statements, and
+rewriting one is a different kind of act from adding the fields somebody asked
+for. The row shows an `encoding level` marker, the note explains what the
+record says and what was written, and `Needs attention` includes it — the
+0.9.6 rule again, that a warning only reached by opening a row is not reached.
+
+`test_the_leader_is_not_rewritten` exists for the other half of that promise:
+whatever the note says, every byte of `Leader/05-11` and `Leader/17` onward
+comes back as it went in. Positions 00-04 and 12-16 are the record length and
+base address, recomputed by pymarc on write, and are not ours.
+
+### The 863 first indicator, still open — but no longer for want of evidence
+
+Three attempts failed to derive it before the standard was in hand, and the
+record of that is worth keeping because the attempts were reasonable:
+
+1. *"3 where the 853 declares levels the 863 does not fill"* — broken by
+   `853 23 $a v. $i (year)` over `863 32 $a 36-40 $i 1961-1965`, which fills
+   everything declared and is still 3.
+2. *"mirror the record's Leader/17"* — broken by measurement: 19 of 31 fields
+   would then claim to be summary while holding two levels.
+3. *"derive from field content"* — broken by
+   `863 30 $a 113-115 $i 1923-1924 $j 01-06`, marked summary with two
+   chronology levels, and `863 40 $a 180-226 $i 1976-1981`, marked detailed
+   with one.
+
+**Z39.71 §4.3 does give a rule**, and it is attempt 3:
+
+> Level 3 — *"If enumeration and/or chronology are applicable, only the
+> highest levels (first-order designators) are included."*
+>
+> Level 4 — *"If enumeration and/or chronology are applicable, the most
+> specific levels (including all hierarchical levels) must be included."*
+
+It also authorises the mixed case that `Leader/17 = m` exists for: *"This
+standard allows institutions to record holdings with a combination of level 3
+and level 4 Extent of Holdings areas ... within the same holdings statement."*
+
+So the rule is derivable after all. What stops it being settled is that the two
+MARC examples above do not follow it, which leaves a choice between the
+standard's definition and LC's illustrations of it — a cataloguing judgment,
+not a reading one. The indicator stays `4` until that is decided.
+
+**A note on the source.** Z39.71 is an ANSI/NISO standard, not a work of the US
+government, and unlike the LC pages under `docs/marc/` it is **not** carried in
+this repository. It was read under the institution's access and is cited by
+clause. Anyone re-checking this reasoning needs their own copy.
+
+---
+
 ## The fixtures said single-part · **0.12.5**
 
 *17 September 2026. From reading the Leader, now at
