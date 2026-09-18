@@ -15,6 +15,16 @@ more than one release; numbering resumed with 0.6.1. Reasoning behind the
 parser and converter decisions, including the defects a real corpus exposed and
 what was done about each, is in [CORPUS-FINDINGS.md](CORPUS-FINDINGS.md).
 
+## 0.14.0 — 2026-09-18
+
+Each record on the Convert step now shows the number you look it up by, and a Find box searches the whole file for one.
+
+- **MARC Serials Toolkit** — Holdings records do not usually carry a title — the title is on the bibliographic record, not on the holdings attached to it. So the Convert step was listing rows that read "Record 1", "Record 2", "Record 3", with no ISSN and the same location on every one. In a file of 372 records measured while this was built, nothing on screen distinguished one row from another except its position.
+- **MARC Serials Toolkit** — Each row now shows the record's identifier, taken from 999 $b — in Ex Libris Alma, the MMS ID shown beside every record and used to key reports. It sits before the title, because on a holdings file it is the title, in the sense of being the thing that tells one row from another.
+- **MARC Serials Toolkit** — A Find box above the filters searches the whole file, not the page on screen: identifier, title, ISSN, location, and the text of every 866. Part of a number is enough. It narrows whichever filter you have selected rather than replacing it, so "Needs attention" plus a search means both, and the count line and the pager follow along.
+- **MARC Serials Toolkit** — If a file carries no 999 $b at all, the tool says so once, above the list, rather than drawing an empty space beside every row and leaving you to work out whether the file lacks the number or the tool failed to read it. Searching still works on everything else the records carry. Being able to name a different field is the next change.
+- **MARC Serials Toolkit** — Nothing about conversion changes. No record is read differently, and the identifier is read and displayed only — it is never written, and never altered.
+
 ## 0.13.1 — 2026-09-18
 
 After updating the tool, refreshing the page is enough to see the new version. It used to need the server stopped and started again, without saying so.

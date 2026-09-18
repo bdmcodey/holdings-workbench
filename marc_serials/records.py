@@ -24,11 +24,90 @@ from pymarc import MARCReader, MARCWriter
 from .converter import DEFAULT_HOLDINGS_LEVEL
 
 
-def read_marc_file(fileobj) -> list[dict]:
+# ---------------------------------------------------------------------------
+# The identifier a cataloguer looks a record up by
+# ---------------------------------------------------------------------------
+
+# Holdings records usually carry no 245: the title lives on the bibliographic
+# record, not on the holdings attached to it.  So the row label falls back to
+# "Record 3", and a real file measured here -- 372 holdings records -- produced
+# 372 rows reading "Record 1", "Record 2", ... with no title, no ISSN, and the
+# same location on every one.  Indistinguishable.  The identifier is not
+# decoration on that screen; it is the only thing that tells two rows apart.
+#
+# 999 $b because the file this was built against is an Ex Libris Alma export,
+# where the MMS ID is the identifier shown beside every record and the one
+# reports are keyed on.  The same 999 carries $d, the holdings MMS ID, and the
+# record also has 001 and 004 -- all four unique across the file.  $b is the
+# default because it is the number a cataloguer recognises, not because it is
+# the most precise: internal linking numbers are not what anyone searches by.
+#
+# Configurable rather than fixed is the next change; this is written as a spec
+# string from the start so that change is a setting rather than a rewrite.
+DEFAULT_IDENTIFIER_SPEC = "999$b"
+
+
+def parse_identifier_spec(spec: str) -> Optional[tuple[str, str]]:
+    """
+    Split "999$b" into ("999", "b"), or "001" into ("001", "").
+
+    Liberal about how it is written -- "999$b", "999 $b", "999b" and "999"
+    all arrive from somewhere, and a cataloguer typing a field into a settings
+    box should not have to know which one this wanted.  Returns None for
+    anything that is not a MARC tag, so a typo shows as "no identifier" rather
+    than silently matching nothing.
+    """
+    text = (spec or "").strip().replace("$", " ").replace("|", " ")
+    parts = text.split()
+    if not parts:
+        return None
+    tag = parts[0]
+    # "999b" with nothing between them.
+    if len(parts) == 1 and len(tag) == 4 and tag[:3].isdigit():
+        return tag[:3], tag[3].lower()
+    if len(tag) != 3 or not tag.isdigit():
+        return None
+    code = parts[1][0].lower() if len(parts) > 1 and parts[1] else ""
+    return tag, code
+
+
+def record_identifier(record, spec: str = DEFAULT_IDENTIFIER_SPEC) -> str:
+    """
+    What this record should be found by, or "" when it carries no such field.
+
+    Control fields (001-009) hold data rather than subfields, so a spec naming
+    one is read whole and any subfield code on it ignored.  Never raises: a
+    record missing the field is the ordinary case, not an error, and it is the
+    caller's business to notice that every record is missing it.
+    """
+    parsed = parse_identifier_spec(spec)
+    if not parsed:
+        return ""
+    tag, code = parsed
+    fields = record.get_fields(tag)
+    if not fields:
+        return ""
+    field = fields[0]
+    if tag < "010":
+        return (getattr(field, "data", "") or "").strip()
+    if not code:
+        return ""
+    return (field.get(code) or "").strip()
+
+
+def read_marc_file(fileobj,
+                   identifier_spec: str = DEFAULT_IDENTIFIER_SPEC) -> list[dict]:
     """
     Read a MARC file and extract records with their 866 fields.
 
     Returns a list of record dicts for the UI.
+
+    `identifier_spec` names the field each record should be found by, written
+    as "999$b" or "001".  A record without that field gets "" -- the ordinary
+    case, since files come from every ILS there is.  Every record getting ""
+    means the file does not carry that field at all, which is worth saying to
+    the cataloguer rather than showing a column of blanks; the caller is where
+    that belongs, because only the caller knows it has the whole file.
     """
     records_out = []
     reader = MARCReader(fileobj, to_unicode=True, force_utf8=True,
@@ -45,6 +124,7 @@ def read_marc_file(fileobj) -> list[dict]:
             records_out.append({
                 "index": rec_idx,
                 "title": f"Record {rec_idx + 1} — could not be read",
+                "identifier": "",
                 "issn": "",
                 "location": "",
                 "fields_866": [],
@@ -85,6 +165,7 @@ def read_marc_file(fileobj) -> list[dict]:
         records_out.append({
             "index": rec_idx,
             "title": title or f"Record {rec_idx + 1}",
+            "identifier": record_identifier(record, identifier_spec),
             "issn": issn,
             "location": location,
             "fields_866": fields_866,

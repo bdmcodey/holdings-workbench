@@ -61,6 +61,7 @@ from marc_serials.converter import (DEFAULT_HOLDINGS_LEVEL,
                                     HOLDINGS_LEVELS,
                                     resolve_holdings_level)
 from marc_serials.records import (
+    DEFAULT_IDENTIFIER_SPEC,
     add_853 as _add_853,
     apply_record_conversion as _apply_record_conversion,
     display_marc_field as _display_marc_field,
@@ -611,11 +612,17 @@ def api_upload_marc():
             fld["a"].strip()
             for rec in records for fld in rec["fields_866"] if (fld["a"] or "").strip()
         ]
+        # Whether the identifier field was found at all, so the screen can say
+        # "this file has no 999 $b" once rather than draw an empty slot beside
+        # every row and leave the cataloguer to wonder which is broken, the
+        # file or the tool.
         return jsonify({
             "records": records,
             "total": len(records),
             "statements": statements,
             "count": len(statements),
+            "identifier_field": DEFAULT_IDENTIFIER_SPEC,
+            "identifier_found": any(r.get("identifier") for r in records),
         })
     except Exception as exc:
         app.logger.exception("Request failed")
