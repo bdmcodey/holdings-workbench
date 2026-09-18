@@ -15,6 +15,18 @@ more than one release; numbering resumed with 0.6.1. Reasoning behind the
 parser and converter decisions, including the defects a real corpus exposed and
 what was done about each, is in [CORPUS-FINDINGS.md](CORPUS-FINDINGS.md).
 
+## 0.13.0 — 2026-09-18
+
+You tell the tool which level your library reports holdings at, and it writes that into every 863. A record whose Leader says something different is marked for your attention, and left alone.
+
+- **MARC Serials Toolkit** — Conversion settings has a new choice, "Holdings reported at". Level 4 means detailed — every level a statement gives. Level 3 means summary — the first level of enumeration and chronology only. Whichever you pick goes into the first indicator of every 863 the tool writes.
+- **MARC Serials Toolkit** — It starts on 4, which is what the tool wrote before this setting existed. Leaving it there produces exactly the same fields as version 0.12.5: the output of both sample files and all 117 corpus statements was compared byte for byte and is identical. Choosing 3 changes the first indicator of 134 863 fields across that same material and changes nothing else — not a caption, not a subfield, not a second indicator.
+- **MARC Serials Toolkit** — Every holdings record also declares a level in its Leader, and the two should agree. When they do not, the record now shows an "encoding level" marker on the Convert step and appears under "Needs attention". Hovering it says what the record claims, what the tool wrote, and that nothing was changed. Both sample files declare level 3 throughout, so all 15 of their records with holdings are marked while the setting says 4, and none are once it says 3.
+- **MARC Serials Toolkit** — The tool does not change the Leader, and that is deliberate. It is a statement your library makes about its own holdings, and correcting one on your behalf is a different kind of act from adding the fields you asked for. Set it yourself if the record should say what it now carries.
+- **MARC Serials Toolkit** — Why you are asked rather than told. The obvious approach is to work the level out from the fields themselves — a statement with a volume and a month is detailed, one with only a volume is summary. That cannot be done, and the MARC documentation shows why. Every 863, 864 and 865 example in the five documents now kept under docs/marc was sorted by which subfields it carries: of the 129 that state a level, the four commonest shapes are marked both ways, and those four account for 89 of them. A volume and a year — the shape most of these statements convert to — is marked summary twenty-two times and detailed twenty-three times, and one field appears in two documents with the same bytes and a different level. The same holdings, reported differently by two libraries, and both right. So the tool asks.
+- **MARC Serials Toolkit** — Changing the setting redraws what is on screen straight away, rather than waiting for the next reload, because it changes both the fields in every preview and which records are marked.
+- **MARC Serials Toolkit** — No byte of any record's Leader is rewritten — there is a test whose only job is to check that.
+
 ## 0.12.5 — 2026-09-17
 
 Convert shows ten records at a time instead of the whole file, so the buttons below the list are no longer a long scroll away.

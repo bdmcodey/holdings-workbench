@@ -57,10 +57,14 @@ from marc_serials.store import (
     purge_old_stored_files as _purge_old_stored_files,
     save_file as _save_file,
 )
+from marc_serials.converter import (DEFAULT_HOLDINGS_LEVEL,
+                                    HOLDINGS_LEVELS,
+                                    resolve_holdings_level)
 from marc_serials.records import (
     add_853 as _add_853,
     apply_record_conversion as _apply_record_conversion,
     display_marc_field as _display_marc_field,
+    encoding_level_conflict,
     match_866_sources as _match_866_sources,
     read_marc_file as _read_marc_file,
     records_from_bytes,
@@ -298,7 +302,8 @@ def _requested_indices(data: dict, total: int, offset: int, limit: int) -> list:
 
 def _review_row(record, index, *, patterns, fallback, conv_opts, captions,
                 frequency, continuity, rejections, merge_patterns,
-                skipped: bool, with_previews: bool) -> dict:
+                skipped: bool, with_previews: bool,
+                holdings_level: str = DEFAULT_HOLDINGS_LEVEL) -> dict:
     """
     One record as the review screen sees it: what it would produce, and what
     read it.
@@ -319,6 +324,10 @@ def _review_row(record, index, *, patterns, fallback, conv_opts, captions,
         "sources": [],
         "has_866": False,
         "skipped": skipped,
+        # Set when the record's Leader/17 no longer describes what conversion
+        # wrote into it. Reported, never corrected: see
+        # records.encoding_level_conflict().
+        "leader_note": None,
     }
     if with_previews:
         row["previews"] = []
@@ -335,7 +344,8 @@ def _review_row(record, index, *, patterns, fallback, conv_opts, captions,
     rc = convert_record(
         parsed, existing_853s=list(record.get_fields("853")), captions=captions,
         frequency=frequency, numbering_continuity=continuity,
-        merge_patterns=merge_patterns, **conv_opts,
+        merge_patterns=merge_patterns, holdings_level=holdings_level,
+        **conv_opts,
     )
     previews = _previews_from(rc, rejections, list(record.get_fields("853")),
                               sources, patterns)
@@ -349,6 +359,8 @@ def _review_row(record, index, *, patterns, fallback, conv_opts, captions,
     # a pattern.
     row["flagged"] = sum(1 for p in previews if p.get("flagged"))
     row["sources"] = sorted({p["source"] for p in previews})
+    row["leader_note"] = encoding_level_conflict(record, rc.fields_863,
+                                                 holdings_level)
     if with_previews:
         row["previews"] = previews
     return row
@@ -530,6 +542,8 @@ def index():
         "tool.html",
         has_pymarc=HAS_PYMARC,
         frequency_codes=FREQUENCY_CODES,
+        holdings_levels=HOLDINGS_LEVELS,
+        default_holdings_level=DEFAULT_HOLDINGS_LEVEL,
         convention_levels=CONVENTION_LEVELS,
         enum_levels=enum_level_fields(),
         convention_presets=convention_presets(),
@@ -760,6 +774,7 @@ def api_pattern_preview():
     captions = data.get("captions") or None
     frequency = data.get("frequency", "")
     continuity = data.get("numbering_continuity", "r")
+    holdings_level = resolve_holdings_level(data.get("holdings_level"))
 
     if unresolved:
         # Nothing to show until every value has a meaning; the client renders
@@ -812,6 +827,7 @@ def api_pattern_preview():
                 frequency=frequency,
                 numbering_continuity=continuity,
                 merge_patterns=record_index not in _keep_separate(data),
+                holdings_level=holdings_level,
                 **conv_opts,
             )
             previews = _previews_from(rc, rejections, existing_853s,
@@ -843,7 +859,8 @@ def api_pattern_preview():
     def _fields(parse_result):
         conversion = convert_holdings(
             parse_result, linking_number=1, captions=captions,
-            frequency=frequency, numbering_continuity=continuity, **conv_opts,
+            frequency=frequency, numbering_continuity=continuity,
+            holdings_level=holdings_level, **conv_opts,
         )
         return {
             "field_853": conversion.field_853.display() if conversion.field_853 else None,
@@ -1065,6 +1082,7 @@ def api_preview_record():
             frequency=data.get("frequency", ""),
             numbering_continuity=data.get("numbering_continuity", "r"),
             merge_patterns=record_index not in _keep_separate(data),
+            holdings_level=resolve_holdings_level(data.get("holdings_level")),
             **conv_opts,
         )
         # Deliberately no write and no save: preview leaves the file untouched.
@@ -1119,6 +1137,7 @@ def api_preview_records():
     captions = data.get("captions") or None
     frequency = data.get("frequency", "")
     continuity = data.get("numbering_continuity", "r")
+    holdings_level = resolve_holdings_level(data.get("holdings_level"))
     patterns = _load_library()
     fallback = _parser_fallback(data)
     keep_separate = _keep_separate(data)
@@ -1134,7 +1153,7 @@ def api_preview_records():
                         rejections=rejections,
                         merge_patterns=index not in keep_separate,
                         skipped=index in skip_records,
-                        with_previews=True)
+                        with_previews=True, holdings_level=holdings_level)
             for index in wanted
         ]
 
@@ -1181,6 +1200,7 @@ def api_review_index():
     captions = data.get("captions") or None
     frequency = data.get("frequency", "")
     continuity = data.get("numbering_continuity", "r")
+    holdings_level = resolve_holdings_level(data.get("holdings_level"))
     patterns = _load_library()
     fallback = _parser_fallback(data)
     keep_separate = _keep_separate(data)
@@ -1195,7 +1215,7 @@ def api_review_index():
                         rejections=rejections,
                         merge_patterns=index not in keep_separate,
                         skipped=index in skip_records,
-                        with_previews=False)
+                        with_previews=False, holdings_level=holdings_level)
             for index, record in enumerate(all_records)
         ]
         return jsonify({"records": rows, "total": len(all_records)})
@@ -1248,6 +1268,8 @@ def api_convert_record():
             captions=first.get("captions") or None,
             frequency=first.get("frequency", ""),
             numbering_continuity=first.get("numbering_continuity", "r"),
+            holdings_level=resolve_holdings_level(
+                first.get("holdings_level", data.get("holdings_level"))),
             **conv_opts,
         )
         _apply_record_conversion(target, rc)
@@ -1277,6 +1299,7 @@ def api_batch_convert():
     data = request.get_json(force=True) or {}
     frequency = data.get("frequency", "")
     continuity = data.get("numbering_continuity", "r")
+    holdings_level = resolve_holdings_level(data.get("holdings_level"))
     # Defaults to keeping them: an ILS that regenerates 866s from 853/863 makes
     # the originals redundant rather than wrong, and keeping them means the file
     # can be run through again with different settings.
@@ -1335,6 +1358,7 @@ def api_batch_convert():
                 frequency=frequency,
                 numbering_continuity=continuity,
                 merge_patterns=rec_idx not in keep_separate,
+                holdings_level=holdings_level,
                 **conv_opts,
             )
             _apply_record_conversion(record, rc)
@@ -1477,6 +1501,7 @@ def api_parse_text():
     captions = data.get("captions") or {}
     frequency = data.get("frequency", "")
     continuity = data.get("numbering_continuity", "r")
+    holdings_level = resolve_holdings_level(data.get("holdings_level"))
     linking = int(data.get("linking_number", 1))
 
     conv_opts, rejections = _convention_opts(data)
@@ -1487,6 +1512,7 @@ def api_parse_text():
         captions=captions or None,
         frequency=frequency,
         numbering_continuity=continuity,
+        holdings_level=holdings_level,
         **conv_opts,
     )
     conversion.warnings.extend(rejections)

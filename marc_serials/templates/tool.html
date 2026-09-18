@@ -683,6 +683,25 @@ v.6(1995)-"></textarea>
           </select>
         </div>
       </div>
+      <div class="form-row mt-2">
+        <div class="form-group">
+          <label for="batch-holdings-level">Holdings reported at (863 first indicator)</label>
+          <select id="batch-holdings-level">
+            {% for code, label in holdings_levels.items() %}
+            <option value="{{ code }}"{% if code == default_holdings_level %} selected{% endif %}>{{ code }} — {{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="small dim mt-1">
+        The level your library reports holdings at, written into each 863 and
+        matching the record's own Leader/17. It is a statement of practice
+        rather than something that can be worked out from a statement: the
+        same field appears in the MARC documentation marked both ways, because
+        two libraries can hold the same run and report it differently. A record
+        whose Leader/17 says something else is flagged on the Convert step, and
+        left alone for you to change.
+      </div>
 
       <div class="form-group">
         <label for="batch-convention">Caption convention</label>
@@ -1037,8 +1056,26 @@ function conventionPayload() {
     skip_records: [...skipRecords],
     frequency: document.getElementById('batch-freq').value,
     numbering_continuity: document.getElementById('batch-continuity').value,
+    holdings_level: document.getElementById('batch-holdings-level').value,
   };
 }
+
+document.getElementById('batch-holdings-level').addEventListener('change', () => {
+  // The level goes into every 863 and decides which records are reported as
+  // disagreeing with their own Leader/17, so both have to be recomputed --
+  // otherwise choosing a level appears to do nothing until something else
+  // happens to reload.
+  //
+  // Worth knowing: the other controls in this panel do not do this. Frequency
+  // and numbering continuity change the 853 a preview shows and take effect on
+  // the next reload rather than at once. Left alone here rather than changed
+  // quietly -- it is the same gap, and fixing it for everything is a decision
+  // about how often the screen should talk to the server.
+  document.querySelectorAll('.pattern-card').forEach(card => {
+    if (!card.querySelector('.pc-body')?.hidden) refreshPreview(card);
+  });
+  if (allRecords.length) refreshReview();
+});
 
 document.getElementById('opt-parser-fallback').addEventListener('change', () => {
   // Every preview on screen was computed under the old setting.
@@ -1298,6 +1335,13 @@ function paintRecordStatus() {
     if (entry.converted) bits.push(`<span class="pill has-866">${entry.converted} converted</span>`);
     if (entry.held) bits.push(`<span class="pill decide">${entry.held} held</span>`);
     if (entry.flagged) bits.push(`<span class="pill decide">${entry.flagged} to check</span>`);
+    // The record's own Leader/17 no longer describes what was written into it.
+    // Shown here rather than only inside the row, because a row that looks
+    // converted is a row nobody opens -- the same reason 0.9.6 gave.
+    if (entry.leader_note) {
+      bits.push(`<span class="pill decide" title="${escHtml(entry.leader_note)}"
+                       >encoding level</span>`);
+    }
     slot.innerHTML = bits.join(' ');
   });
 }
@@ -1309,7 +1353,8 @@ function recordMatchesFilter(entry, index) {
   // showed the rest of the file alongside its actual matches.
   if (!entry) return reviewFilter === 'all';
   switch (reviewFilter) {
-    case 'held':       return entry.held > 0 || entry.flagged > 0;
+    case 'held':       return entry.held > 0 || entry.flagged > 0
+                             || !!entry.leader_note;
     case 'pattern':    return entry.sources.some(
                         sc => sc !== 'parser' && sc !== 'unmatched' && sc !== 'skipped');
     case 'parser':     return entry.sources.includes('parser');

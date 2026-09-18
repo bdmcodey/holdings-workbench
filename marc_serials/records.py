@@ -20,6 +20,9 @@ from typing import Optional
 
 from pymarc import MARCReader, MARCWriter
 
+# The default lives with the setting it belongs to, so the two cannot drift.
+from .converter import DEFAULT_HOLDINGS_LEVEL
+
 
 def read_marc_file(fileobj) -> list[dict]:
     """
@@ -237,3 +240,51 @@ def display_marc_field(fld) -> str:
     # and a generated one render identically rather than with doubled spaces.
     sfs = " ".join(f"${sf.code} {(sf.value or '').strip()}" for sf in fld.subfields)
     return f"{fld.tag} {ind} {sfs}"
+
+
+# ---------------------------------------------------------------------------
+# Encoding level: surfaced, never rewritten
+# ---------------------------------------------------------------------------
+
+# m says the level is recorded per field rather than per record: "The value in
+# the first indicator position ... of the applicable 863-865 ... fields indicate
+# the level for each holdings data field."  So m cannot be contradicted.  u
+# (Unknown) and z (Other level) assert nothing to contradict either.
+_LEVELS_WITHOUT_A_CLAIM = {"m", "u", "z", " ", ""}
+
+
+def encoding_level_conflict(record, fields_863,
+                            declared: str = DEFAULT_HOLDINGS_LEVEL
+                            ) -> Optional[str]:
+    """
+    Whether this record's Leader/17 still describes what conversion wrote.
+
+    `declared` is the holdings level the cataloguer reports at, which is also
+    what goes into each 863's first indicator.  A record whose Leader/17 says
+    something else now disagrees with its own fields: declaring level 3 says
+    the holdings are summary -- "only the highest levels (first-order
+    designators)", Z39.71 4.3 -- and writing detailed 863s into it makes that
+    untrue.
+
+    Reported and never corrected, deliberately.  Encoding level is an assertion
+    the library makes about its own holdings statements, and rewriting one on a
+    cataloguer's behalf is a different kind of act from adding the fields they
+    asked for.
+
+    Returns the note to show, or None when there is nothing to say.
+    """
+    # str() because pymarc's Leader is an object, not a string: indexing works
+    # but len() does not, and a record with no leader must not raise here.
+    leader = str(getattr(record, "leader", "") or "")
+    current = leader[17] if len(leader) > 17 else ""
+    if current in _LEVELS_WITHOUT_A_CLAIM or current == declared:
+        return None
+    if not fields_863:
+        return None
+    return (
+        f"This record's Leader/17 is {current}, and the holdings written for "
+        f"it are being recorded at level {declared}. The encoding level was "
+        "left as it is: it is your statement about your holdings, not "
+        f"something this tool should change. Set it to {declared} if the "
+        "record should say what it now carries."
+    )

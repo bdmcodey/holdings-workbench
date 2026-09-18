@@ -1923,6 +1923,121 @@ printing a number that reads as a score to drive to zero. A reader comparing
 
 ---
 
+## The encoding level is surfaced, not corrected · **0.13.0**
+
+*18 September 2026. The half of the Leader question that did not need
+ANSI/NISO Z39.71 to answer.*
+
+**The defect.** A record declaring `Leader/17 = 3` says its holdings are
+summary — *"only the highest levels (first-order designators) are included"*.
+Conversion writes `$a 1-5 $b 1-4 $i 1990-1994 $j 01-12` into it, and the record
+then disagrees with itself. **19 of the 31** 863s the two fixtures produce
+record past the first level; **9 of the 15** records carrying holdings end up
+saying something untrue about themselves.
+
+**Reported, never corrected**, and the cataloguer chose that. Encoding level is
+an assertion the library makes about its own holdings statements, and
+rewriting one is a different kind of act from adding the fields somebody asked
+for. The row shows an `encoding level` marker, the note explains what the
+record says and what was written, and `Needs attention` includes it — the
+0.9.6 rule again, that a warning only reached by opening a row is not reached.
+
+`test_the_leader_is_not_rewritten` exists for the other half of that promise:
+whatever the note says, every byte of `Leader/05-11` and `Leader/17` onward
+comes back as it went in. Positions 00-04 and 12-16 are the record length and
+base address, recomputed by pymarc on write, and are not ours.
+
+### The 863 first indicator is a declaration, not a derivation · **measured**
+
+Three derivations were tried before the standard was in hand, and each was
+broken by an example:
+
+1. *"3 where the 853 declares levels the 863 does not fill"* — broken by
+   `853 23 $a v. $i (year)` over `863 32 $a 36-40 $i 1961-1965`.
+2. *"mirror the record's Leader/17"* — 19 of 31 generated fields would claim
+   to be summary while holding two levels.
+3. *"derive from the field's own content"* — broken by two examples pointing
+   opposite ways.
+
+Z39.71 §4.3 then arrived and appeared to settle it in favour of (3):
+
+> Level 3 — *"If enumeration and/or chronology are applicable, only the
+> highest levels (first-order designators) are included."*
+>
+> Level 4 — *"If enumeration and/or chronology are applicable, the most
+> specific levels (including all hierarchical levels) must be included."*
+
+**It does not,** and the reason is stronger than "the examples are loose".
+Every 863/864/865 example in the five LC documents under `docs/marc/` was
+grouped by the enumeration and chronology subfields it carries — 129 examples
+state a first indicator of 3 or 4, in 12 distinct shapes.
+`scripts/measure_863_indicator.py` reproduces what follows.
+
+| | |
+|---|---|
+| examples stating 3 or 4 | 129 — 27 say 3, 102 say 4 |
+| distinct shapes | 12 |
+| shapes the documentation marks **both** ways | **4** |
+| examples sitting under one of those shapes | **89 (68%)** |
+
+The four ambiguous shapes are the common ones:
+
+| shape | examples | marked 3 | marked 4 |
+|---|---|---|---|
+| `$a $i` | 45 | 22 | 23 |
+| `$a` | 32 | 2 | 30 |
+| `$a $i $j` | 10 | 2 | 8 |
+| `$i` | 2 | 1 | 1 |
+
+`$a $i` is a volume and a year, the shape most holdings in this corpus
+convert to, and the documentation marks it 3 twenty-two times and 4 twenty-three
+times. The `$i` row is the same field twice, to the byte, in two documents:
+
+```
+863 30 $8 1.1 $i 1964-1981        (hd863865.md)
+863 40 $8 1.1 $i 1964-1981        (hd853855.md)
+```
+
+This is not a rule with exceptions. **A function of the field's content cannot
+return two different values for the same input**, so no rule reading only the
+field exists to be found — and nothing else is available at the point the
+indicator is written. What differs between those two lines is not the field but
+the institution: Z39.71 defines what the levels *mean*, and which level a
+library reports at is that library's policy. A library reporting summarily
+writes `$a 1-10 $i 1943-1952` and marks it 3; one reporting in detail writes
+the same field and marks it 4. Both are correct.
+
+The eight unambiguous shapes are all marked 4, and all carry `$b` or deeper.
+That is consistent with deeper holdings being reported in detail, and it is no
+help: the ambiguity sits exactly where most holdings sit.
+
+So the indicator is a **declaration**, in the same class as the `Leader/17`
+question above and answered the same way: the cataloguer states it, the tool
+records it. It became the holdings reporting level setting, defaulting to 4 —
+which is what the tool wrote unconditionally before, so nothing moves by
+default. Choosing 3 changes the first indicator of 134 863 fields across both
+fixtures and all 117 corpus statements, and changes nothing else. **D18 is
+closed**: not by deriving the value it deferred, but by establishing that it is
+not derivable and giving it somewhere honest to come from.
+
+Two corrections belong here, because both were made only when the cataloguer
+asked. The earlier version of this section said "the examples are loose" — a
+guess dressed as a finding, made from two examples. And the first count
+reported here was 54 examples disagreeing with a candidate rule, against 51 for
+a second rule. Those numbers do not reproduce: the first scored a rule this
+section had already shown to be the wrong question, and the second grouped
+examples by document, of which there are five, so "the record's level" was not
+being measured at all. The table above is what a re-run produces, and the
+script that produces it is in the repository so the next person does not have
+to take it on trust.
+
+**A note on the source.** Z39.71 is an ANSI/NISO standard, not a work of the US
+government, and unlike the LC pages under `docs/marc/` it is **not** carried in
+this repository. It was read under the institution's access and is cited by
+clause. Anyone re-checking this reasoning needs their own copy.
+
+---
+
 ## The fixtures said single-part · **0.12.5**
 
 *17 September 2026. From reading the Leader, now at

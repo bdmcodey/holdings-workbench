@@ -122,6 +122,45 @@ _SUBFIELD_MAPS: Dict[str, Dict[str, Any]] = {
                           "year": "a", "month": "i"},
 }
 
+# 863 first indicator: the level a library reports its holdings at.
+#
+# Field encoding level, matching Leader/17: 3 is a summary statement, 4 a
+# detailed one.  Z39.71 4.3 defines them -- level 3 includes "only the highest
+# levels (first-order designators)", level 4 "the most specific levels
+# (including all hierarchical levels)" -- but which level an institution
+# reports at is that institution's policy, not a property of any field.
+#
+# That was measured, not assumed.  Every 863/864/865 example in the five LC
+# documents under docs/marc/ was grouped by the enumeration and chronology
+# subfields it carries: of 129 stating an indicator, in 12 distinct shapes,
+# four shapes are marked *both* ways, and those four cover 89 of the 129.
+# "$a $i" -- a volume and a year, what most statements here convert to -- is
+# marked 3 twenty-two times and 4 twenty-three times, and one field is
+# byte-identical in two documents marked 3 in one and 4 in the other:
+# "863 30 $8 1.1 $i 1964-1981" against "863 40 $8 1.1 $i 1964-1981".
+#
+# So this is not a rule with exceptions.  A function of the field cannot
+# return two values for one input, so there is no rule to find, and nothing
+# but the field is available where the indicator is written.  Same data,
+# different institution.  scripts/measure_863_indicator.py reproduces it;
+# see CORPUS-FINDINGS.
+#
+# So it is declared rather than inferred.  4 is the default because it is what
+# the tool wrote unconditionally before this existed, and because a tool that
+# encodes every level it can read is reporting in detail.
+HOLDINGS_LEVELS = {
+    "3": "Summary — first level of enumeration and chronology only",
+    "4": "Detailed — every level the statement gives",
+}
+DEFAULT_HOLDINGS_LEVEL = "4"
+
+
+def resolve_holdings_level(raw) -> str:
+    """The declared level, or the default when nothing usable was given."""
+    value = (str(raw) if raw is not None else "").strip()
+    return value if value in HOLDINGS_LEVELS else DEFAULT_HOLDINGS_LEVEL
+
+
 # 853 indicators per convention (existing local records use "2"/"0")
 _INDICATORS = {
     CONVENTION_STANDARD: ("3", "1"),
@@ -1092,6 +1131,7 @@ def _build_863_for_range(
     chron_as_text: bool = False,
     warnings: Optional[List[str]] = None,
     flags: Optional[set] = None,
+    holdings_level: str = DEFAULT_HOLDINGS_LEVEL,
 ) -> FieldData:
     """
     Build a single 863 field for one HoldingsRange.
@@ -1179,13 +1219,9 @@ def _build_863_for_range(
     if hr.break_after:
         sfs.append(SubfieldData("w", hr.break_after))
 
-    # Indicator 1 is Field encoding level, matching Leader/17: 3, 4 or 5.  4 is
-    # holdings level 4 -- enumeration and chronology recorded -- which is what
-    # this field carries.  Reconciling it with the record's own Leader/17 is
-    # still open (D18): the standard's examples do not support deriving it from
-    # the field's contents, and nothing here reads the Leader.
-    # docs/marc/hd863865.md has the values; two of its examples give 3 and 4 to
-    # fields of the same shape, which is why this is not a guess made per field.
+    # Indicator 1 is Field encoding level, matching Leader/17, and it comes
+    # from the caller's declared holdings level -- see HOLDINGS_LEVELS for why
+    # it is declared rather than derived, and D18, which this closes.
     #
     # Indicator 2 is Form of holdings, and it describes *this field*: 0
     # compressed, 1 uncompressed, 2 and 3 the same pair where the display comes
@@ -1206,7 +1242,7 @@ def _build_863_for_range(
                  if sf.code in _ENUM_SUBFIELDS + _CHRON_SUBFIELDS)
     return FieldData(
         tag="863",
-        indicator1="4",  # field encoding level 4: enumeration and chronology
+        indicator1=holdings_level,          # field encoding level, declared
         indicator2="0" if ranged else "1",  # form of holdings
         subfields=sfs,
     )
@@ -1226,6 +1262,7 @@ def convert_holdings(
     convention: str = CONVENTION_STANDARD,
     chron_as_text: bool = False,
     convention_spec: Optional[Dict[str, Any]] = None,
+    holdings_level: str = DEFAULT_HOLDINGS_LEVEL,
 ) -> ConversionResult:
     """
     Convert a ParseResult into 853 + 863 MARC field data.
@@ -1312,7 +1349,7 @@ def convert_holdings(
         fields_863 = [
             _build_863_for_range(hr, link, seq, levels, smap=declared,
                                  chron_as_text=chron_as_text, warnings=warnings,
-                                 flags=flags)
+                                 flags=flags, holdings_level=holdings_level)
             for seq, hr in enumerate(parse_result.ranges, start=1)
         ]
         return ConversionResult(
@@ -1354,6 +1391,7 @@ def convert_holdings(
     fields_863: List[FieldData] = []
     for seq, hr in enumerate(parse_result.ranges, start=1):
         f863 = _build_863_for_range(hr, linking_number, seq, levels, smap=smap,
+                                    holdings_level=holdings_level,
                                     chron_as_text=chron_as_text, warnings=warnings,
                                     flags=flags)
         fields_863.append(f863)
@@ -1450,6 +1488,7 @@ def convert_record(
     numbering_continuity: str = "",
     convention_spec: Optional[Dict[str, Any]] = None,
     merge_patterns: bool = True,
+    holdings_level: str = DEFAULT_HOLDINGS_LEVEL,
 ) -> RecordConversion:
     """
     Convert every 866 statement on one record, sharing 853s across statements
@@ -1511,7 +1550,7 @@ def convert_record(
             probe = convert_holdings(
                 pr, existing_853=cand, captions=captions, frequency=frequency,
                 numbering_continuity=numbering_continuity,
-                convention_spec=convention_spec,
+                convention_spec=convention_spec, holdings_level=holdings_level,
             )
             if probe.conformed:
                 best = probe
@@ -1520,7 +1559,7 @@ def convert_record(
         cr = best or convert_holdings(
             pr, captions=captions, frequency=frequency,
             numbering_continuity=numbering_continuity,
-            convention_spec=convention_spec,
+            convention_spec=convention_spec, holdings_level=holdings_level,
         )
         out.results.append(cr)
 
