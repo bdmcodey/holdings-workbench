@@ -20,6 +20,9 @@ from typing import Optional
 
 from pymarc import MARCReader, MARCWriter
 
+# The default lives with the setting it belongs to, so the two cannot drift.
+from .converter import DEFAULT_HOLDINGS_LEVEL
+
 
 def read_marc_file(fileobj) -> list[dict]:
     """
@@ -243,69 +246,45 @@ def display_marc_field(fld) -> str:
 # Encoding level: surfaced, never rewritten
 # ---------------------------------------------------------------------------
 
-# Leader/17 values that assert holdings recorded at or below the first level of
-# enumeration and chronology.  docs/marc/hdleader.md:
-#
-#   3 - Holdings level 3: "summary holdings information, that is, holdings at
-#       the first level of enumeration and chronology"
-#   4 - Holdings level 4: "detailed holdings information, that is, the first
-#       and all subsequent levels of enumeration and chronology"
-#
-# 1 and 2 are lower still -- an item and location identifier, then coded 008
-# values -- and neither contemplates enumeration at all.
-_SUMMARY_LEVELS = {"1", "2", "3"}
-
 # m says the level is recorded per field rather than per record: "The value in
 # the first indicator position ... of the applicable 863-865 ... fields indicate
 # the level for each holdings data field."  So m cannot be contradicted.  u
 # (Unknown) and z (Other level) assert nothing to contradict either.
 _LEVELS_WITHOUT_A_CLAIM = {"m", "u", "z", " ", ""}
 
-_ENUM_SUBFIELDS = "abcdefgh"
-_CHRON_SUBFIELDS = "ijklm"
 
-
-def _is_detailed(field_863) -> bool:
-    """Whether a generated 863 records past the first level of enum or chron."""
-    codes = [sf.code for sf in field_863.subfields if sf.code != "8"]
-    return (sum(1 for c in codes if c in _ENUM_SUBFIELDS) > 1
-            or sum(1 for c in codes if c in _CHRON_SUBFIELDS) > 1)
-
-
-def encoding_level_conflict(record, fields_863) -> Optional[str]:
+def encoding_level_conflict(record, fields_863,
+                            declared: str = DEFAULT_HOLDINGS_LEVEL
+                            ) -> Optional[str]:
     """
     Whether this record's Leader/17 still describes what conversion wrote.
 
-    A record declaring level 3 says its holdings are summary -- first level of
-    enumeration and chronology only.  Converting an 866 into
-    "$a 1-5 $b 1-4 $i 1990-1994 $j 01-12" puts detailed holdings into a record
-    that says it has none, and the record then disagrees with itself.
+    `declared` is the holdings level the cataloguer reports at, which is also
+    what goes into each 863's first indicator.  A record whose Leader/17 says
+    something else now disagrees with its own fields: declaring level 3 says
+    the holdings are summary -- "only the highest levels (first-order
+    designators)", Z39.71 4.3 -- and writing detailed 863s into it makes that
+    untrue.
 
     Reported and never corrected, deliberately.  Encoding level is an assertion
     the library makes about its own holdings statements, and rewriting one on a
     cataloguer's behalf is a different kind of act from adding the fields they
-    asked for.  It also cannot be inferred safely: the value tracks levels
-    defined in ANSI/NISO Z39.71, and the MARC examples do not yield a rule --
-    "863 30 $a 113-115 $i 1923-1924 $j 01-06" is marked summary while carrying
-    two chronology levels, and "863 40 $a 180-226 $i 1976-1981" is marked
-    detailed carrying one.  See CORPUS-FINDINGS.
+    asked for.
 
     Returns the note to show, or None when there is nothing to say.
     """
-    # str() because pymarc's Leader is an object, not a string: indexing it
-    # works but len() does not, and a record with no leader at all must not
-    # raise here.
+    # str() because pymarc's Leader is an object, not a string: indexing works
+    # but len() does not, and a record with no leader must not raise here.
     leader = str(getattr(record, "leader", "") or "")
-    declared = leader[17] if len(leader) > 17 else ""
-    if declared in _LEVELS_WITHOUT_A_CLAIM or declared not in _SUMMARY_LEVELS:
+    current = leader[17] if len(leader) > 17 else ""
+    if current in _LEVELS_WITHOUT_A_CLAIM or current == declared:
         return None
-    if not any(_is_detailed(f) for f in fields_863):
+    if not fields_863:
         return None
     return (
-        f"This record's Leader/17 is {declared} — holdings recorded at the "
-        "first level of enumeration and chronology only — but the fields "
-        "written for it record further levels. The encoding level was left "
-        "as it is: it is your statement about your holdings, not something "
-        "this tool should change. Set it to 4 if the record should say it "
-        "now carries detailed holdings."
+        f"This record's Leader/17 is {current}, and the holdings written for "
+        f"it are being recorded at level {declared}. The encoding level was "
+        "left as it is: it is your statement about your holdings, not "
+        f"something this tool should change. Set it to {declared} if the "
+        "record should say what it now carries."
     )

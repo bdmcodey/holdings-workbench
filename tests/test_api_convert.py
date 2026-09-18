@@ -351,29 +351,116 @@ def test_the_leader_is_not_rewritten(client, example_marc_bytes):
         assert now[17:] == was[17:], f"record {index}: Leader/17 onward changed"
 
 
-def test_a_record_the_leader_still_fits_is_not_reported(client):
-    """
-    The guard on the guard. A record already declaring level 4 has nothing to
-    be told, and one whose statements convert to a single level has nothing
-    detailed to conflict with.
-    """
+def _one_record_file(leader: str, statement: str) -> bytes:
+    """A single synthetic record, for pinning what the Leader check says."""
     from pymarc import Record, Field, Subfield, MARCWriter
     import io
 
     buf = io.BytesIO()
     writer = MARCWriter(buf)
     rec = Record()
-    rec.leader = "00522cy  a22001453n 4500"
-    rec.add_field(Field(tag="001", data="lvl4rec"))
+    rec.leader = leader
+    rec.add_field(Field(tag="001", data="lvltest"))
     rec.add_field(Field(tag="245", indicators=["0", "0"],
-                        subfields=[Subfield(code="a", value="Level Four Serial.")]))
+                        subfields=[Subfield(code="a", value="Level Test Serial.")]))
     rec.add_field(Field(tag="866", indicators=[" ", "0"],
-                        subfields=[Subfield(code="a", value="v.1(1990)-v.10(1999)")]))
+                        subfields=[Subfield(code="a", value=statement)]))
     writer.write(rec)
     writer.close(close_fh=False)
+    return buf.getvalue()
 
-    upload_marc(client, buf.getvalue())
+
+def test_a_record_already_at_the_declared_level_is_not_reported(client):
+    """
+    The guard on the guard: flagging every record would flag nothing.
+
+    A record declaring level 4, converted by a library reporting at level 4 --
+    the default -- has nothing to be told. Note that what matters is the two
+    levels agreeing, not how much detail the statement happens to carry: the
+    level is a declaration of practice, not a measurement of a field. Which is
+    what the 129 LC examples establish: four subfield shapes are marked both
+    ways, covering 89 of them, so no rule derived from content can hold. See
+    CORPUS-FINDINGS.
+    """
+    # /17 = 4: the same leader as the fixtures but declaring detailed holdings.
+    data = _one_record_file("00522cy  a22001454n 4500", "v.1(1990)-v.10(1999)")
+    upload_marc(client, data)
     rows = client.post("/api/review-index", json={}).get_json()["records"]
-    # "v.1(1990)-v.10(1999)" is one enumeration level and one chronology level,
-    # which is what level 3 describes, so there is no conflict to report.
     assert [r for r in rows if r.get("leader_note")] == []
+
+
+def test_declaring_the_level_a_record_already_says_silences_the_note(client):
+    """
+    The other side of it, and the reason the setting exists. A record saying
+    level 3 is reported without complaint once the library says it reports at
+    level 3 -- and its 863s then carry 3 too, so the record agrees with itself
+    throughout.
+    """
+    # /17 = 3, the level the two committed fixtures declare.
+    data = _one_record_file("00522cy  a22001453n 4500", "v. 1 no. 2 (1990)")
+    upload_marc(client, data)
+
+    default = client.post("/api/review-index", json={}).get_json()["records"]
+    assert [r for r in default if r.get("leader_note")], (
+        "with the default level 4 this record should be reported")
+
+    declared3 = client.post("/api/review-index",
+                            json={"holdings_level": "3"}).get_json()["records"]
+    assert [r for r in declared3 if r.get("leader_note")] == [], (
+        "declaring level 3 should agree with a record that says 3")
+
+    preview = client.post("/api/preview-records",
+                          json={"indices": [0], "holdings_level": "3"}).get_json()
+    fields = preview["records"][0]["previews"][0]["fields_863"]
+    assert fields[0].startswith("863 3"), fields[0]
+
+
+def test_the_declared_level_reaches_the_downloaded_file(client):
+    """
+    The setting has to survive as far as the file, not just the preview.
+
+    The screen is where a cataloguer checks the level; the download is what
+    reaches the catalogue. Those are two code paths, and a setting honoured on
+    one and dropped on the other would look right and load wrong.
+    """
+    from pymarc import MARCReader
+
+    upload_marc(client, _one_record_file("00522cy  a22001453n 4500",
+                                         "v. 1 no. 2 (1990)"))
+    res = client.post("/api/batch-convert", json={"holdings_level": "3"})
+    assert res.status_code == 200, res.get_data()
+
+    got = client.get("/api/download-converted")
+    assert got.status_code == 200
+    records = list(MARCReader(got.data))
+    fields = records[0].get_fields("863")
+    assert fields, "conversion produced no 863 to check"
+    for field in fields:
+        assert field.indicator1 == "3", (
+            f"downloaded 863 says level {field.indicator1}, not the declared 3")
+
+
+def test_the_default_level_is_what_the_tool_wrote_before_the_setting(client):
+    """
+    Nothing moves for a cataloguer who never opens Conversion settings.
+
+    The first indicator was the constant "4" before this was a choice, so the
+    default has to produce that, and an unusable value has to fall back to it
+    rather than write a level nobody declared. MARC has no "unspecified" here:
+    whatever goes in the indicator is a claim about the holdings.
+    """
+    from pymarc import MARCReader
+
+    upload_marc(client, _one_record_file("00522cy  a22001453n 4500",
+                                         "v. 1 no. 2 (1990)"))
+
+    for payload in ({}, {"holdings_level": ""}, {"holdings_level": "9"},
+                    {"holdings_level": None}, {"holdings_level": "detailed"}):
+        res = client.post("/api/batch-convert", json=payload)
+        assert res.status_code == 200, (payload, res.get_data())
+        records = list(MARCReader(client.get("/api/download-converted").data))
+        fields = records[0].get_fields("863")
+        assert fields, (payload, "conversion produced no 863 to check")
+        for field in fields:
+            assert field.indicator1 == "4", (
+                f"{payload} produced level {field.indicator1}, not the default 4")
