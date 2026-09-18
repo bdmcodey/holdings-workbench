@@ -78,6 +78,28 @@ def test_the_page_renders(client):
     assert client.get("/").status_code == 200
 
 
+def test_a_changed_template_is_reread_without_restarting(marc_app):
+    """
+    A pull has to be visible on a refresh, not on a restart.
+
+    Jinja compiles a template once per process and Flask only disables that
+    when debug is on, which it is not: run.py starts the server with
+    debug=False. shared/about.json is read per request, so after an update the
+    header reports the new version out of a page built from the old template --
+    every symptom saying the update failed while the badge said it worked.
+
+    The assertion is on the Jinja environment rather than on the config dict,
+    because that is where the realistic failure lives: a mistyped config key
+    sits in the dict looking perfectly correct and reaching nothing.
+    """
+    assert marc_app.app.jinja_env.auto_reload is True, (
+        "templates are compiled once per process: a template edit will not be "
+        "served until the server is restarted")
+    assert marc_app.app.debug is False, (
+        "this test is only meaningful with debug off -- with debug on, Jinja "
+        "would auto-reload anyway and the config would prove nothing")
+
+
 def test_the_stylesheet_is_served(client):
     response = client.get("/ui.css")
     assert response.status_code == 200

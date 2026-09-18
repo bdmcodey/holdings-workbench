@@ -15,6 +15,14 @@ more than one release; numbering resumed with 0.6.1. Reasoning behind the
 parser and converter decisions, including the defects a real corpus exposed and
 what was done about each, is in [CORPUS-FINDINGS.md](CORPUS-FINDINGS.md).
 
+## 0.13.1 — 2026-09-18
+
+After updating the tool, refreshing the page is enough to see the new version. It used to need the server stopped and started again, without saying so.
+
+- **MARC Serials Toolkit** — If you updated the tool while it was running, the page kept showing the old screen. The version number in the header updated, because that is read fresh every time the page loads — but the page itself was built once when the server started and then kept. So the header told you the update had arrived while you were looking at the version before it.
+- **MARC Serials Toolkit** — This is how it showed up in practice. After an update that changed the Convert step to ten records a page, the screen still listed every record at once and the buttons underneath still counted in fifties — while the header read 0.13.0. Nothing was wrong with the update; the page being displayed simply predated it.
+- **MARC Serials Toolkit** — The page is now rebuilt whenever its file changes, so a refresh is enough and restarting the server is no longer a step anyone has to know about. Nothing about conversion changes.
+
 ## 0.13.0 — 2026-09-18
 
 You tell the tool which level your library reports holdings at, and it writes that into every 863. A record whose Leader says something different is marked for your attention, and left alone.
