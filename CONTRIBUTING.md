@@ -147,8 +147,14 @@ a function deleted while the line calling it stayed — broke every pasted
 statement and no route test noticed, because the server was fine throughout.
 
 When a change touches `marc_serials/templates/`, load the page and use it.
-Flask caches compiled templates outside debug mode, so **restart the server
-before checking**, or you will verify the old page and believe it.
+A refresh is enough: since 0.13.1 the app sets `TEMPLATES_AUTO_RELOAD`, so a
+changed template is re-read rather than compiled once per process.
+
+**A change to any `.py` file still needs the server restarted.** Only templates
+reload. And the header's version badge cannot tell you whether you restarted:
+`shared/about.json` is read per request, so it reports the version on disk, not
+the version of the code answering you. If the screen and the badge disagree,
+believe the screen.
 
 ---
 

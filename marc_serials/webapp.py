@@ -98,6 +98,21 @@ app.secret_key = os.environ.get("SECRET_KEY", "marc-workbench-dev-key")
 
 app.config["MAX_CONTENT_LENGTH"] = 25 * 1024 * 1024   # 25 MB
 
+# Re-read a template when its file changes, instead of once per process.
+#
+# Jinja compiles a template on first render and keeps it for the life of the
+# process, and Flask only turns that off when debug is on -- which it is not
+# here, because run.py starts the server with debug=False.  shared/about.json
+# is read per request, so the two are on different schedules: after a pull, the
+# header reports the new version out of a page compiled from the old template.
+# That combination cost a real afternoon.  Every symptom said "the update did
+# not work" while the badge said it had.
+#
+# The cost is one stat() per render of one file, which is nothing against the
+# conversion it sits in front of.  The benefit is that "restart the server"
+# stops being a step anybody has to remember.
+app.config["TEMPLATES_AUTO_RELOAD"] = True
+
 # Flask names its session cookie "session" at path / by default, and the three
 # apps are served from one hostname -- so with the stock name the workbench and
 # the converter overwrite each other's cookie. Neither can then read what it

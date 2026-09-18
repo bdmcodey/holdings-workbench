@@ -1,6 +1,6 @@
 {
   "name": "MARC Serials Toolkit",
-  "version": "0.13.0",
+  "version": "0.13.1",
   "released": "2026-09-18",
   "status": "Proof of concept — under active development. Check your output before loading it into the catalog.",
   "description": "One tool for MARC serials holdings. Upload a MARC file, find the patterns in its 866 statements, confirm what each part of a pattern means, and convert to structured 853 caption/pattern and 863 enumeration/chronology fields. Statements no pattern matches are converted by the standard parser.",
@@ -9,6 +9,25 @@
   "contact": "Matthew Codey, codey@usc.edu",
   "_comment": "Written for cataloging staff, not developers. Say what changed about the output or the screen, not how the code changed. Newest version first.",
   "changelog": [
+    {
+      "version": "0.13.1",
+      "date": "2026-09-18",
+      "summary": "After updating the tool, refreshing the page is enough to see the new version. It used to need the server stopped and started again, without saying so.",
+      "changes": [
+        {
+          "tool": "MARC Serials Toolkit",
+          "text": "If you updated the tool while it was running, the page kept showing the old screen. The version number in the header updated, because that is read fresh every time the page loads — but the page itself was built once when the server started and then kept. So the header told you the update had arrived while you were looking at the version before it."
+        },
+        {
+          "tool": "MARC Serials Toolkit",
+          "text": "This is how it showed up in practice. After an update that changed the Convert step to ten records a page, the screen still listed every record at once and the buttons underneath still counted in fifties — while the header read 0.13.0. Nothing was wrong with the update; the page being displayed simply predated it."
+        },
+        {
+          "tool": "MARC Serials Toolkit",
+          "text": "The page is now rebuilt whenever its file changes, so a refresh is enough and restarting the server is no longer a step anyone has to know about. Nothing about conversion changes."
+        }
+      ]
+    },
     {
       "version": "0.13.0",
       "date": "2026-09-18",
