@@ -15,6 +15,15 @@ more than one release; numbering resumed with 0.6.1. Reasoning behind the
 parser and converter decisions, including the defects a real corpus exposed and
 what was done about each, is in [CORPUS-FINDINGS.md](CORPUS-FINDINGS.md).
 
+## 0.15.1 — 2026-09-18
+
+A note in curly braces no longer costs a statement its holdings.
+
+- **MARC Serials Toolkit** — A statement like "1993: {Memorial Issue} (1 [Feb])" used to report that the note had been preserved and then convert nothing at all — the note was left in the text, the grammar met something it had no rule for, and the holdings went with it. A statement lost its holdings in order to say something about a note.
+- **MARC Serials Toolkit** — The note is now set aside before the statement is read, so the holdings convert and the note is still reported as preserved but not encoded. This affected both ways the tool reads a statement, so the fix sits above both.
+- **MARC Serials Toolkit** — "{lcub}" and "{rcub}" are left exactly as they are. Those are MARC's way of writing a literal curly brace rather than a note, and treating one as a note would delete a character somebody typed on purpose. The single statement in the sample corpus containing braces is of that kind.
+- **MARC Serials Toolkit** — Nothing else about conversion changes: the sample corpus converts exactly as it did before — 90 statements cleanly, none with values lost.
+
 ## 0.15.0 — 2026-09-18
 
 When a file carries no 999 $b, the tool offers the fields that file does carry, instead of leaving a blank where the number should be.

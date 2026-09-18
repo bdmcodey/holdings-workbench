@@ -132,9 +132,19 @@ def test_the_find_box_and_its_controls_are_on_the_page(client):
 
 
 def test_the_stylesheet_is_served(client):
-    response = client.get("/ui.css")
-    assert response.status_code == 200
-    assert response.data
+    """
+    Closed explicitly, which is why this reads oddly for a two-line check.
+
+    send_from_directory() hands back a response holding an open file, and the
+    file is closed when the response is. A real WSGI server does that after
+    every request; the test client leaves it to garbage collection, so the
+    handle outlives the test and `pytest -W error::ResourceWarning` fails on a
+    warning that says nothing about the application. Closing it here keeps
+    that flag usable for finding leaks that are real.
+    """
+    with client.get("/ui.css") as response:
+        assert response.status_code == 200
+        assert response.data
 
 
 def test_the_page_carries_its_fold_controls(client):
