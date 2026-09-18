@@ -642,6 +642,12 @@ v.6(1995)-"></textarea>
       </details>
 
       <div id="patterns-area"></div>
+
+      <div id="pattern-pager" class="btn-row" hidden>
+        <button type="button" class="btn btn-secondary btn-sm" id="btn-patt-prev">‹ Previous</button>
+        <span id="patt-page-label" class="small dim" style="align-self:center;"></span>
+        <button type="button" class="btn btn-secondary btn-sm" id="btn-patt-next">Next ›</button>
+      </div>
     </div>
 
     <div id="patterns-summary" class="step-summary" hidden></div>
@@ -903,7 +909,23 @@ let skipRecords    = new Set();   // records to leave exactly as they are
 let recordIndex    = new Map();
 let reviewFilter   = 'all';
 let reviewOffset   = 0;
-const REVIEW_PAGE  = 50;
+
+// Ten a page, in both steps.
+//
+// It was 50 in Convert, and 50 rows is about eight screens of scrolling before
+// the Convert and Download buttons below the list come into reach -- on a
+// 320-record file the accordion measured 34,800px. Ten is enough to see the
+// shape of a page and short enough that the controls stay in view.
+//
+// Nothing here fetches less than it did: previews were already requested a
+// page at a time, so a smaller page means more requests, each smaller.
+const REVIEW_PAGE  = 10;
+const PATTERN_PAGE = 10;
+
+// Which page of the patterns still wanting a decision is on screen. The
+// confirmed, parser-read, skipped and too-complex groups are folded away
+// already and are not paged -- folding a fold would help nobody.
+let patternOffset  = 0;
 
 // ─────────────────────────────────────────────────────────────────────────
 // Utilities
@@ -1298,20 +1320,51 @@ function recordMatchesFilter(entry, index) {
 }
 
 function applyReviewFilter() {
-  let shown = 0;
+  // Show the page, not everything the filter matches.
+  //
+  // renderRecordList() builds a row for every record in the file once, and
+  // this decided which to show from the filter alone -- so a 320-record file
+  // with no filter showed all 320 rows while the pager underneath said
+  // "records 1-50 of 320". The pager was real; it governed which previews
+  // were fetched. It just had nothing to do with what was on screen.
+  const matching = filteredIndices();
+  const onPage = new Set(matching.slice(reviewOffset, reviewOffset + REVIEW_PAGE));
+
   document.querySelectorAll('.rec-row').forEach(row => {
-    const index = Number(row.dataset.index);
-    const keep = recordMatchesFilter(recordIndex.get(index), index);
-    row.hidden = !keep;
-    if (keep) shown++;
+    row.hidden = !onPage.has(Number(row.dataset.index));
   });
+
   const total = document.querySelectorAll('.rec-row').length;
   const done = [...reviewed].filter(i => i < allRecords.length).length;
   const set_aside = [...skipRecords].filter(i => i < allRecords.length).length;
+  // "shown" used to mean the number of visible rows, which with a page of ten
+  // is only ever ten and says nothing. What a cataloguer wants to know is how
+  // much of the file the filter is showing them; the pager says where in it
+  // they are.
   document.getElementById('review-count').textContent =
-    `${shown} of ${total} shown · ${done} of ${allRecords.length} reviewed`
+    `${matching.length} of ${total} match · ${done} of ${allRecords.length} reviewed`
     + (set_aside ? ` · ${set_aside} skipped` : '');
 }
+
+/**
+ * The pager under the patterns still wanting a decision.
+ *
+ * Hidden unless there is more than one page of them, so a cataloguer whose file
+ * asks for three decisions never sees a control for paging three cards.
+ */
+function renderPatternPager(total) {
+  const pager = document.getElementById('pattern-pager');
+  if (!pager) return;
+  const more = total > PATTERN_PAGE;
+  pager.hidden = !more;
+  if (!more) return;
+  const last = Math.min(patternOffset + PATTERN_PAGE, total);
+  document.getElementById('patt-page-label').textContent =
+    `patterns ${patternOffset + 1}–${last} of ${total} still wanting an answer`;
+  document.getElementById('btn-patt-prev').disabled = patternOffset === 0;
+  document.getElementById('btn-patt-next').disabled = last >= total;
+}
+
 
 function renderPager(data) {
   const pager = document.getElementById('review-pager');
@@ -1430,6 +1483,20 @@ function announceUnreviewed(n) {
   notice.hidden = false;
 }
 
+document.getElementById('btn-patt-prev').addEventListener('click', () => {
+  patternOffset = Math.max(0, patternOffset - PATTERN_PAGE);
+  redrawPatterns();
+  document.getElementById('patterns-area').scrollIntoView(
+    { block: 'start', behavior: 'smooth' });
+});
+
+document.getElementById('btn-patt-next').addEventListener('click', () => {
+  patternOffset += PATTERN_PAGE;
+  redrawPatterns();
+  document.getElementById('patterns-area').scrollIntoView(
+    { block: 'start', behavior: 'smooth' });
+});
+
 document.getElementById('btn-page-prev').addEventListener('click', () => {
   reviewOffset = Math.max(0, reviewOffset - REVIEW_PAGE);
   loadReviewPage();
@@ -1506,6 +1573,9 @@ async function runDetect() {
       split_multi_range: lastSplit,
     });
     detected = data.groups;
+    // A new run is a new set of cards, so start at the first page of them
+    // rather than wherever the last run had got to.
+    patternOffset = 0;
     await autoConfirm(data.groups);
     renderPatterns(data);
     // Nothing here asks anything, so fold it and put Convert in view. If
@@ -1645,7 +1715,17 @@ function renderPatterns(data) {
     }</p>`;
   area.appendChild(summary);
 
-  parts.open.forEach(({ group, idx }) => area.appendChild(buildPatternCard(group, idx)));
+  // A page of the cards still wanting a decision.
+  //
+  // Only these are paged. The four folds below hold the patterns with nothing
+  // to decide and are collapsed already, so paging them would hide what is
+  // hidden. On the test collection this changes nothing -- nine open cards fit
+  // in one page and the pager stays hidden -- but a file with more variety than
+  // the corpus can put dozens of decisions on one screen.
+  if (patternOffset >= parts.open.length) patternOffset = 0;
+  const openPage = parts.open.slice(patternOffset, patternOffset + PATTERN_PAGE);
+  openPage.forEach(({ group, idx }) => area.appendChild(buildPatternCard(group, idx)));
+  renderPatternPager(parts.open.length);
 
   if (parts.confirmed.length) {
     const n = parts.confirmed.length;

@@ -15,6 +15,16 @@ more than one release; numbering resumed with 0.6.1. Reasoning behind the
 parser and converter decisions, including the defects a real corpus exposed and
 what was done about each, is in [CORPUS-FINDINGS.md](CORPUS-FINDINGS.md).
 
+## 0.12.5 — 2026-09-17
+
+Convert shows ten records at a time instead of the whole file, so the buttons below the list are no longer a long scroll away.
+
+- **MARC Serials Toolkit** — The Convert step had a pager underneath the records, and it was telling the truth about which records it had fetched details for — but the list above it was showing every record in the file regardless. On a 320-record file that was the whole 320, about thirty-nine screens of scrolling to reach 'Convert all records' and 'Download'. The list now shows the ten the pager names.
+- **MARC Serials Toolkit** — Ten a page rather than the fifty the pager used before. Fifty rows was still around eight screens.
+- **MARC Serials Toolkit** — The line above the list now reads '29 of 320 match · 0 of 320 reviewed'. It used to say how many rows were on screen, which with a page of ten is only ever ten; what is useful is how much of the file the filter is showing you, with the pager saying where in it you are.
+- **MARC Serials Toolkit** — The Patterns step pages the same way, but only the cards still wanting an answer from you, and only when there are more than ten of them. The confirmed, parser-read, skipped and too-complex groups are folded away already, so paging them would hide what is hidden.
+- **MARC Serials Toolkit** — Nothing about conversion changes. The same records convert the same way, the filters still answer for the whole file rather than the page on screen, and moving between pages does not lose which records you have ticked as reviewed or skipped.
+
 ## 0.12.4 — 2026-09-17
 
 An 863 recording a single issue no longer describes itself as a compressed range. The code that says which it is now matches the field it sits on.
