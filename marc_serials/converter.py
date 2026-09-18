@@ -155,6 +155,46 @@ HOLDINGS_LEVELS = {
 DEFAULT_HOLDINGS_LEVEL = "4"
 
 
+# 853 $u: how many parts of a level make one of the level above it.
+#
+# "Number (or the code var or und) that specifies the total number of parts
+# that comprise the next higher level of enumeration. May be used with each
+# level of enumeration except the first level (subfield $a or $g) because
+# there is no higher level" -- MARC 21 853-855, docs/marc/hd853855.md. The
+# standard's own illustration is "a quarterly publication requires 4 issues to
+# make 1 volume".
+#
+# Declared, never derived, and for the same reason the holdings level is: it
+# is a fact about the publication, not about the statement. An 866 saying
+# "v.1-5 (1990-1994)" is equally true of a monthly and a quarterly, and a
+# frequency of "monthly" does not settle it either -- a monthly with two
+# volumes a year has six issues to a volume, not twelve. Guessing would write
+# a publication pattern nobody verified into every record in the file.
+UNITS_PER_HIGHER_CODES = {"var": "Varies", "und": "Undetermined"}
+
+
+def resolve_units_per_higher(raw) -> str:
+    """
+    A usable $u value, or "" for "not specified".
+
+    Accepts a count, or the two codes the standard defines. Anything else is
+    not written: a $u is a claim about how the serial is published, and a
+    malformed one would make that claim wrongly rather than not at all. The
+    screen validates before sending, so this is the backstop rather than the
+    place a cataloguer is told.
+    """
+    value = (str(raw) if raw is not None else "").strip().lower()
+    if not value:
+        return ""
+    if value in UNITS_PER_HIGHER_CODES:
+        return value
+    # "Because subfield $u is variable in length, no leading zero is used for a
+    # single-character number."
+    if value.isdigit() and value == value.lstrip("0") and 0 < int(value) < 1000:
+        return value
+    return ""
+
+
 def resolve_holdings_level(raw) -> str:
     """The declared level, or the default when nothing usable was given."""
     value = (str(raw) if raw is not None else "").strip()
@@ -635,6 +675,7 @@ def _build_853(
     captions: Optional[Dict[str, str]] = None,
     frequency: str = "",
     numbering_continuity: str = "",
+    units_per_higher: str = "",
     convention: str = CONVENTION_STANDARD,
     convention_spec: Optional[Dict[str, Any]] = None,
     warnings: Optional[List[str]] = None,
@@ -713,16 +754,38 @@ def _build_853(
     # single-level statement put it on the first -- 18 of the 117 corpus
     # statements, every one of them one level deep.
     #
-    # $u (bibliographic units per next higher level) is never guessed. The
-    # standard pairs $u with $v and requires both for machine compression,
-    # which is why the first indicator says compressibility is unknown: an 866
-    # rarely states how many issues a volume holds, and inventing a number
-    # would claim a pattern nobody verified.
+    # $u (bibliographic units per next higher level) is still never guessed --
+    # an 866 rarely states how many issues a volume holds, and inventing a
+    # number would claim a pattern nobody verified. It is written only when the
+    # cataloguer declares it, and then on the *second* enumeration level: $u on
+    # $b says how many issues make a volume, which is what a single declared
+    # number means. On a three-level serial the last level is a different
+    # question -- parts per issue rather than issues per volume -- and is left
+    # alone rather than given the same number. One statement of the 112 the
+    # corpus produces an 853 for goes that deep; 89 are exactly two levels.
+    #
+    # Order within the level follows the standard's examples, which read
+    # "$bno.$u12$vr": the caption, then $u, then $v.
     last_enum_code = planned[len(declared) - 1][0] if declared else None
     if len(declared) < 2:
         last_enum_code = None
+
+    # "Not used with subfield $a or $g", so the guard is on the code and not
+    # only on the count of levels.
+    second_enum_code = planned[1][0] if len(declared) >= 2 else None
+    if second_enum_code in ("a", "g"):
+        second_enum_code = None
+
+    # Sanitised here and not only at the request boundary. This function is
+    # what writes MARC, and it should not write an invalid subfield whoever
+    # called it -- a wrong $u makes a claim about the publication, where no $u
+    # simply makes none.
+    units_per_higher = resolve_units_per_higher(units_per_higher)
+
     for code, value in sorted(planned, key=lambda p: p[0]):
         sfs.append(SubfieldData(code, value))
+        if units_per_higher and code == second_enum_code:
+            sfs.append(SubfieldData("u", units_per_higher))
         if numbering_continuity and code == last_enum_code:
             sfs.append(SubfieldData("v", numbering_continuity))
 
@@ -1258,6 +1321,7 @@ def convert_holdings(
     captions: Optional[Dict[str, str]] = None,
     frequency: str = "",
     numbering_continuity: str = "",
+    units_per_higher: str = "",
     existing_853=None,
     convention: str = CONVENTION_STANDARD,
     chron_as_text: bool = False,
@@ -1384,6 +1448,7 @@ def convert_holdings(
         captions=captions,
         frequency=frequency,
         numbering_continuity=numbering_continuity,
+        units_per_higher=units_per_higher,
         convention_spec=convention_spec,
         warnings=warnings,
     )
@@ -1486,6 +1551,7 @@ def convert_record(
     captions: Optional[Dict[str, str]] = None,
     frequency: str = "",
     numbering_continuity: str = "",
+    units_per_higher: str = "",
     convention_spec: Optional[Dict[str, Any]] = None,
     merge_patterns: bool = True,
     holdings_level: str = DEFAULT_HOLDINGS_LEVEL,
@@ -1550,6 +1616,7 @@ def convert_record(
             probe = convert_holdings(
                 pr, existing_853=cand, captions=captions, frequency=frequency,
                 numbering_continuity=numbering_continuity,
+                units_per_higher=units_per_higher,
                 convention_spec=convention_spec, holdings_level=holdings_level,
             )
             if probe.conformed:
@@ -1559,6 +1626,7 @@ def convert_record(
         cr = best or convert_holdings(
             pr, captions=captions, frequency=frequency,
             numbering_continuity=numbering_continuity,
+            units_per_higher=units_per_higher,
             convention_spec=convention_spec, holdings_level=holdings_level,
         )
         out.results.append(cr)

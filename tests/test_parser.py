@@ -574,17 +574,47 @@ def test_a_refused_end_unit_refuses_the_whole_range():
     assert any("could not account for" in w for w in r.warnings), r.warnings
 
 
-@pytest.mark.xfail(reason="a brace note defeats the block grammar entirely")
-def test_cataloguer_note_should_not_cost_the_statement():
+def test_a_cataloguer_note_does_not_cost_the_statement():
     """
-    "1993: {Memorial Issue} (1 [Feb])" warns that the note was preserved and
-    then fails to find a block, returning zero ranges. The note should be
-    reported and the holdings parsed, as happens for unexplained markers.
+    Was an xfail: the note was reported and then left in the text, so the block
+    grammar met something it had no rule for and returned nothing. A statement
+    lost its holdings in order to say something about a note.
+
+    Notes are now lifted out before either grammar reads the statement, which
+    is rule 4 applied as written -- deliberately dropped, with the reason said
+    out loud -- rather than the fourth state of "silently cost you the rest".
     """
     r = parse_866("1993: {Memorial Issue} (1 [Feb])")
     assert r.success is True
     assert len(r.ranges) == 1
     assert r.ranges[0].start.year == "1993"
+    assert any("Memorial Issue" in w for w in r.warnings), r.warnings
+    # The statement as the cataloguer wrote it, note included.
+    assert r.raw == "1993: {Memorial Issue} (1 [Feb])"
+
+
+def test_a_note_costs_nothing_in_the_enumeration_grammar_either():
+    """The same defect lived in both grammars, so the fix sits above both."""
+    r = parse_866("v.1 {2nd printing} (1990)")
+    assert r.success is True
+    assert len(r.ranges) == 1
+    assert r.ranges[0].start.year == "1990"
+    assert any("2nd printing" in w for w in r.warnings), r.warnings
+
+
+def test_a_marc_escaped_brace_is_not_read_as_a_note():
+    """
+    "{lcub}" and "{rcub}" are MARC's way of writing a literal brace. Reading
+    one as a note would delete a character the cataloguer typed on purpose --
+    and the one statement in the corpus containing braces is of exactly this
+    kind, not a note at all.
+    """
+    from marc_serials.parser import _excise_brace_notes
+
+    text = 'v.1 {lcub}Alternate Voice{rcub} (1990)'
+    cleaned, notes = _excise_brace_notes(text)
+    assert cleaned == text, "a literal brace was excised as though it were a note"
+    assert notes == []
 
 
 # ---------------------------------------------------------------------------

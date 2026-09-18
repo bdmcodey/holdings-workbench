@@ -1338,6 +1338,48 @@ _BLOCK_SNIFF_RE = re.compile(r"^\s*[NM]?\s*(?:\d{4}|\?)\s*:", re.IGNORECASE)
 _BRACE_NOTE_RE = re.compile(r"\{([^}]*)\}?")
 
 
+def _excise_brace_notes(text: str) -> tuple[str, List[str]]:
+    """
+    Lift cataloguer notes out of a statement so the holdings can be read.
+
+    The note was already reported before this existed -- and then the statement
+    was parsed with the note still in it, so the grammar met text it had no
+    rule for and returned nothing. "1993: {Memorial Issue} (1 [Feb])" warned
+    that the note was preserved and then found no block at all, which loses the
+    holdings to say something about the note. The same statement without the
+    note parses perfectly.
+
+    Rule 4 is what decides the shape of this: a note is *encoded*, *deliberately
+    dropped with a reason*, or *held for review*, and never a fourth thing. It
+    is dropped with a reason, which is what the warning is, and what remains is
+    the statement the cataloguer actually recorded holdings in.
+
+    "{lcub}" and "{rcub}" are left alone. They are MARC's escapes for a literal
+    brace, not notes, and reading one as a note would delete a character the
+    cataloguer typed on purpose.
+    """
+    if "{" not in text:
+        return text, []
+
+    notes: List[str] = []
+
+    def take(match: "re.Match") -> str:
+        body = match.group(1).strip()
+        if body.lower() in ("lcub", "rcub"):
+            return match.group(0)          # a literal brace, not a note
+        if body:
+            note = f"Cataloguer note preserved, not encoded: '{body}'."
+            if note not in notes:
+                notes.append(note)
+        return " "
+
+    cleaned = _BRACE_NOTE_RE.sub(take, text)
+    # Excising from the middle leaves a gap that the grammars would otherwise
+    # read as a separator.
+    cleaned = re.sub(r"\s{2,}", " ", cleaned).strip()
+    return (cleaned or text), notes
+
+
 def _looks_like_block(text: str) -> bool:
     """True when `text` uses the chronology-first block grammar."""
     return bool(_BLOCK_SNIFF_RE.match(text))
@@ -1543,10 +1585,21 @@ def parse_866(text: str) -> ParseResult:
         result.warnings.append("Empty holdings string.")
         return result
 
+    # Notes come out before either grammar sees the statement, because both
+    # were defeated by one: the note is reported and the holdings around it are
+    # read, rather than the note costing the whole statement.
+    cleaned, note_warnings = _excise_brace_notes(text)
+
     # Chronology-first records use a different grammar entirely; dispatch
     # before the enumeration-first path rather than trying to widen it.
-    if _looks_like_block(text):
-        return _parse_block_format(text)
+    if _looks_like_block(cleaned):
+        block = _parse_block_format(cleaned)
+        block.raw = text          # what the cataloguer wrote, notes and all
+        block.warnings = note_warnings + [w for w in block.warnings
+                                          if w not in note_warnings]
+        return block
+
+    result.warnings.extend(note_warnings)
 
     # Notes from the unit parser are kept apart from the segment-level ones.
     # They say *why* a unit was refused, which is worth carrying onto the
@@ -1555,7 +1608,7 @@ def parse_866(text: str) -> ParseResult:
     # read and deliberately not converted. The generic per-segment line is not
     # worth carrying: on that path it only repeats what the degenerate result
     # already says.
-    segments = _split_ranges(text)
+    segments = _split_ranges(cleaned)
     notes: List[str] = []
     for seg in segments:
         seg_notes: List[str] = []
