@@ -23,6 +23,7 @@ Opens <http://localhost:5003>. Port 5003 rather than 5000 because macOS gives
 python -m pytest                          # the suite
 python scripts/corpus_report.py           # what the real corpus converts to
 python scripts/corpus_report.py --drift   # only outcomes that have changed
+python scripts/audit_conversion.py FILE   # what went in against what came out
 ```
 
 ---
@@ -40,6 +41,18 @@ that lacked it broke silently. When you report what you did, give the numbers.
 `scripts/corpus_report.py --drift` compares against the tags recorded in
 `data/textual_holdings_corpus.txt`, so it tells you what your change moved
 rather than what the totals are.
+
+**The corpus can only answer for the 117 statements in it.** Two silent losses
+were found in one afternoon on a real 1057-statement file, and neither shape
+was in the corpus -- a list of year ranges written as dates alone, and a span
+with an abbreviated end year. `scripts/audit_conversion.py` is the check that
+found them: it takes a `.mrc` file or a corpus text file, and reports every
+number that was in a statement, reached no field, and was named in no warning.
+It reads the file where it lies and writes nothing, because the files worth
+running it against are real holdings and belong nowhere near this repository.
+
+Run it against a real file before trusting a release. It is the only check
+here that can find a shape nobody has thought of yet.
 
 ## 2. Nothing disappears silently
 

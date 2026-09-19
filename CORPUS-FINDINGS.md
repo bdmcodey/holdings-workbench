@@ -1947,6 +1947,49 @@ whatever the note says, every byte of `Leader/05-11` and `Leader/17` onward
 comes back as it went in. Positions 00-04 and 12-16 are the record length and
 base address, recomputed by pymarc on write, and are not ours.
 
+### The corpus can only answer for what is in it · **0.17.1**
+
+*19 September 2026. Two silent losses in one afternoon, neither of them in the
+corpus, and the second found by a script written to stop the first recurring.*
+
+The corpus report has said **0 silent losses** for months, and it was telling
+the truth about the 117 statements it holds. A real 1057-statement file
+contained two shapes it does not:
+
+| shape | what was written | what went missing |
+|---|---|---|
+| `(1986-1988, 1993-1994)` | `$i 1986` | 1988, 1993, 1994 |
+| `v. 1-7 (1960-66)` | `$i 1960` | 1966 |
+
+Both dropped without a warning, a flag, or anything held for review — the
+fourth state rule 4 says cannot exist. The first was one statement of 1057.
+The second was **nine**, and the first shape's fix would never have found it:
+they look nothing alike and fail for different reasons.
+
+What found the second was **`scripts/audit_conversion.py`**, written after the
+first as a throwaway and kept because it worked immediately. It asks the
+question from outside the tool — *what numbers went into this statement, and
+did each of them reach a field or a sentence?* — which is a different question
+from the corpus report's, and answerable about any file rather than only about
+the one whose answers are already written down.
+
+Two things it taught in its first hour, both worth keeping:
+
+**An audit must expand what the converter expands.** Its first run reported
+three corpus statements as losses because `1996/97` is written out as
+`1996/1997`, and its second reported nine correct conversions for the same
+reason once `1960-66` began expanding to `1960-1966`. It now borrows the
+parser's own function rather than keeping a copy of the rule. *An audit that
+disagrees with the thing it audits is worse than no audit* — it trains its
+reader to ignore it.
+
+**A checker that cannot fail is not a check.** `tests/test_audit_conversion.py`
+hands it the shape of a loss directly rather than waiting for one to appear.
+
+The general lesson, which the drift gate does not cover: **the corpus proves
+that known shapes still behave, and proves nothing about shapes nobody has
+met.** Run the audit against a real file before trusting a release.
+
 ### A signal that fires on every record is not a signal · **0.16.1**
 
 *18 September 2026. Reported from use, on a real file, and the correction is a
