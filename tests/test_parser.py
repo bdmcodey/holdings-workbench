@@ -1079,3 +1079,43 @@ def test_an_ordinary_chronology_range_is_untouched():
     r = parse_866("(Oct 1969-May/Jun 1984)")
     assert len(r.ranges) == 1
     assert r.ranges[0].start.year == "1969-1984"
+
+
+def test_an_abbreviated_end_year_is_read_as_a_year():
+    """
+    "(1960-66)" is 1960 to 1966, and MARC wants both years in full.
+
+    Until this existed the two-digit end was read as no year at all -- the
+    field said "$i 1960" and the 66 reached no field and no warning. Fifteen
+    statements of a real 1057-statement file are written this way, and the
+    conversion audit found nine of them the first time it was run.
+    """
+    from marc_serials.converter import convert_holdings
+
+    r = parse_866("v. 1-7 (1960-66)")
+    written = " ".join(f"${sf.code} {sf.value}"
+                       for sf in convert_holdings(r).fields_863[0].subfields)
+    assert "$i 1960-1966" in written, written
+
+
+def test_a_century_rollover_reads_forward():
+    from marc_serials.converter import convert_holdings
+
+    r = parse_866("(1999-00)")
+    written = " ".join(f"${sf.code} {sf.value}"
+                       for sf in convert_holdings(r).fields_863[0].subfields)
+    assert "$i 1999-2000" in written, written
+
+
+def test_two_digits_that_could_be_a_month_are_said_rather_than_guessed():
+    """
+    "1990-12" is 1990 to 2012, or December 1990 written the ISO way, and
+    nothing in the statement settles it. Months run 01-12, so that is exactly
+    the range where the two readings collide -- and "1999-00" does not, which
+    is why it expands.
+
+    Neither reading is assumed. Saying so is the point: dropping it without a
+    word is what this whole area is correcting.
+    """
+    r = parse_866("(1990-12)")
+    assert any("1990-12" in w for w in r.warnings), r.warnings
