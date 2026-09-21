@@ -1588,6 +1588,21 @@ def ui_css():
     return send_from_directory(SHARED_DIR, "ui.css", mimetype="text/css")
 
 
+@app.route("/favicon.png")
+@app.route("/favicon.ico")
+def favicon():
+    """
+    The tab icon, under both names.
+
+    The page links favicon.png, and browsers ask for /favicon.ico anyway --
+    for a bookmark, or before any page has been parsed. Serving the same file
+    under both answers the request that was returning 404 on every page load,
+    which is the one console error every browser check in this project has
+    reported and then ignored.
+    """
+    return send_from_directory(SHARED_DIR, "favicon.png", mimetype="image/png")
+
+
 def _convention_opts(data: dict) -> tuple:
     """
     Build a caption-convention spec from a request body.
