@@ -15,6 +15,15 @@ more than one release; numbering resumed with 0.6.1. Reasoning behind the
 parser and converter decisions, including the defects a real corpus exposed and
 what was done about each, is in [CORPUS-FINDINGS.md](CORPUS-FINDINGS.md).
 
+## 0.17.6 — 2026-09-21
+
+The 853 and 863 fields are written in their proper place in the record, instead of after everything else.
+
+- **MARC Serials Toolkit** — A converted record put its new 853 and 863 fields at the very end, after the 866 they were generated from and after any local fields a system keeps there. A record that went in as 852, 866, 999 came out as 852, 866, 999, 853, 863. Valid, and wrong to anyone reading it: the field that defines the pattern sat after the textual holdings it explains.
+- **MARC Serials Toolkit** — They now go where they belong — after the 852, before the 866 — with each 853 ahead of the 863s linked to it, and those in the order they were generated.
+- **MARC Serials Toolkit** — Records that already had their fields out of order before conversion are left exactly as they were. Two records in the file this was reported from carry control fields out of sequence in the source; the new fields are placed correctly around them and nothing else is moved. Tidying somebody else's record inside a conversion is not this tool's business.
+- **MARC Serials Toolkit** — Nothing about what is written changes — same 853s, same 863s, same values. Only where they sit in the record.
+
 ## 0.17.5 — 2026-09-21
 
 The browser tab now shows the site's icon instead of a blank page symbol.
