@@ -1947,6 +1947,39 @@ whatever the note says, every byte of `Leader/05-11` and `Leader/17` onward
 comes back as it went in. Positions 00-04 and 12-16 are the record length and
 base address, recomputed by pymarc on write, and are not ours.
 
+### A label is a promise about placement · **0.17.4**
+
+*21 September 2026. The `$u` question, asked of the cataloguer and answered in
+a way that showed the code and its own label disagreeing.*
+
+`853 $u` was written on the **second** enumeration level, which is right for
+`$a v. $b no.` and is what 89 of the corpus's 112 statements and **857 of the
+real file's 1004** are. On `$a ser. $b v. $c no.` it puts the number on `$b` —
+volumes per series — while the box that collects it is labelled **"Issues per
+volume"**. The label said one thing and the placement did another, and nothing
+in the tests caught it because every test but one used a two-level statement,
+where the second level *is* the issue level.
+
+Asked which a single number means there, the cataloguer said issues per volume,
+and then said the more useful thing: *"it's not a good example to build a rule
+around as it is using house-rules to account for an outlier."* The `ser.` in
+that statement records an enumeration restart under a local convention rather
+than a caption the publication prints. The real file has **no three-level
+statement at all**.
+
+So neither reading was chosen. Three levels ask two questions — issues per
+volume *and* volumes per series — and MARC answers both by writing a `$u` on
+each level (`$b no. $u 12 $c pt. $u 3`), which this tool does not collect. It
+now writes nothing there and says why, which is what it already does for a
+malformed `$u`, for `1990-12`, and for the 863 first indicator.
+
+The lesson is narrower than the rule and worth having anyway: **a label is a
+promise about placement.** "Issues per volume" commits the field to the issue
+level, and a placement rule that happens to agree on the common shape is not
+the same as one that agrees. The test that pinned the old behaviour was written
+by the same hand that wrote the rule, so it pinned the guess rather than
+checking it.
+
 ### The corpus can only answer for what is in it · **0.17.1**
 
 *19 September 2026. Two silent losses in one afternoon, neither of them in the

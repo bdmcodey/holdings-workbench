@@ -15,6 +15,14 @@ more than one release; numbering resumed with 0.6.1. Reasoning behind the
 parser and converter decisions, including the defects a real corpus exposed and
 what was done about each, is in [CORPUS-FINDINGS.md](CORPUS-FINDINGS.md).
 
+## 0.17.4 — 2026-09-21
+
+"Issues per volume" is written where issues are counted, and a serial with three levels of numbering is left alone rather than guessed at.
+
+- **MARC Serials Toolkit** — The box asks for issues per volume, and on a serial numbered by volume and issue that is exactly where the number went. On one numbered by series, volume and issue it went beside the volume instead — saying how many volumes make a series, under a label promising something else.
+- **MARC Serials Toolkit** — Three levels ask two questions at once: how many issues make a volume, and how many volumes make a series. MARC answers both by recording a number against each level. This tool collects one number, so it now writes none there and says why, rather than answering the wrong question with it.
+- **MARC Serials Toolkit** — Nothing changes for a serial numbered by volume and issue, which is 857 of the 1004 statements in the file this was measured against and 89 of the 112 in the sample corpus. A serial numbered by volume alone still takes no number, because there is nothing above a volume to count against.
+
 ## 0.17.3 — 2026-09-21
 
 Recording at level 3 reports how many records carry more than that, once, instead of marking two thirds of them.

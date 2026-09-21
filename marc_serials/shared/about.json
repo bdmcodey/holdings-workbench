@@ -1,6 +1,6 @@
 {
   "name": "MARC Serials Toolkit",
-  "version": "0.17.3",
+  "version": "0.17.4",
   "released": "2026-09-21",
   "status": "Proof of concept — under active development. Check your output before loading it into the catalog.",
   "description": "One tool for MARC serials holdings. Upload a MARC file, find the patterns in its 866 statements, confirm what each part of a pattern means, and convert to structured 853 caption/pattern and 863 enumeration/chronology fields. Statements no pattern matches are converted by the standard parser.",
@@ -9,6 +9,25 @@
   "contact": "Matthew Codey, codey@usc.edu",
   "_comment": "Written for cataloging staff, not developers. Say what changed about the output or the screen, not how the code changed. Newest version first.",
   "changelog": [
+    {
+      "version": "0.17.4",
+      "date": "2026-09-21",
+      "summary": "\"Issues per volume\" is written where issues are counted, and a serial with three levels of numbering is left alone rather than guessed at.",
+      "changes": [
+        {
+          "tool": "MARC Serials Toolkit",
+          "text": "The box asks for issues per volume, and on a serial numbered by volume and issue that is exactly where the number went. On one numbered by series, volume and issue it went beside the volume instead — saying how many volumes make a series, under a label promising something else."
+        },
+        {
+          "tool": "MARC Serials Toolkit",
+          "text": "Three levels ask two questions at once: how many issues make a volume, and how many volumes make a series. MARC answers both by recording a number against each level. This tool collects one number, so it now writes none there and says why, rather than answering the wrong question with it."
+        },
+        {
+          "tool": "MARC Serials Toolkit",
+          "text": "Nothing changes for a serial numbered by volume and issue, which is 857 of the 1004 statements in the file this was measured against and 89 of the 112 in the sample corpus. A serial numbered by volume alone still takes no number, because there is nothing above a volume to count against."
+        }
+      ]
+    },
     {
       "version": "0.17.3",
       "date": "2026-09-21",
