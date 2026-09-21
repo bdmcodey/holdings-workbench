@@ -1,7 +1,7 @@
 {
   "name": "MARC Serials Toolkit",
-  "version": "0.17.1",
-  "released": "2026-09-19",
+  "version": "0.17.2",
+  "released": "2026-09-21",
   "status": "Proof of concept — under active development. Check your output before loading it into the catalog.",
   "description": "One tool for MARC serials holdings. Upload a MARC file, find the patterns in its 866 statements, confirm what each part of a pattern means, and convert to structured 853 caption/pattern and 863 enumeration/chronology fields. Statements no pattern matches are converted by the standard parser.",
   "licensing": "No license is granted at this time; the repository is published for reference only while institutional intellectual property rights are reviewed. See NOTICE.md.",
@@ -9,6 +9,25 @@
   "contact": "Matthew Codey, codey@usc.edu",
   "_comment": "Written for cataloging staff, not developers. Say what changed about the output or the screen, not how the code changed. Newest version first.",
   "changelog": [
+    {
+      "version": "0.17.2",
+      "date": "2026-09-21",
+      "summary": "The notices above the record list read as sentences again, instead of breaking into columns with gaps through them.",
+      "changes": [
+        {
+          "tool": "MARC Serials Toolkit",
+          "text": "A notice that mentioned a field by name — \"06 = x\", or an encoding level — came apart where the name appeared, leaving the sentence spread across the box in pieces with wide gaps between them. It was readable only with effort, and it affected the two notices about the Leader, the note about a missing identifier field, and the message about an unusable value for issues per volume."
+        },
+        {
+          "tool": "MARC Serials Toolkit",
+          "text": "The cause was in the shared styling of every boxed message, which laid its contents out side by side rather than as running text. Any message naming a field in the middle of a sentence was split at that point. Messages that happened to be plain sentences were unaffected, which is why this only appeared once the tool started naming fields."
+        },
+        {
+          "tool": "MARC Serials Toolkit",
+          "text": "Nothing but the layout changed. No wording, no counts, and nothing about conversion."
+        }
+      ]
+    },
     {
       "version": "0.17.1",
       "date": "2026-09-19",

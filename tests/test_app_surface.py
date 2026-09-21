@@ -147,6 +147,33 @@ def test_the_stylesheet_is_served(client):
         assert response.data
 
 
+def test_an_alert_lays_its_sentence_out_as_a_sentence(client):
+    """
+    .alert was a flex container, so every child became a flex item with a gap
+    around it -- and an alert whose sentence contained a <code> or a <strong>
+    came apart into columns, one per tag, with holes between them. A cataloguer
+    reported it as "rendering weirdly with lots of extra gaps".
+
+    Four alerts in the template carry inline markup, and one of them had
+    predated the notices that made it visible. It rendered correctly only
+    because its whole content was wrapped in an inner <div>, which made it a
+    single flex item.
+
+    Nothing relied on the row: no alert puts an icon beside its text or pushes
+    a child out with an auto margin. So the rule is asserted rather than the
+    workaround, and an alert can hold a <code> mid-sentence again.
+    """
+    with client.get("/ui.css") as response:
+        css = response.get_data(as_text=True)
+
+    rule = re.search(r"\.alert\s*\{(.*?)\}", css, re.S)
+    assert rule, ".alert has been renamed or removed"
+    body = rule.group(1)
+    assert "display: flex" not in body and "display:flex" not in body, (
+        "an alert laying its children out in a row breaks any sentence "
+        "containing a <code> or a <strong> into gapped columns")
+
+
 def test_the_page_carries_its_fold_controls(client):
     """
     The step-2 fold and the skip controls are client-side, so nothing else in
