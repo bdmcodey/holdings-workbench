@@ -590,3 +590,89 @@ def test_the_default_level_counts_nothing_beyond_itself(client,
     upload_marc(client, example_marc_bytes)
     body = client.post("/api/review-index", json={}).get_json()
     assert body["beyond_level"] == 0
+
+
+def test_generated_fields_are_written_in_tag_order(client):
+    """
+    A record read in as 852, 866, 999 must not come back as 852, 866, 999,
+    853, 863.
+
+    Appending is valid MARC and wrong to every eye that reads it: the field
+    defining the pattern ends up after the textual holdings it explains, and
+    after the local numbers a system puts at the end. Reported from use, after
+    a download was opened and read.
+
+    pymarc inserts before the first higher tag and scans past equal ones, so
+    an 853 lands before its 863s and linked 863s keep the sequence they were
+    generated in -- which is the part that would be silently wrong if the
+    insert sorted equal tags among themselves.
+    """
+    import io
+    from pymarc import Field, MARCReader, MARCWriter, Record, Subfield
+
+    buf = io.BytesIO()
+    writer = MARCWriter(buf)
+    rec = Record()
+    rec.leader = "00522cy  a22001453n 4500"
+    rec.add_field(Field(tag="001", data="order-test"))
+    rec.add_field(Field(tag="852", indicators=["8", " "],
+                        subfields=[Subfield(code="b", value="MAIN")]))
+    rec.add_field(Field(tag="866", indicators=[" ", "0"],
+                        subfields=[Subfield(code="a",
+                                            value="v. 1 no. 1 (1990)-v. 3 no. 4 (1992)")]))
+    # The local field a system appends, which is what the new fields were
+    # landing after.
+    rec.add_field(Field(tag="999", indicators=[" ", " "],
+                        subfields=[Subfield(code="b", value="991000000000001")]))
+    writer.write(rec)
+    writer.close(close_fh=False)
+
+    upload_marc(client, buf.getvalue())
+    assert client.post("/api/batch-convert", json={}).status_code == 200
+
+    with client.get("/api/download-converted") as got:
+        converted = list(MARCReader(io.BytesIO(got.data)))[0]
+
+    tags = [f.tag for f in converted.get_fields()]
+    assert tags == sorted(tags), tags
+    assert tags.index("853") > tags.index("852")
+    assert tags.index("853") < tags.index("863") < tags.index("866")
+    assert tags.index("866") < tags.index("999")
+
+
+def test_a_record_already_out_of_order_is_not_quietly_reordered(client):
+    """
+    Two records of the 372-record file this was reported from carry their
+    control fields out of order -- 008 before 007, 008 before 005 -- in the
+    source, before this tool sees them.
+
+    The new fields go where they belong; the existing ones are left exactly as
+    found. Tidying them would be a change nobody asked for, made to a record
+    somebody else's system wrote, and hidden inside a conversion.
+    """
+    import io
+    from pymarc import Field, MARCReader, MARCWriter, Record, Subfield
+
+    buf = io.BytesIO()
+    writer = MARCWriter(buf)
+    rec = Record()
+    rec.leader = "00522cy  a22001453n 4500"
+    rec.add_field(Field(tag="001", data="unordered"))
+    rec.add_field(Field(tag="008", data="x" * 32))
+    rec.add_field(Field(tag="005", data="20200331173704.0"))   # after 008
+    rec.add_field(Field(tag="852", indicators=["8", " "],
+                        subfields=[Subfield(code="b", value="MAIN")]))
+    rec.add_field(Field(tag="866", indicators=[" ", "0"],
+                        subfields=[Subfield(code="a", value="v.1-3 (1990-1992)")]))
+    writer.write(rec)
+    writer.close(close_fh=False)
+
+    upload_marc(client, buf.getvalue())
+    client.post("/api/batch-convert", json={})
+    with client.get("/api/download-converted") as got:
+        converted = list(MARCReader(io.BytesIO(got.data)))[0]
+
+    tags = [f.tag for f in converted.get_fields()]
+    assert tags.index("008") < tags.index("005"), (
+        "the source order of existing fields was changed: " + str(tags))
+    assert tags.index("852") < tags.index("853") < tags.index("866"), tags

@@ -1,6 +1,6 @@
 {
   "name": "MARC Serials Toolkit",
-  "version": "0.17.5",
+  "version": "0.17.6",
   "released": "2026-09-21",
   "status": "Proof of concept — under active development. Check your output before loading it into the catalog.",
   "description": "One tool for MARC serials holdings. Upload a MARC file, find the patterns in its 866 statements, confirm what each part of a pattern means, and convert to structured 853 caption/pattern and 863 enumeration/chronology fields. Statements no pattern matches are converted by the standard parser.",
@@ -9,6 +9,29 @@
   "contact": "Matthew Codey, codey@usc.edu",
   "_comment": "Written for cataloging staff, not developers. Say what changed about the output or the screen, not how the code changed. Newest version first.",
   "changelog": [
+    {
+      "version": "0.17.6",
+      "date": "2026-09-21",
+      "summary": "The 853 and 863 fields are written in their proper place in the record, instead of after everything else.",
+      "changes": [
+        {
+          "tool": "MARC Serials Toolkit",
+          "text": "A converted record put its new 853 and 863 fields at the very end, after the 866 they were generated from and after any local fields a system keeps there. A record that went in as 852, 866, 999 came out as 852, 866, 999, 853, 863. Valid, and wrong to anyone reading it: the field that defines the pattern sat after the textual holdings it explains."
+        },
+        {
+          "tool": "MARC Serials Toolkit",
+          "text": "They now go where they belong — after the 852, before the 866 — with each 853 ahead of the 863s linked to it, and those in the order they were generated."
+        },
+        {
+          "tool": "MARC Serials Toolkit",
+          "text": "Records that already had their fields out of order before conversion are left exactly as they were. Two records in the file this was reported from carry control fields out of sequence in the source; the new fields are placed correctly around them and nothing else is moved. Tidying somebody else's record inside a conversion is not this tool's business."
+        },
+        {
+          "tool": "MARC Serials Toolkit",
+          "text": "Nothing about what is written changes — same 853s, same 863s, same values. Only where they sit in the record."
+        }
+      ]
+    },
     {
       "version": "0.17.5",
       "date": "2026-09-21",

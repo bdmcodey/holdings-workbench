@@ -340,7 +340,14 @@ def add_853(record, field_data) -> None:
         for old in list(record.get_fields("853")):
             if (old.get("8") or "").strip() == str(link).strip():
                 record.remove_field(old)
-    record.add_field(field_data.to_pymarc())
+    # Ordered, not appended. A record read in as 852, 866, 999 and given its
+    # 853 by add_field() comes back out as 852, 866, 999, 853 -- valid MARC
+    # and wrong to every eye that reads it, since the field describing the
+    # pattern then sits after the textual holdings it explains and after the
+    # local numbers at the end. pymarc inserts before the first higher tag,
+    # and scans past equal ones, so repeated calls keep the order they were
+    # made in: an 853 lands before its 863s, and linked 863s stay in sequence.
+    record.add_ordered_field(field_data.to_pymarc())
 
 
 def apply_record_conversion(record, rc) -> None:
@@ -358,7 +365,7 @@ def apply_record_conversion(record, rc) -> None:
     for f853 in rc.fields_853:
         add_853(record, f853)           # replaces any 853 sharing its $8
     for f863 in rc.fields_863:
-        record.add_field(f863.to_pymarc())
+        record.add_ordered_field(f863.to_pymarc())
 
 
 def match_866_sources(record, texts) -> list:

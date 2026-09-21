@@ -1758,12 +1758,13 @@ def apply_to_record(
     if not HAS_PYMARC:
         raise RuntimeError("pymarc must be installed to work with Record objects.")
 
-    # Add 853
-    record.add_field(conversion.field_853.to_pymarc())
+    # Added in tag order rather than appended: see records.add_853() for why
+    # a record that came in as 852, 866, 999 must not go out as 852, 866,
+    # 999, 853, 863.
+    record.add_ordered_field(conversion.field_853.to_pymarc())
 
-    # Add 863s
     for f863 in conversion.fields_863:
-        record.add_field(f863.to_pymarc())
+        record.add_ordered_field(f863.to_pymarc())
 
     # Optionally strip source 866 fields
     if remove_866:
