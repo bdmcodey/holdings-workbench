@@ -63,23 +63,39 @@ def test_it_sits_on_the_second_level_between_the_caption_and_the_continuity():
 THREE_LEVEL = "Series 1, v. 6 no. 1 (Summer/Fall 1992)"
 
 
-def test_on_three_levels_it_names_the_second_and_leaves_the_third_alone():
+def test_three_levels_ask_two_questions_so_one_number_answers_neither():
     """
-    A single declared number answers one question, and it is not the deepest.
+    Replaces a test that pinned a guess, and the guess was mine.
 
-    "$a ser. $b v. $c no." asks two different things: how many volumes make a
-    series, and how many issues make a volume. The cataloguer typed one
-    number, and it means the level below the top -- volumes per series here.
-    Putting it on $c instead would answer the other question with it, and
-    putting it on both would state a number nobody gave twice.
+    "$a ser. $b v. $c no." wants issues per volume *and* volumes per series.
+    The standard writes a $u on each level -- "$b no. $u 12 $c pt. $u 3" --
+    and the box that collects this asks for one number under the label
+    "Issues per volume". Putting that number on the second level, which is
+    what the rule used to do, writes volumes per series under a label saying
+    issues per volume. The label and the placement disagreed, and the
+    cataloguer reading the label is the one who is right.
 
-    This is the case that separates "second level" from "last level"; on the
-    two-level statements that are 89 of the 112, they are the same subfield
-    and any test using one would pass either way.
+    Asked, and the answer was "issues per volume, but it is not a good example
+    to build a rule around" -- the one statement that reaches three levels does
+    so through a house convention recording an enumeration restart rather than
+    a caption the publication prints. The real 1004-statement file measured
+    alongside it has no three-level statement at all.
+
+    So neither reading is chosen. Nothing is written and the reason is said,
+    which is what this project does everywhere else it cannot tell two
+    readings apart.
     """
     got = _853(THREE_LEVEL, units_per_higher="12")
-    assert "$a ser. $b v. $u 12 $c no." in got, got
-    assert got.count("$u") == 1, got
+    assert "$u" not in got, got
+
+    result = convert_holdings(parse_866(THREE_LEVEL), units_per_higher="12")
+    assert any("one number cannot say" in w for w in result.warnings), (
+        result.warnings)
+
+
+def test_two_levels_are_unambiguous_and_still_take_one():
+    """The shape 857 of the 1004 real statements take, and 89 of the corpus."""
+    assert "$u 12" in _853(TWO_LEVEL, units_per_higher="12")
 
 
 def test_a_serial_numbered_by_volume_alone_never_takes_one():

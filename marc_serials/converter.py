@@ -776,6 +776,34 @@ def _build_853(
     if second_enum_code in ("a", "g"):
         second_enum_code = None
 
+    # Three levels ask two questions and one number answers neither reliably.
+    #
+    # "$a ser. $b v. $c no." wants issues per volume *and* volumes per series,
+    # and the standard writes a $u on each: "$bno.$u12$cpt.$u3". The box that
+    # collects this asks for one number and calls it "issues per volume", so
+    # putting it on $b -- which is what a rule reading "the second enumeration
+    # level" does -- writes volumes per series under a label saying issues per
+    # volume. The label and the placement disagreed, and the cataloguer reading
+    # the label is the one who is right.
+    #
+    # Refused rather than resolved either way. The one statement that reaches
+    # three levels does so because of a house convention recording an
+    # enumeration restart rather than a caption the publication prints, which
+    # is a poor thing to fix a rule to; and the real 1004-statement file this
+    # was measured against has no three-level statement at all. So the cost of
+    # refusing is one corpus statement, and the cost of guessing is a wrong
+    # claim about how a serial is published, wherever the shape does occur.
+    if len(declared) >= 3 and units_per_higher:
+        if warnings is not None:
+            note = (f"This statement has {len(declared)} levels of enumeration, "
+                    "so one number cannot say how many of each make the level "
+                    "above. $u was not written. MARC records it per level "
+                    "-- \"$b no. $u 12 $c pt. $u 3\" -- which this tool does "
+                    "not yet collect.")
+            if note not in warnings:
+                warnings.append(note)
+        units_per_higher = ""
+
     # Sanitised here and not only at the request boundary. This function is
     # what writes MARC, and it should not write an invalid subfield whoever
     # called it -- a wrong $u makes a claim about the publication, where no $u
