@@ -15,6 +15,15 @@ more than one release; numbering resumed with 0.6.1. Reasoning behind the
 parser and converter decisions, including the defects a real corpus exposed and
 what was done about each, is in [CORPUS-FINDINGS.md](CORPUS-FINDINGS.md).
 
+## 0.17.1 — 2026-09-19
+
+A run written as "(1960-66)" now records both years instead of losing the second.
+
+- **MARC Serials Toolkit** — "v. 1-7 (1960-66)" converted to a field reading 1960, and the 66 — meaning 1966 — was dropped with nothing said about it. It now records 1960-1966. Nine statements in the file this was found in are written that way, and a run of years is exactly the thing a holdings statement exists to record.
+- **MARC Serials Toolkit** — Two digits after a year can be ambiguous: "1990-12" might be 1990 to 2012, or December 1990. Months only run from 01 to 12, so anything above 12 is read as a year without hesitation, and anything that could be a month is left unencoded and reported rather than guessed at either way. "1999-00" reads as 1999-2000, because there is no month 00.
+- **MARC Serials Toolkit** — This was found by a new check that reads a file and compares what each statement says against what was written from it, reporting anything that reached neither a field nor a warning. It found this on its first run. The sample corpus never contained a statement of this shape, which is why nothing had caught it before.
+- **MARC Serials Toolkit** — Nothing else changes: the sample corpus converts exactly as it did — 90 statements cleanly, none with values lost.
+
 ## 0.17.0 — 2026-09-18
 
 A run of years written as a list no longer loses all but the first of them, and records coded as single items while holding serials are counted for you.

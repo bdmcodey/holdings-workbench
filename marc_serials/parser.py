@@ -1074,6 +1074,49 @@ def _parse_chron_single(raw: str,
     return None, None, None
 
 
+# "1960-66" is 1960 to 1966, written the way a cataloguer writes it. MARC
+# wants both years in full, and until this existed the two-digit end was read
+# as no year at all: "(1960-66)" produced "$i 1960" and the 66 went nowhere --
+# no field, no warning, nothing held for review. Fifteen statements of a real
+# 1057-statement file are written this way, and the conversion audit found nine
+# of them the first time it ran.
+_ABBREVIATED_END_YEAR_RE = re.compile(r"(?<!\d)(\d{4})(\s*-\s*)(\d{2})(?!\d)")
+
+
+def _expand_abbreviated_end_year(raw: str,
+                                 warnings: Optional[List[str]] = None) -> str:
+    """
+    "1960-66" -> "1960-1966", where two digits can only be a year.
+
+    Two digits after a four-digit year and a hyphen are ambiguous in principle:
+    "1990-12" could be 1990 to 2012, or December 1990 written the ISO way. The
+    two cases separate cleanly, because a month cannot exceed 12 -- so a value
+    above 12 is expanded, and one at or below it is left alone and *said*,
+    rather than guessed at in either direction. Neither the corpus nor the
+    1057-statement file this was measured against contains the ambiguous form;
+    it is handled because leaving it to drop silently is what went wrong here
+    in the first place.
+    """
+    def expand(match: "re.Match") -> str:
+        start, dash, short = match.group(1), match.group(2), match.group(3)
+        # Months run 01-12, so "00" is not one and "1999-00" is unambiguous:
+        # 1999 to 2000. Only a value that could actually be a month is left
+        # for the cataloguer to settle.
+        if 1 <= int(short) <= 12:
+            note = (f"'{start}-{short}' could be {start} to a year ending "
+                    f"{short}, or month {short} of {start}. Neither was "
+                    "assumed, so the second half is not encoded.")
+            if warnings is not None and note not in warnings:
+                warnings.append(note)
+            return match.group(0)
+        end = int(start) // 100 * 100 + int(short)
+        if end < int(start):
+            end += 100                  # "1999-00" is 1999 to 2000
+        return f"{start}{dash}{end}"
+
+    return _ABBREVIATED_END_YEAR_RE.sub(expand, raw)
+
+
 def _parse_chron(raw: str,
                  warnings: Optional[List[str]] = None,
                  demonstrated: Optional[Set[str]] = None,
@@ -1092,7 +1135,7 @@ def _parse_chron(raw: str,
     one, goes to 863 $k.
     Returns (year, month, day).
     """
-    raw = raw.strip()
+    raw = _expand_abbreviated_end_year(raw.strip(), warnings)
 
     if "-" in raw:
         left, right = (p.strip() for p in raw.split("-", 1))
