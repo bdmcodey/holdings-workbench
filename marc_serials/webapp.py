@@ -1352,6 +1352,13 @@ def api_review_index():
             "encoding_level": encoding_level_summary(all_records, holdings_level),
             # Leader/06, counted the same way and for the same reason.
             "single_part": sum(1 for r in rows if r.get("single_part")),
+            # And the records whose holdings go past the level being recorded
+            # at. Counted rather than marked since 0.17.3: at level 3 against
+            # a file of detailed holdings this is a majority, and a marker on
+            # a majority says nothing.
+            "beyond_level": sum(1 for r in rows if r.get("leader_note")),
+            "with_holdings": sum(1 for r in rows if r.get("has_866")),
+            "declared_level": holdings_level,
         })
     except Exception as exc:
         app.logger.exception("Request failed")
