@@ -552,3 +552,41 @@ def test_a_single_part_coding_contradicted_by_its_own_holdings_is_counted(client
 
     # And it is counted, not marked: nothing new appears beside a row.
     assert all(not r.get("leader_note") for r in body["records"])
+
+
+def test_holdings_beyond_the_declared_level_are_counted_not_marked(
+        client, example_marc_bytes):
+    """
+    The third time this shape came up, and the last: a majority is not a signal.
+
+    Recording at level 3 against a file of detailed holdings marked 242 of 371
+    rows. The cataloguer who hit it said it still felt like too many, and was
+    right -- 65% of a file is a property of the file, not a flag on a record.
+    It is counted in a line above the list, where it can be read once and acted
+    on in the catalogue.
+
+    The count reaches the screen, so the number is visible somewhere. Before
+    this it existed only as markers spread over twenty-five pages of ten rows,
+    and the one place a total appeared was a filter chip that also gathered the
+    unrelated Leader/06 records -- so the figure shown was neither count.
+    """
+    upload_marc(client, example_marc_bytes)
+    body = client.post("/api/review-index",
+                       json={"holdings_level": "3"}).get_json()
+
+    assert body["beyond_level"] > 0, "nothing was found to count"
+    assert body["beyond_level"] < body["with_holdings"], (
+        "every record counted is the defect this replaced, not a finding")
+    assert body["declared_level"] == "3"
+
+    # Still carried per record, so the filter can gather exactly those.
+    noted = [r for r in body["records"] if r.get("leader_note")]
+    assert len(noted) == body["beyond_level"]
+
+
+def test_the_default_level_counts_nothing_beyond_itself(client,
+                                                        example_marc_bytes):
+    """Level 4 is every level, so nothing can exceed it and nothing is said."""
+    upload_marc(client, example_marc_bytes)
+    body = client.post("/api/review-index", json={}).get_json()
+    assert body["beyond_level"] == 0

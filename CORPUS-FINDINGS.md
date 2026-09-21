@@ -2037,6 +2037,26 @@ belongs above the list, not on it.** Repeating it per row does not make it more
 visible, it makes the rows less readable and buries whatever else they were
 saying.
 
+**Written down and then not applied · 0.17.3.** The half kept as a per-record
+marker — holdings going past the declared level — marked 242 of 371 rows when
+recording at level 3, and the same cataloguer said the same thing about it.
+65% is a majority, a majority is a property of the file, and the rule above had
+already said so one release earlier. It is counted in a line now like the other
+two.
+
+Two things had hidden it. The default is level 4, where nothing can exceed the
+level and the count is zero, so it was invisible unless somebody chose level 3.
+And the number was never displayed: 242 markers spread over twenty-five pages
+of ten rows, with the only total being a filter chip that *also* gathered the
+unrelated `Leader/06` records — so the figure on screen, 355, was neither
+count. A finding nobody can read the size of is not being reported.
+
+The cataloguer's own reading is worth keeping beside it: if the ILS does not
+consult `Leader/17` when it normalises, and the values are migration defaults
+the vendor never raised, then this is cataloguing tidiness rather than a
+conversion problem. That is an argument about how loudly to say something, not
+about whether it is true — and it points the same way the measurement does.
+
 ### The 863 first indicator is a declaration, not a derivation · **measured**
 
 Three derivations were tried before the standard was in hand, and each was

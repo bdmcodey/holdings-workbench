@@ -15,6 +15,15 @@ more than one release; numbering resumed with 0.6.1. Reasoning behind the
 parser and converter decisions, including the defects a real corpus exposed and
 what was done about each, is in [CORPUS-FINDINGS.md](CORPUS-FINDINGS.md).
 
+## 0.17.3 — 2026-09-21
+
+Recording at level 3 reports how many records carry more than that, once, instead of marking two thirds of them.
+
+- **MARC Serials Toolkit** — Choosing level 3 — summary holdings, the first level of enumeration and chronology only — marked every record whose fields go further than that. On a file of detailed holdings that was 242 records of 372, which is not a signal: a marker on two thirds of a list tells you about the file, not about a record.
+- **MARC Serials Toolkit** — It is now a line above the list, saying how many, like the two notes about the Leader beside it. The number was not visible anywhere before — the markers were spread over twenty-five pages, and the only total on screen belonged to a filter that also gathered records flagged for a different reason, so it showed neither figure.
+- **MARC Serials Toolkit** — That filter is now called "Leader & level", which is what it gathers: records with something to note about their Leader, or about the level you are recording at. Its button finds them whatever the counts are, which is what matters for a file where only two or three records disagree.
+- **MARC Serials Toolkit** — Recording at level 4 still reports nothing at all, because level 4 means every level a statement gives and nothing can exceed it. Nothing about conversion changes, and the Leader is still never touched.
+
 ## 0.17.2 — 2026-09-21
 
 The notices above the record list read as sentences again, instead of breaking into columns with gaps through them.

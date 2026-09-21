@@ -881,7 +881,9 @@ v.6(1995)-"></textarea>
           <button type="button" class="chip" data-filter="pattern">Read by a pattern</button>
           <button type="button" class="chip" data-filter="parser">Read by the parser</button>
           <button type="button" class="chip" data-filter="unreviewed">Not yet reviewed</button>
-          <button type="button" class="chip" data-filter="encoding">Encoding level</button>
+          <button type="button" class="chip" data-filter="encoding"
+                  title="Records with something to note about their Leader, or about the level you are recording at"
+                  >Leader &amp; level</button>
           <button type="button" class="chip" data-filter="skipped">Skipped</button>
         </div>
         <div class="review-meta">
@@ -1592,6 +1594,8 @@ function showLeaderNotices(data) {
   const box = document.getElementById('encoding-level-notice');
   if (!box) return;
   const parts = [encodingLevelLine(data.encoding_level),
+                 beyondLevelLine(data.beyond_level, data.with_holdings,
+                                 data.declared_level),
                  singlePartLine(data.single_part, data.total)].filter(Boolean);
   box.innerHTML = parts.join('');
   box.hidden = parts.length === 0;
@@ -1621,6 +1625,33 @@ function singlePartLine(count, total) {
     a serial (<code>y</code>) or a multipart item (<code>v</code>) is a
     cataloguing decision this tool does not make. The Leader is never changed.
   </div>`;
+}
+
+/**
+ * Holdings that go past the level being recorded at.
+ *
+ * Level 3 is summary -- "only the highest levels (first-order designators)",
+ * Z39.71 4.3 -- and an 863 carrying a volume, an issue, a year and a month is
+ * not that. It is the one encoding-level question that genuinely varies from
+ * record to record, and it was a marker beside each affected row until a
+ * cataloguer pointed out that 242 of 371 markers is not a signal.
+ *
+ * That is the third time the same shape has come up, so the rule is applied
+ * rather than rediscovered: a fact true of most of a file is a property of
+ * the file. Stated once, with the records a click away.
+ */
+function beyondLevelLine(count, total, declared) {
+  if (!count) return '';
+  const many = count !== 1;
+  return `<div class="alert alert-info mt-2">
+    You are recording at level ${escHtml(declared || '3')}, which is summary
+    holdings — the first level of enumeration and chronology only.
+    ${count} of ${total} record${many ? 's' : ''} produced fields that go
+    further than that, so ${many ? 'their' : 'its'} 863s claim less than
+    ${many ? 'they' : 'it'} carr${many ? 'y' : 'ies'}. Record at level 4 if
+    these holdings are detailed.
+    <button type="button" class="btn btn-ghost btn-sm"
+            onclick="filterTo('encoding')">Show them</button></div>`;
 }
 
 function encodingLevelLine(summary) {
@@ -1712,13 +1743,12 @@ function paintRecordStatus() {
     if (entry.converted) bits.push(`<span class="pill has-866">${entry.converted} converted</span>`);
     if (entry.held) bits.push(`<span class="pill decide">${entry.held} held</span>`);
     if (entry.flagged) bits.push(`<span class="pill decide">${entry.flagged} to check</span>`);
-    // The record's own Leader/17 no longer describes what was written into it.
-    // Shown here rather than only inside the row, because a row that looks
-    // converted is a row nobody opens -- the same reason 0.9.6 gave.
-    if (entry.leader_note) {
-      bits.push(`<span class="pill decide" title="${escHtml(entry.leader_note)}"
-                       >encoding level</span>`);
-    }
+    // No marker for the encoding level. Recording at level 3 against a file
+    // of detailed holdings marked 242 of 371 rows, which is the third time
+    // this shape has come up: a majority is not a signal, it is a property of
+    // the file, and it belongs in a line above the list where it can be read
+    // once and acted on in the catalogue. The records are still gathered by
+    // the "Leader & level" chip for the file where only a handful disagree.
     slot.innerHTML = bits.join(' ');
   });
 }

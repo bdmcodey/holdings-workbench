@@ -1,6 +1,6 @@
 {
   "name": "MARC Serials Toolkit",
-  "version": "0.17.2",
+  "version": "0.17.3",
   "released": "2026-09-21",
   "status": "Proof of concept — under active development. Check your output before loading it into the catalog.",
   "description": "One tool for MARC serials holdings. Upload a MARC file, find the patterns in its 866 statements, confirm what each part of a pattern means, and convert to structured 853 caption/pattern and 863 enumeration/chronology fields. Statements no pattern matches are converted by the standard parser.",
@@ -9,6 +9,29 @@
   "contact": "Matthew Codey, codey@usc.edu",
   "_comment": "Written for cataloging staff, not developers. Say what changed about the output or the screen, not how the code changed. Newest version first.",
   "changelog": [
+    {
+      "version": "0.17.3",
+      "date": "2026-09-21",
+      "summary": "Recording at level 3 reports how many records carry more than that, once, instead of marking two thirds of them.",
+      "changes": [
+        {
+          "tool": "MARC Serials Toolkit",
+          "text": "Choosing level 3 — summary holdings, the first level of enumeration and chronology only — marked every record whose fields go further than that. On a file of detailed holdings that was 242 records of 372, which is not a signal: a marker on two thirds of a list tells you about the file, not about a record."
+        },
+        {
+          "tool": "MARC Serials Toolkit",
+          "text": "It is now a line above the list, saying how many, like the two notes about the Leader beside it. The number was not visible anywhere before — the markers were spread over twenty-five pages, and the only total on screen belonged to a filter that also gathered records flagged for a different reason, so it showed neither figure."
+        },
+        {
+          "tool": "MARC Serials Toolkit",
+          "text": "That filter is now called \"Leader & level\", which is what it gathers: records with something to note about their Leader, or about the level you are recording at. Its button finds them whatever the counts are, which is what matters for a file where only two or three records disagree."
+        },
+        {
+          "tool": "MARC Serials Toolkit",
+          "text": "Recording at level 4 still reports nothing at all, because level 4 means every level a statement gives and nothing can exceed it. Nothing about conversion changes, and the Leader is still never touched."
+        }
+      ]
+    },
     {
       "version": "0.17.2",
       "date": "2026-09-21",
