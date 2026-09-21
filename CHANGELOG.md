@@ -15,6 +15,14 @@ more than one release; numbering resumed with 0.6.1. Reasoning behind the
 parser and converter decisions, including the defects a real corpus exposed and
 what was done about each, is in [CORPUS-FINDINGS.md](CORPUS-FINDINGS.md).
 
+## 0.17.2 — 2026-09-21
+
+The notices above the record list read as sentences again, instead of breaking into columns with gaps through them.
+
+- **MARC Serials Toolkit** — A notice that mentioned a field by name — "06 = x", or an encoding level — came apart where the name appeared, leaving the sentence spread across the box in pieces with wide gaps between them. It was readable only with effort, and it affected the two notices about the Leader, the note about a missing identifier field, and the message about an unusable value for issues per volume.
+- **MARC Serials Toolkit** — The cause was in the shared styling of every boxed message, which laid its contents out side by side rather than as running text. Any message naming a field in the middle of a sentence was split at that point. Messages that happened to be plain sentences were unaffected, which is why this only appeared once the tool started naming fields.
+- **MARC Serials Toolkit** — Nothing but the layout changed. No wording, no counts, and nothing about conversion.
+
 ## 0.17.1 — 2026-09-19
 
 A run written as "(1960-66)" now records both years instead of losing the second.

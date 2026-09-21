@@ -290,15 +290,23 @@ input[type="checkbox"] {
 
 /* ── Alerts ──────────────────────────────────────────────────────────────── */
 
+/* Block, not flex. As a flex container every child became a flex item with a
+   gap around it -- so an alert whose sentence contained a <code> or a <strong>
+   was broken into columns, one per tag, with holes between them. It read as
+   "371 of 372 records declare an encoding level in    3 ,    4 )." rather than
+   as a sentence.
+
+   Nothing relied on the row: no alert in the application puts an icon beside
+   its text or pushes a child out with an auto margin. The one alert that
+   rendered correctly did so by wrapping its whole content in an inner <div>,
+   which made it a single flex item -- a workaround for this, kept where it is
+   because it does no harm, but no longer something anyone has to know. */
 .alert {
   padding: var(--sp-3) var(--sp-4);
   border-radius: var(--radius);
   border: 2px solid;
   font-size: var(--fs-sm);
   line-height: 1.5;
-  display: flex;
-  gap: var(--sp-2);
-  align-items: flex-start;
 }
 .alert-ok   { background: var(--ok-soft);     border-color: var(--ok);     color: var(--text); }
 .alert-warn { background: var(--warn-soft);   border-color: var(--warn);   color: var(--text); }
