@@ -1,6 +1,6 @@
 {
   "name": "MARC Serials Toolkit",
-  "version": "0.17.4",
+  "version": "0.17.5",
   "released": "2026-09-21",
   "status": "Proof of concept — under active development. Check your output before loading it into the catalog.",
   "description": "One tool for MARC serials holdings. Upload a MARC file, find the patterns in its 866 statements, confirm what each part of a pattern means, and convert to structured 853 caption/pattern and 863 enumeration/chronology fields. Statements no pattern matches are converted by the standard parser.",
@@ -9,6 +9,21 @@
   "contact": "Matthew Codey, codey@usc.edu",
   "_comment": "Written for cataloging staff, not developers. Say what changed about the output or the screen, not how the code changed. Newest version first.",
   "changelog": [
+    {
+      "version": "0.17.5",
+      "date": "2026-09-21",
+      "summary": "The browser tab now shows the site's icon instead of a blank page symbol.",
+      "changes": [
+        {
+          "tool": "MARC Serials Toolkit",
+          "text": "The tool had no icon, so a tab showed whatever blank marker the browser uses — which makes it hard to find among a row of open tabs. It now carries the same icon as the main site."
+        },
+        {
+          "tool": "MARC Serials Toolkit",
+          "text": "It is served under both the name the page asks for and the name browsers request on their own, so bookmarking a page gets the icon too. That also clears the only error the browser console had been reporting on every page load, which was a request for the missing icon."
+        }
+      ]
+    },
     {
       "version": "0.17.4",
       "date": "2026-09-21",

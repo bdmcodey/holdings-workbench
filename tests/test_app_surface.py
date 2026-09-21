@@ -41,6 +41,9 @@ JOINED_ROUTES = {
     "/api/preview-records", "/api/review-index",
     # Changing which field records are found by, without re-uploading them.
     "/api/identifier",
+    # The tab icon, under both the name the page links and the name browsers
+    # ask for unprompted.
+    "/favicon.png", "/favicon.ico",
 }
 
 
@@ -145,6 +148,27 @@ def test_the_stylesheet_is_served(client):
     with client.get("/ui.css") as response:
         assert response.status_code == 200
         assert response.data
+
+
+def test_the_tab_icon_is_served_under_both_names(client):
+    """
+    The page links favicon.png; browsers ask for /favicon.ico regardless --
+    for a bookmark, or before any page has been parsed.
+
+    Every browser check in this project reported one console error, a 404 for
+    /favicon.ico, and every one of them ignored it. An error nobody reads is
+    an error that hides the next one.
+    """
+    for name in ("/favicon.png", "/favicon.ico"):
+        with client.get(name) as response:
+            assert response.status_code == 200, name
+            assert response.mimetype == "image/png", name
+            assert response.data.startswith(b"\x89PNG"), name
+
+
+def test_the_page_asks_for_the_icon(client):
+    page = client.get("/").get_data(as_text=True)
+    assert 'rel="icon"' in page and "favicon.png" in page
 
 
 def test_an_alert_lays_its_sentence_out_as_a_sentence(client):

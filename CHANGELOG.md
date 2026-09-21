@@ -15,6 +15,13 @@ more than one release; numbering resumed with 0.6.1. Reasoning behind the
 parser and converter decisions, including the defects a real corpus exposed and
 what was done about each, is in [CORPUS-FINDINGS.md](CORPUS-FINDINGS.md).
 
+## 0.17.5 — 2026-09-21
+
+The browser tab now shows the site's icon instead of a blank page symbol.
+
+- **MARC Serials Toolkit** — The tool had no icon, so a tab showed whatever blank marker the browser uses — which makes it hard to find among a row of open tabs. It now carries the same icon as the main site.
+- **MARC Serials Toolkit** — It is served under both the name the page asks for and the name browsers request on their own, so bookmarking a page gets the icon too. That also clears the only error the browser console had been reporting on every page load, which was a request for the missing icon.
+
 ## 0.17.4 — 2026-09-21
 
 "Issues per volume" is written where issues are counted, and a serial with three levels of numbering is left alone rather than guessed at.
