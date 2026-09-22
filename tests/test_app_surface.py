@@ -137,6 +137,46 @@ def test_the_find_box_and_its_controls_are_on_the_page(client):
         assert element in page, f"{element} is missing from the page"
 
 
+def test_the_review_list_offers_a_choice_of_page_size(client):
+    """Five, ten, twenty-five, fifty or every record; ten unless changed."""
+    page = client.get("/").get_data(as_text=True)
+    menu = re.search(r'<select id="review-page-size">(.*?)</select>', page, re.S)
+    assert menu, "the records-per-page menu is missing from the page"
+    values = re.findall(r'<option value="([^"]+)"', menu.group(1))
+    assert values == ["5", "10", "25", "50", "all"]
+    assert '<option value="10" selected>' in menu.group(1)
+
+    script = (TEMPLATES / "tool.html").read_text(encoding="utf-8")
+    sizes = re.search(r"const REVIEW_PAGE_SIZES = \[(.*?)\];", script)
+    assert sizes, "REVIEW_PAGE_SIZES has moved or been renamed"
+    assert re.findall(r"'([^']+)'", sizes.group(1)) == values, (
+        "a size the menu offers that the page does not accept would be "
+        "forgotten on the next reload, and the other way round")
+
+
+def test_all_records_are_fetched_in_batches_the_server_will_answer():
+    """
+    The server previews at most PREVIEW_PAGE_MAX records a request and drops
+    the rest without a word. On "All" a 372-record file asks for 372, so the
+    page has to ask in batches of that size -- and learn the size from the
+    server, not keep its own copy of it.
+    """
+    from marc_serials import webapp
+
+    client = webapp.app.test_client()
+    page = client.get("/").get_data(as_text=True)
+    assert f"const PREVIEW_BATCH = {webapp.PREVIEW_PAGE_MAX};" in page
+
+    script = (TEMPLATES / "tool.html").read_text(encoding="utf-8")
+    loader = re.search(
+        r"async function loadReviewPage\(\)\s*\{(.*?)\n\}", script, re.S)
+    assert loader, "loadReviewPage() has moved or been renamed"
+    body = loader.group(1)
+    assert "at += PREVIEW_BATCH" in body and "slice(at, at + PREVIEW_BATCH)" in body, (
+        "previews for a page must be requested a batch at a time, or a page "
+        "larger than the server's limit loses its later records")
+
+
 def test_the_stylesheet_is_served(client):
     """
     Closed explicitly, which is why this reads oddly for a two-line check.

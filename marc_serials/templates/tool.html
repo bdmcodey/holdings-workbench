@@ -198,6 +198,10 @@
       white-space: nowrap;
     }
     .review-meta { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; }
+    /* ui.css makes every select full width, which in this row would push the
+       Open / Close buttons onto a line of their own. */
+    .page-size { display: inline-flex; align-items: center; gap: var(--sp-1); }
+    .page-size select { width: auto; font-size: var(--fs-xs); padding: var(--sp-1) var(--sp-2); }
     .chip {
       font: inherit; font-size: var(--fs-xs); font-weight: 600;
       padding: var(--sp-1) var(--sp-3);
@@ -891,6 +895,19 @@ v.6(1995)-"></textarea>
         </div>
         <div class="review-meta">
           <span id="review-count" class="small dim"></span>
+          <!-- Here, not beside Previous / Next: the pager hides itself when the
+               list fits on one page, and on "All" it always does, so a choice
+               made there could never be taken back. -->
+          <span class="page-size">
+            <label for="review-page-size" class="small dim">Show</label>
+            <select id="review-page-size">
+              <option value="5">5 per page</option>
+              <option value="10" selected>10 per page</option>
+              <option value="25">25 per page</option>
+              <option value="50">50 per page</option>
+              <option value="all">All records</option>
+            </select>
+          </span>
           <button type="button" class="btn btn-ghost btn-sm" id="btn-expand-all">Open all</button>
           <button type="button" class="btn btn-ghost btn-sm" id="btn-collapse-all">Close all</button>
         </div>
@@ -1042,7 +1059,7 @@ let reviewFilter   = 'all';
 let reviewOffset   = 0;
 let reviewSearch   = '';    // what the Find box is narrowing the list to
 
-// Ten a page, in both steps.
+// Ten a page, in both steps, unless the cataloguer chooses otherwise in Convert.
 //
 // It was 50 in Convert, and 50 rows is about eight screens of scrolling before
 // the Convert and Download buttons below the list come into reach -- on a
@@ -1051,8 +1068,25 @@ let reviewSearch   = '';    // what the Find box is narrowing the list to
 //
 // Nothing here fetches less than it did: previews were already requested a
 // page at a time, so a smaller page means more requests, each smaller.
-const REVIEW_PAGE  = 10;
+//
+// The review list's size is now the cataloguer's to choose -- 5, 10, 25, 50 or
+// every record -- and ten stays the default for the reason above. The choice is
+// kept in this browser, like the theme and text size, so it survives a reload
+// and a new upload.
+const REVIEW_PAGE_SIZES = ['5', '10', '25', '50', 'all'];
+let reviewPageSize = '10';
 const PATTERN_PAGE = 10;
+
+// The most records the server previews in one request (PREVIEW_PAGE_MAX in
+// webapp.py, written in here so the two cannot drift). The server cuts a longer
+// list short without saying so, which on a 372-record file would have left
+// "All" loading 200 of them; a page bigger than this is fetched in batches.
+const PREVIEW_BATCH = {{ preview_batch }};
+
+/** Records per page in the review list, as a number the paging can add up. */
+function reviewPageLimit() {
+  return reviewPageSize === 'all' ? Infinity : Number(reviewPageSize);
+}
 
 // Which page of the patterns still wanting a decision is on screen. The
 // confirmed, parser-read, skipped and too-complex groups are folded away
@@ -1712,17 +1746,17 @@ async function loadReviewPage() {
   try {
     const matching = filteredIndices();
     if (reviewOffset >= matching.length) reviewOffset = 0;
-    const page = matching.slice(reviewOffset, reviewOffset + REVIEW_PAGE);
+    const page = matching.slice(reviewOffset, reviewOffset + reviewPageLimit());
 
-    if (page.length) {
-      const data = await postJson('api/preview-records',
-                                  { indices: page, ...conventionPayload() });
+    for (let at = 0; at < page.length; at += PREVIEW_BATCH) {
+      const data = await postJson('api/preview-records', {
+        indices: page.slice(at, at + PREVIEW_BATCH), ...conventionPayload() });
       data.records.forEach(entry => recordPreviews.set(entry.index, entry));
     }
     bar.hidden = false;
     paintRecordStatus();
     applyReviewFilter();
-    renderPager({ total: matching.length, offset: reviewOffset, limit: REVIEW_PAGE });
+    renderPager({ total: matching.length, offset: reviewOffset, limit: reviewPageLimit() });
   } catch (err) {
     bar.hidden = true;
     console.error(err);
@@ -1818,7 +1852,7 @@ function applyReviewFilter() {
   // "records 1-50 of 320". The pager was real; it governed which previews
   // were fetched. It just had nothing to do with what was on screen.
   const matching = filteredIndices();
-  const onPage = new Set(matching.slice(reviewOffset, reviewOffset + REVIEW_PAGE));
+  const onPage = new Set(matching.slice(reviewOffset, reviewOffset + reviewPageLimit()));
 
   document.querySelectorAll('.rec-row').forEach(row => {
     row.hidden = !onPage.has(Number(row.dataset.index));
@@ -2047,13 +2081,30 @@ document.getElementById('btn-patt-next').addEventListener('click', () => {
 });
 
 document.getElementById('btn-page-prev').addEventListener('click', () => {
-  reviewOffset = Math.max(0, reviewOffset - REVIEW_PAGE);
+  reviewOffset = Math.max(0, reviewOffset - reviewPageLimit());
   loadReviewPage();
 });
 document.getElementById('btn-page-next').addEventListener('click', () => {
-  reviewOffset += REVIEW_PAGE;
+  reviewOffset += reviewPageLimit();
   loadReviewPage();
 });
+
+// Records per page. A new size starts from the first page, as a new filter
+// does: page 3 of tens and page 3 of fifties are different records.
+(function () {
+  const select = document.getElementById('review-page-size');
+  let saved = null;
+  try { saved = localStorage.getItem('mst-review-page'); } catch (e) {}
+  if (REVIEW_PAGE_SIZES.includes(saved)) reviewPageSize = saved;
+  select.value = reviewPageSize;
+
+  select.addEventListener('change', () => {
+    reviewPageSize = select.value;
+    try { localStorage.setItem('mst-review-page', reviewPageSize); } catch (e) {}
+    reviewOffset = 0;
+    if (allRecords.length) loadReviewPage();
+  });
+})();
 
 document.getElementById('btn-expand-all').addEventListener('click', () => {
   document.querySelectorAll('.rec-row:not([hidden])').forEach(row => {

@@ -609,6 +609,7 @@ def index():
         ignore_label=KIND_LABELS[KIND_IGNORE],
         unresolved_kind=KIND_UNRESOLVED,
         about=_load_about(),
+        preview_batch=PREVIEW_PAGE_MAX,
     )
 
 
