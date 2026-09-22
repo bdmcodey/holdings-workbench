@@ -1208,6 +1208,9 @@ def api_preview_record():
             numbering_continuity=data.get("numbering_continuity", "r"),
             merge_patterns=record_index not in _keep_separate(data),
             holdings_level=resolve_holdings_level(data.get("holdings_level")),
+            # Missing until 0.21.0: opening a record showed its 853 without the
+            # $u that "Convert all" would write.
+            units_per_higher=resolve_units_per_higher(data.get("units_per_higher")),
             **conv_opts,
         )
         # Deliberately no write and no save: preview leaves the file untouched.
@@ -1477,6 +1480,10 @@ def _apply_one_decision(record, decision: dict, patterns: list) -> tuple:
         numbering_continuity=first.get("numbering_continuity", "r"),
         holdings_level=resolve_holdings_level(
             first.get("holdings_level", decision.get("holdings_level"))),
+        # Read the way holdings_level is. Missing until 0.21.0, so a record
+        # converted on its own was written without the $u "Convert all" gives it.
+        units_per_higher=resolve_units_per_higher(
+            first.get("units_per_higher", decision.get("units_per_higher"))),
         **conv_opts,
     )
     _apply_record_conversion(record, rc)

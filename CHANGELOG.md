@@ -15,6 +15,14 @@ more than one release; numbering resumed with 0.6.1. Reasoning behind the
 parser and converter decisions, including the defects a real corpus exposed and
 what was done about each, is in [CORPUS-FINDINGS.md](CORPUS-FINDINGS.md).
 
+## 0.21.0 — 2026-09-22
+
+An 853 that carries a count in $u is now written as able to compress or expand.
+
+- **MARC Serials Toolkit** — When you fill in "Issues per volume" in Conversion settings, each 853 that takes the count in $u now has first indicator 2, "Can compress or expand", in place of 3, "Unknown". MARC 21 ties compression to $u and $v being present, and the tool already writes $v; the count was the missing piece. An 853 that does not take the count -- a serial numbered by volume alone, or one with three levels of enumeration -- stays at 3, so a single run can write both.
+- **MARC Serials Toolkit** — A count of var or und leaves the indicator at 3, because a number that varies or is not known is not one compression can use. A first indicator you have typed yourself in the "853 indicators" box, and the house preset's 2, are left as they are: only 3 is replaced.
+- **MARC Serials Toolkit** — Fixed: "Issues per volume" was left out of two places since it was added in 0.19. Opening a record showed its 853 without the $u, and "Convert this record" wrote the record without it, while "Convert all records" included it. So the same record came out differently depending on which button converted it, and the preview agreed with the one that was wrong. A record converted on its own, or previewed, now gets the $u "Convert all records" gives it. Records you converted one at a time with a count set are worth converting again.
+
 ## 0.20.1 — 2026-09-22
 
 The 853 indicator boxes in Conversion settings accept only the values MARC 21 defines.
