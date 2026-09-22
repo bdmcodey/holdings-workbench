@@ -1712,7 +1712,10 @@ def api_batch_convert():
         labels = _source_labels(patterns)
         return jsonify({
             "success": True,
-            "records_processed": len(result["summary"]),
+            # The headline figure. A skipped record has a row in the summary,
+            # so the figure is the records the run converted, not its rows:
+            # counting both put "5 records converted" beside "1 record skipped".
+            "records_processed": len(result["converted_indexes"]),
             "needs_review": result["needs_review"],
             "skipped_records": result["skipped_records"],
             "own_decisions": result["own_decisions"],

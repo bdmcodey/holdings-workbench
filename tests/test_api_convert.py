@@ -169,6 +169,21 @@ def test_batch_convert_summarises_every_record(client, example_marc_bytes):
     assert [s["converted_fields"] for s in body["summary"]] == [2, 1, 2, 2, 2]
 
 
+def test_the_headline_does_not_count_skipped_records(client, example_marc_bytes):
+    """
+    A skipped record has a row in the summary, and the headline used to count
+    rows. Skipping three of five read "5 records converted" beside "3 records
+    skipped", although those three came out exactly as they went in.
+    """
+    upload_marc(client, example_marc_bytes)
+    body = client.post("/api/batch-convert",
+                       json={"skip_records": [0, 1, 2]}).get_json()
+
+    assert body["skipped_records"] == 3
+    assert body["records_processed"] == 2
+    assert body["records_processed"] == len(body["converted_indexes"])
+
+
 def test_download_returns_valid_marc(client, example_marc_bytes):
     upload_marc(client, example_marc_bytes)
     client.post("/api/batch-convert", json={"convention": "standard"})
