@@ -44,6 +44,9 @@ JOINED_ROUTES = {
     # The tab icon, under both the name the page links and the name browsers
     # ask for unprompted.
     "/favicon.png", "/favicon.ico",
+    # One record on its own, for the cataloguer who has converted a handful by
+    # hand and wants those rather than the whole file.
+    "/api/download-record",
 }
 
 
@@ -196,6 +199,22 @@ def test_an_alert_lays_its_sentence_out_as_a_sentence(client):
     assert "display: flex" not in body and "display:flex" not in body, (
         "an alert laying its children out in a row breaks any sentence "
         "containing a <code> or a <strong> into gapped columns")
+
+
+def test_a_link_styled_as_a_button_does_not_come_out_underlined(client):
+    """
+    Both downloads are links: a download is a URL the browser fetches, not
+    something the page does. .btn did not clear the underline a link carries,
+    so "Download this record" sat beside "Convert this record" underlined and
+    the pair read as two different kinds of control.
+    """
+    with client.get("/ui.css") as response:
+        css = response.get_data(as_text=True)
+
+    rule = re.search(r"\.btn\s*\{(.*?)\}", css, re.S)
+    assert rule, ".btn has been renamed or removed"
+    assert re.search(r"text-decoration:\s*none", rule.group(1)), (
+        "a link styled as a button keeps its underline")
 
 
 def test_the_page_carries_its_fold_controls(client):

@@ -1,7 +1,7 @@
 {
   "name": "MARC Serials Toolkit",
-  "version": "0.17.6",
-  "released": "2026-09-21",
+  "version": "0.18.0",
+  "released": "2026-09-22",
   "status": "Proof of concept — under active development. Check your output before loading it into the catalog.",
   "description": "One tool for MARC serials holdings. Upload a MARC file, find the patterns in its 866 statements, confirm what each part of a pattern means, and convert to structured 853 caption/pattern and 863 enumeration/chronology fields. Statements no pattern matches are converted by the standard parser.",
   "licensing": "No license is granted at this time; the repository is published for reference only while institutional intellectual property rights are reviewed. See NOTICE.md.",
@@ -9,6 +9,41 @@
   "contact": "Matthew Codey, codey@usc.edu",
   "_comment": "Written for cataloging staff, not developers. Say what changed about the output or the screen, not how the code changed. Newest version first.",
   "changelog": [
+    {
+      "version": "0.18.0",
+      "date": "2026-09-22",
+      "summary": "Records converted one at a time now stay converted, and each can be downloaded on its own.",
+      "changes": [
+        {
+          "tool": "MARC Serials Toolkit",
+          "text": "Converting a record on its own used to throw away the record you converted before it. The file behind the Download button was rebuilt from your uploaded file each time, with only the record you had just converted written into it. Working through ten records a record at a time left a download containing the tenth and nine records exactly as they came in. Every record reported success, and the Download button stayed available throughout, so there was nothing on the screen to say the other nine had been dropped."
+        },
+        {
+          "tool": "MARC Serials Toolkit",
+          "text": "Every record you convert now stays converted. The file is rebuilt from all of your decisions rather than the last one, so the download holds every record you have worked on, in the order they sit in your file."
+        },
+        {
+          "tool": "MARC Serials Toolkit",
+          "text": "Each record you have converted now has a \"Download this record\" button of its own, beside \"Convert this record\". It gives you that one record as its own .mrc file, named after its identifier -- holdings_991234567890.mrc for a record whose 999 $b is 991234567890, or its place in the file if it has no identifier. For checking one record in a test load without running the whole file through."
+        },
+        {
+          "tool": "MARC Serials Toolkit",
+          "text": "\"Convert all records\" now leaves a record you have already converted yourself exactly as you converted it, with the settings you chose for that record rather than the settings on the button. It reports how many it kept that way. Before, it redid every record and your own settings were lost."
+        },
+        {
+          "tool": "MARC Serials Toolkit",
+          "text": "Skipping a record is still the stronger instruction: a record you have marked Skip comes out of a run exactly as it went in, even if you converted it by hand earlier. The run now says so -- it tells you how many records it set aside that you had converted individually, and unticking Skip and converting again puts your conversion back. The decision is held, not discarded."
+        },
+        {
+          "tool": "MARC Serials Toolkit",
+          "text": "Uploading a new file clears every conversion decision, as it always cleared everything else. A decision is about a record in the file you made it on."
+        },
+        {
+          "tool": "MARC Serials Toolkit",
+          "text": "Both download buttons were underlined, because a download is a link rather than something the page does and a link is underlined. Beside a button that is not, the pair read as two different kinds of control. They now look the same."
+        }
+      ]
+    },
     {
       "version": "0.17.6",
       "date": "2026-09-21",

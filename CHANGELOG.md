@@ -15,6 +15,18 @@ more than one release; numbering resumed with 0.6.1. Reasoning behind the
 parser and converter decisions, including the defects a real corpus exposed and
 what was done about each, is in [CORPUS-FINDINGS.md](CORPUS-FINDINGS.md).
 
+## 0.18.0 — 2026-09-22
+
+Records converted one at a time now stay converted, and each can be downloaded on its own.
+
+- **MARC Serials Toolkit** — Converting a record on its own used to throw away the record you converted before it. The file behind the Download button was rebuilt from your uploaded file each time, with only the record you had just converted written into it. Working through ten records a record at a time left a download containing the tenth and nine records exactly as they came in. Every record reported success, and the Download button stayed available throughout, so there was nothing on the screen to say the other nine had been dropped.
+- **MARC Serials Toolkit** — Every record you convert now stays converted. The file is rebuilt from all of your decisions rather than the last one, so the download holds every record you have worked on, in the order they sit in your file.
+- **MARC Serials Toolkit** — Each record you have converted now has a "Download this record" button of its own, beside "Convert this record". It gives you that one record as its own .mrc file, named after its identifier -- holdings_991234567890.mrc for a record whose 999 $b is 991234567890, or its place in the file if it has no identifier. For checking one record in a test load without running the whole file through.
+- **MARC Serials Toolkit** — "Convert all records" now leaves a record you have already converted yourself exactly as you converted it, with the settings you chose for that record rather than the settings on the button. It reports how many it kept that way. Before, it redid every record and your own settings were lost.
+- **MARC Serials Toolkit** — Skipping a record is still the stronger instruction: a record you have marked Skip comes out of a run exactly as it went in, even if you converted it by hand earlier. The run now says so -- it tells you how many records it set aside that you had converted individually, and unticking Skip and converting again puts your conversion back. The decision is held, not discarded.
+- **MARC Serials Toolkit** — Uploading a new file clears every conversion decision, as it always cleared everything else. A decision is about a record in the file you made it on.
+- **MARC Serials Toolkit** — Both download buttons were underlined, because a download is a link rather than something the page does and a link is underlined. Beside a button that is not, the pair read as two different kinds of control. They now look the same.
+
 ## 0.17.6 — 2026-09-21
 
 The 853 and 863 fields are written in their proper place in the record, instead of after everything else.

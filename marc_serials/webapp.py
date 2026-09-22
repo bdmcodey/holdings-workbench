@@ -648,6 +648,7 @@ def api_upload_marc():
 
         _save_file("marc_file", file_bytes)
         session.pop("marc_file_converted", None)
+        _forget_decisions()
 
         statements = [
             fld["a"].strip()
@@ -1365,9 +1366,289 @@ def api_review_index():
         return jsonify({"error": str(exc)}), 500
 
 
+# ---------------------------------------------------------------------------
+# Conversion decisions, and the file built from them
+#
+# The converted file is not what the last click produced. It is rebuilt from
+# the uploaded file and every decision the cataloguer has made, every time one
+# of those decisions changes.
+#
+# It used to be what the last click produced, and that threw work away in
+# silence. /api/convert-record read the *original* file, applied the one record
+# it had been sent, and saved the result over the previous save -- so
+# converting record 5 and then record 9 left a file with record 9 converted and
+# record 5 back as it came in. The Download button stayed lit throughout and
+# nothing said a thing. Measured on data/example_holdings.mrc: converting
+# record 0 wrote 1 853 and 2 863s on it; converting record 1 next left record 0
+# with none.
+#
+# Rebuilding keeps the property the old route had by accident and the tests
+# pin: sending the same decision twice produces the same bytes, because the
+# record it is applied to is read fresh from the upload each time. It is also
+# what lets "Convert all records" leave a record its cataloguer has already
+# converted by hand exactly as they converted it.
+# ---------------------------------------------------------------------------
+
+# Not ``.json``: store.ttl_for() keeps anything with that extension for thirty
+# days, which is right for a pattern library and wrong for this. A decision is
+# about one upload and is worthless once the upload has been swept, so it is
+# kept on the upload's own six-hour limit.
+DECISIONS_EXT = ".decisions"
+
+# The session key holding them.
+DECISIONS_KEY = "conversion_decisions"
+
+
+def _empty_decisions() -> dict:
+    """Nothing decided yet: no record converted on its own, no run over the file."""
+    return {"records": {}, "batch": None}
+
+
+def _load_decisions() -> dict:
+    """Every conversion decision for this session, or an empty set of them."""
+    raw = _load_file(DECISIONS_KEY, DECISIONS_EXT)
+    if not raw:
+        return _empty_decisions()
+    try:
+        document = json.loads(raw.decode("utf-8"))
+    except (ValueError, UnicodeDecodeError):
+        app.logger.warning("Stored conversion decisions were unreadable; "
+                           "ignoring them.")
+        return _empty_decisions()
+    records = document.get("records")
+    batch = document.get("batch")
+    return {
+        "records": records if isinstance(records, dict) else {},
+        "batch": batch if isinstance(batch, dict) else None,
+    }
+
+
+def _save_decisions(decisions: dict) -> None:
+    _save_file(DECISIONS_KEY, json.dumps(decisions).encode("utf-8"),
+               DECISIONS_EXT)
+
+
+def _forget_decisions() -> None:
+    """
+    Drop every decision.
+
+    Called when a new file arrives. A decision is keyed by record position, and
+    a position means nothing once the file behind it has changed.
+    """
+    session.pop(DECISIONS_KEY, None)
+
+
+def _apply_one_decision(record, decision: dict, patterns: list) -> tuple:
+    """
+    Apply one cataloguer's per-record decision to one record, in place.
+
+    The record has to be freshly read from the upload: a decision says what the
+    record should end up as, not what to add to whatever is on it already.
+
+    Returns (result, previews, sources).
+    """
+    conversions_input = decision.get("conversions", [])
+
+    existing_853s = list(record.get_fields("853"))
+    if decision.get("clear_existing_853_863"):
+        record.remove_fields("853", "863")
+        existing_853s = []
+
+    remove_866 = any(c.get("remove_866", False) for c in conversions_input)
+    conv_opts, rejections = _convention_opts(decision)
+    specs = [c for c in conversions_input if c.get("text")]
+    texts = [c["text"] for c in specs]
+
+    # The text arrives from the client and may have been edited, so a spec
+    # matching no field leaves every 866 alone: never delete a field we
+    # cannot account for.
+    sources_866 = _match_866_sources(record, texts)
+
+    parsed, sources = _parse_all(texts, patterns, _parser_fallback(decision))
+
+    first = specs[0] if specs else {}
+    rc = convert_record(
+        parsed,
+        existing_853s=existing_853s,
+        captions=first.get("captions") or None,
+        frequency=first.get("frequency", ""),
+        numbering_continuity=first.get("numbering_continuity", "r"),
+        holdings_level=resolve_holdings_level(
+            first.get("holdings_level", decision.get("holdings_level"))),
+        **conv_opts,
+    )
+    _apply_record_conversion(record, rc)
+
+    if remove_866:
+        _remove_converted_866s(record, sources_866, rc)
+
+    return rc, _previews_from(rc, rejections, (), sources, patterns), sources
+
+
+def _rebuild_converted(decisions: dict, previews_for: Optional[int] = None):
+    """
+    Write the converted file from the upload and every decision on it.
+
+    Each record takes the first of these that applies:
+
+      * skipped by the run over the whole file -- left byte for byte as it came
+        in, which is stronger than everything else on the screen and stronger
+        than a decision made on the record earlier;
+      * a decision the cataloguer made on that record alone -- applied as they
+        made it, whatever the settings on the run over the whole file say;
+      * the run over the whole file, if there has been one;
+      * nothing, and the record is written out unchanged.
+
+    `previews_for` asks for one record's previews back, which is what the
+    per-record route reports; they are not kept for every record because a
+    cataloguer may work through hundreds.
+
+    Returns None if there is no uploaded file, otherwise a report of what the
+    rebuild did.
+    """
+    all_records = _load_all_records()
+    if all_records is None:
+        return None
+
+    patterns = _load_library()
+    per_record = decisions.get("records") or {}
+    batch = decisions.get("batch")
+
+    # A run over the whole file carries the skip list and the merge choices;
+    # with no such run there is nothing skipped and nothing kept separate.
+    skip_records = _skipped_records(batch or {})
+    keep_separate = _keep_separate(batch or {})
+
+    rejections: list = []
+    if batch is not None:
+        frequency = batch.get("frequency", "")
+        continuity = batch.get("numbering_continuity", "r")
+        units_per_higher = resolve_units_per_higher(batch.get("units_per_higher"))
+        holdings_level = resolve_holdings_level(batch.get("holdings_level"))
+        # Defaults to keeping them: an ILS that regenerates 866s from 853/863
+        # makes the originals redundant rather than wrong, and keeping them
+        # means the file can be run through again with different settings.
+        remove_866 = batch.get("remove_866", False)
+        clear_existing = batch.get("clear_existing_853_863", False)
+        conv_opts, rejections = _convention_opts(batch)
+        captions = batch.get("captions") or None
+        fallback = _parser_fallback(batch)
+
+    summary: list = []
+    by_source: dict = {}
+    previews: list = []
+    review_total = 0
+    skipped_total = 0
+    own_total = 0
+    skipped_own = 0
+
+    for rec_idx, record in enumerate(all_records):
+        decision = per_record.get(str(rec_idx))
+
+        # Before anything else, including clearing existing fields: a
+        # skipped record is one the run does not touch at all.
+        if rec_idx in skip_records:
+            skipped_total += 1
+            note = "Skipped: this record was left exactly as it was."
+            if decision is not None:
+                # Said out loud rather than quietly dropped. The decision is
+                # kept, so clearing the skip and running again brings it back.
+                skipped_own += 1
+                note += (" The conversion you ran on this record on its own is "
+                         "not in the file while it is skipped.")
+            summary.append({
+                "index": rec_idx,
+                "converted_fields": 0,
+                "conformed_fields": 0,
+                "needs_review": 0,
+                "skipped": True,
+                "warnings": [note],
+            })
+            continue
+
+        if decision is not None:
+            rc, record_previews, sources = _apply_one_decision(
+                record, decision, patterns)
+            if rec_idx == previews_for:
+                previews = record_previews
+            for src in sources:
+                by_source[src] = by_source.get(src, 0) + 1
+            review_total += rc.needs_review
+            own_total += 1
+            summary.append({
+                "index": rec_idx,
+                "converted_fields": rc.converted,
+                "conformed_fields": rc.conformed,
+                "needs_review": rc.needs_review,
+                "own_decision": True,
+                "warnings": rc.warnings,
+            })
+            continue
+
+        if batch is None:
+            continue
+
+        existing_853s = list(record.get_fields("853"))
+        if clear_existing:
+            record.remove_fields("853", "863")
+            existing_853s = []
+
+        fields_866 = record.get_fields("866")
+        if not fields_866:
+            continue
+
+        texts = [f["a"] or "" for f in fields_866]
+        sources_866 = [f for f, t in zip(fields_866, texts) if t]
+        statements = [t for t in texts if t]
+
+        parsed, sources = _parse_all(statements, patterns, fallback)
+        for src in sources:
+            by_source[src] = by_source.get(src, 0) + 1
+
+        rc = convert_record(
+            parsed,
+            existing_853s=existing_853s,
+            captions=captions,
+            frequency=frequency,
+            numbering_continuity=continuity,
+            merge_patterns=rec_idx not in keep_separate,
+            holdings_level=holdings_level,
+            units_per_higher=units_per_higher,
+            **conv_opts,
+        )
+        _apply_record_conversion(record, rc)
+
+        if remove_866:
+            _remove_converted_866s(record, sources_866, rc)
+
+        review_total += rc.needs_review
+        summary.append({
+            "index": rec_idx,
+            "converted_fields": rc.converted,
+            "conformed_fields": rc.conformed,
+            "needs_review": rc.needs_review,
+            "warnings": rc.warnings,
+        })
+
+    _save_file("marc_file_converted", _records_to_bytes(all_records))
+
+    return {
+        "summary": summary,
+        "by_source": by_source,
+        "rejections": rejections,
+        "needs_review": review_total,
+        "skipped_records": skipped_total,
+        "own_decisions": own_total,
+        "skipped_own_decisions": skipped_own,
+        "previews": previews,
+        "converted_indexes": [row["index"] for row in summary
+                              if not row.get("skipped")],
+    }
+
+
 @app.route("/api/convert-record", methods=["POST"])
 def api_convert_record():
-    """Convert every 866 on one record and save the result back to the file."""
+    """Record this cataloguer's decision about one record, and rebuild the file."""
     if not HAS_PYMARC:
         return jsonify({"error": "pymarc is not installed on the server."}), 500
 
@@ -1377,51 +1658,27 @@ def api_convert_record():
         return jsonify({"error": "No MARC file found. Please upload a file first."}), 400
 
     record_index = int(data.get("record_index", 0))
-    conversions_input = data.get("conversions", [])
 
     try:
         if record_index >= len(all_records):
             return jsonify({"error": "Record index out of range."}), 400
 
-        target = all_records[record_index]
-        existing_853s = list(target.get_fields("853"))
-        if data.get("clear_existing_853_863"):
-            target.remove_fields("853", "863")
-            existing_853s = []
+        decisions = _load_decisions()
+        decisions["records"][str(record_index)] = data
 
-        remove_866 = any(c.get("remove_866", False) for c in conversions_input)
-        conv_opts, rejections = _convention_opts(data)
-        specs = [c for c in conversions_input if c.get("text")]
-        texts = [c["text"] for c in specs]
+        # Rebuilt before the decision is stored, so a decision that cannot be
+        # applied is not left behind to break every later rebuild with it.
+        result = _rebuild_converted(decisions, previews_for=record_index)
+        _save_decisions(decisions)
 
-        # The text arrives from the client and may have been edited, so a spec
-        # matching no field leaves every 866 alone: never delete a field we
-        # cannot account for.
-        sources_866 = _match_866_sources(target, texts)
-
-        patterns = _load_library()
-        parsed, sources = _parse_all(texts, patterns, _parser_fallback(data))
-
-        first = specs[0] if specs else {}
-        rc = convert_record(
-            parsed,
-            existing_853s=existing_853s,
-            captions=first.get("captions") or None,
-            frequency=first.get("frequency", ""),
-            numbering_continuity=first.get("numbering_continuity", "r"),
-            holdings_level=resolve_holdings_level(
-                first.get("holdings_level", data.get("holdings_level"))),
-            **conv_opts,
-        )
-        _apply_record_conversion(target, rc)
-
-        if remove_866:
-            _remove_converted_866s(target, sources_866, rc)
-
-        previews = _previews_from(rc, rejections, (), sources, patterns)
-        _save_file("marc_file_converted", _records_to_bytes(all_records))
-
-        return jsonify({"success": True, "previews": previews})
+        return jsonify({
+            "success": True,
+            "previews": result["previews"],
+            # How much of the file this cataloguer has now converted a record
+            # at a time, so the screen can say so rather than leave them
+            # counting.
+            "records_with_decisions": result["own_decisions"],
+        })
     except Exception as exc:
         app.logger.exception("Request failed")
         return jsonify({"error": str(exc)}), 500
@@ -1429,109 +1686,45 @@ def api_convert_record():
 
 @app.route("/api/batch-convert", methods=["POST"])
 def api_batch_convert():
-    """Convert every record in the file, applying the confirmed patterns."""
+    """
+    Convert the rest of the file, applying the confirmed patterns.
+
+    The rest of it: a record the cataloguer has already converted on its own
+    keeps that conversion, with the settings they chose for it, rather than
+    being redone with the settings on this run.
+    """
     if not HAS_PYMARC:
         return jsonify({"error": "pymarc is not installed."}), 500
 
-    all_records = _load_all_records()
-    if all_records is None:
-        return jsonify({"error": "No MARC file found. Please upload a file first."}), 400
-
     data = request.get_json(force=True) or {}
-    frequency = data.get("frequency", "")
-    continuity = data.get("numbering_continuity", "r")
-    units_per_higher = resolve_units_per_higher(data.get("units_per_higher"))
-    holdings_level = resolve_holdings_level(data.get("holdings_level"))
-    # Defaults to keeping them: an ILS that regenerates 866s from 853/863 makes
-    # the originals redundant rather than wrong, and keeping them means the file
-    # can be run through again with different settings.
-    remove_866 = data.get("remove_866", False)
-    clear_existing = data.get("clear_existing_853_863", False)
-
-    conv_opts, rejections = _convention_opts(data)
-    captions = data.get("captions") or None
-    patterns = _load_library()
-    fallback = _parser_fallback(data)
-    keep_separate = _keep_separate(data)
-    skip_records = _skipped_records(data)
 
     try:
-        summary = []
-        review_total = 0
-        skipped_total = 0
-        by_source: dict = {}
+        decisions = _load_decisions()
+        decisions["batch"] = data
 
-        for rec_idx, record in enumerate(all_records):
-            # Before anything else, including clearing existing fields: a
-            # skipped record is one the run does not touch at all.
-            if rec_idx in skip_records:
-                skipped_total += 1
-                summary.append({
-                    "index": rec_idx,
-                    "converted_fields": 0,
-                    "conformed_fields": 0,
-                    "needs_review": 0,
-                    "skipped": True,
-                    "warnings": ["Skipped: this record was left exactly as it was."],
-                })
-                continue
+        result = _rebuild_converted(decisions)
+        if result is None:
+            return jsonify(
+                {"error": "No MARC file found. Please upload a file first."}), 400
+        _save_decisions(decisions)
 
-            existing_853s = list(record.get_fields("853"))
-            if clear_existing:
-                record.remove_fields("853", "863")
-                existing_853s = []
-
-            fields_866 = record.get_fields("866")
-            if not fields_866:
-                continue
-
-            texts = [f["a"] or "" for f in fields_866]
-            sources_866 = [f for f, t in zip(fields_866, texts) if t]
-            statements = [t for t in texts if t]
-
-            parsed, sources = _parse_all(statements, patterns, fallback)
-            for src in sources:
-                by_source[src] = by_source.get(src, 0) + 1
-
-            rc = convert_record(
-                parsed,
-                existing_853s=existing_853s,
-                captions=captions,
-                frequency=frequency,
-                numbering_continuity=continuity,
-                merge_patterns=rec_idx not in keep_separate,
-                holdings_level=holdings_level,
-                units_per_higher=units_per_higher,
-                **conv_opts,
-            )
-            _apply_record_conversion(record, rc)
-
-            if remove_866:
-                _remove_converted_866s(record, sources_866, rc)
-
-            review_total += rc.needs_review
-            summary.append({
-                "index": rec_idx,
-                "converted_fields": rc.converted,
-                "conformed_fields": rc.conformed,
-                "needs_review": rc.needs_review,
-                "warnings": rc.warnings,
-            })
-
-        _save_file("marc_file_converted", _records_to_bytes(all_records))
-
+        patterns = _load_library()
         labels = _source_labels(patterns)
         return jsonify({
             "success": True,
-            "records_processed": len(summary),
-            "needs_review": review_total,
-            "skipped_records": skipped_total,
-            "rejections": rejections,
+            "records_processed": len(result["summary"]),
+            "needs_review": result["needs_review"],
+            "skipped_records": result["skipped_records"],
+            "own_decisions": result["own_decisions"],
+            "skipped_own_decisions": result["skipped_own_decisions"],
+            "converted_indexes": result["converted_indexes"],
+            "rejections": result["rejections"],
             "by_source": [
                 {"source": src, "label": labels.get(src, src), "count": n}
-                for src, n in sorted(by_source.items(), key=lambda kv: -kv[1])
+                for src, n in sorted(result["by_source"].items(),
+                                     key=lambda kv: -kv[1])
             ],
-            "summary": summary,
+            "summary": result["summary"],
         })
     except Exception as exc:
         app.logger.exception("Request failed")
@@ -1550,6 +1743,51 @@ def api_download_converted():
         mimetype="application/marc",
         as_attachment=True,
         download_name="holdings_converted.mrc",
+    )
+
+
+def _record_download_name(record, index: int) -> str:
+    """
+    A filename a cataloguer can recognise later.
+
+    Their own identifier if the record carries one -- the MMS ID they looked
+    the record up by is the thing they will search their downloads for -- and
+    the record's position in the file if it does not. Reduced to characters
+    that are safe in a filename on every platform rather than trusted: the
+    identifier comes out of their MARC file, not out of this tool.
+    """
+    identifier = record_identifier(record, _identifier_spec()) or ""
+    safe = re.sub(r"[^A-Za-z0-9._-]", "_", identifier).strip("_")[:60]
+    return f"holdings_{safe or f'record_{index + 1}'}.mrc"
+
+
+@app.route("/api/download-record", methods=["GET"])
+def api_download_record():
+    """
+    One record on its own, as it now stands in the converted file.
+
+    For the cataloguer who has converted a handful of records by hand and wants
+    those, rather than a run over everything they uploaded.
+    """
+    try:
+        index = int(request.args.get("index", ""))
+    except (TypeError, ValueError):
+        return "Which record? No usable record number was given.", 400
+
+    marc_bytes = _load_file("marc_file_converted") or _load_file("marc_file")
+    if not marc_bytes:
+        return "No file available.", 404
+
+    records = records_from_bytes(marc_bytes)
+    if not 0 <= index < len(records):
+        return "Record index out of range.", 404
+
+    record = records[index]
+    return send_file(
+        io.BytesIO(_records_to_bytes([record])),
+        mimetype="application/marc",
+        as_attachment=True,
+        download_name=_record_download_name(record, index),
     )
 
 
