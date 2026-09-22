@@ -207,6 +207,11 @@ _INDICATORS = {
     CONVENTION_HOUSE:    ("2", "0"),
 }
 
+# What MARC 21 defines for the 853's two indicators: compressibility and
+# expandability first, caption evaluation second. Both are 0-3, and neither
+# defines a blank (docs/marc/hd853855.md). The settings screen reads this too.
+INDICATOR_VALUES = "0123"
+
 # The chronology levels a convention can place, in the order they are offered
 # to the user.  Enumeration is not in this list: it has no fixed names, only
 # positions, and its subfields come from the "enum" sequence above.
@@ -436,15 +441,34 @@ def resolve_convention(
             continue
         smap[level] = code
 
+    # Each indicator is checked on its own, so a bad first indicator does not
+    # cost the cataloguer a good second one. Anything outside 0-3 used to be
+    # written as typed: "4" or "9" went into every 853, and a cleared box
+    # wrote a blank, with nothing on screen or in the file to say so.
     ind = _INDICATORS[name]
     if indicators is not None:
         try:
-            i1, i2 = (str(x)[:1] if str(x).strip() else " " for x in list(indicators)[:2])
-            ind = (i1, i2)
-        except (TypeError, ValueError):
+            given = list(indicators)[:2]
+        except TypeError:
+            given = None
             rejections.append(
-                f"Indicators {indicators!r} unreadable - kept {_INDICATORS[name]}."
-            )
+                f"853 indicators {indicators!r} unreadable - kept "
+                f"{ind[0]} and {ind[1]}.")
+        if given is not None:
+            kept = list(ind)
+            for pos, (label, value) in enumerate(zip(("first", "second"), given)):
+                value = "" if value is None else str(value).strip()
+                if len(value) == 1 and value in INDICATOR_VALUES:
+                    kept[pos] = value
+                elif not value:
+                    rejections.append(
+                        f"The 853 {label} indicator was left blank - kept "
+                        f"{ind[pos]}. MARC 21 defines 0, 1, 2 and 3 for it.")
+                else:
+                    rejections.append(
+                        f"\"{value}\" is not an 853 {label} indicator MARC 21 "
+                        f"defines (0, 1, 2 or 3) - kept {ind[pos]}.")
+            ind = tuple(kept)
 
     text = (name == CONVENTION_HOUSE) if chron_as_text is None else bool(chron_as_text)
 

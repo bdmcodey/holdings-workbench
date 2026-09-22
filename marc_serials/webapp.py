@@ -84,7 +84,7 @@ from marc_serials.records import (
 )
 from marc_serials.parser import parse_866
 from marc_serials.converter import (CONVENTION_LEVELS, CONVENTION_STANDARD,
-                            enum_level_fields,
+                            INDICATOR_VALUES, enum_level_fields,
                             FREQUENCY_CODES, convention_presets,
                             convert_holdings, convert_record, resolve_convention)
 from marc_serials.detector import detect_patterns
@@ -610,6 +610,7 @@ def index():
         unresolved_kind=KIND_UNRESOLVED,
         about=_load_about(),
         preview_batch=PREVIEW_PAGE_MAX,
+        indicator_values=INDICATOR_VALUES,
     )
 
 

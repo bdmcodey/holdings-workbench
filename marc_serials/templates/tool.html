@@ -247,6 +247,7 @@
     .conv-level { font-size: var(--fs-sm); color: var(--text); }
     .conv-sf    { text-align: center; }
     .conv-sf.invalid { border-color: var(--danger); background: var(--danger-soft); }
+    #batch-ind1.invalid, #batch-ind2.invalid { border-color: var(--danger); background: var(--danger-soft); }
 
     #drop-zone {
       border: 3px dashed var(--border);
@@ -819,6 +820,7 @@ v.6(1995)-"></textarea>
               <input type="text" id="batch-ind1" maxlength="1" style="width:50%;" aria-label="First indicator" />
               <input type="text" id="batch-ind2" maxlength="1" style="width:50%;" aria-label="Second indicator" />
             </div>
+            <div id="batch-ind-error" class="small mt-1" hidden></div>
           </div>
           <div class="form-group">
             <label for="batch-chronology">Chronology written as</label>
@@ -1159,7 +1161,37 @@ function applyPreset(name) {
   document.getElementById('batch-chronology').value =
     preset.chron_as_text ? 'text' : 'code';
   markInvalidSubfields();
+  markInvalidIndicators();
 }
+
+// 0-3 in both positions, as MARC 21 defines them for the 853 -- read from
+// converter.INDICATOR_VALUES so the screen and the server cannot disagree.
+const INDICATOR_VALUES = {{ indicator_values|tojson }};
+
+/**
+ * Say beside the boxes when an 853 indicator is one the standard does not
+ * define. The server keeps the preset's value instead, and says so in the run
+ * summary, but that is after the fact; this is while the value is being typed.
+ */
+function markInvalidIndicators() {
+  const err = document.getElementById('batch-ind-error');
+  const bad = [];
+  [['batch-ind1', 'first'], ['batch-ind2', 'second']].forEach(([id, label]) => {
+    const el = document.getElementById(id);
+    const v = (el.value || '').trim();
+    const ok = v.length === 1 && INDICATOR_VALUES.includes(v);
+    el.classList.toggle('invalid', !ok);
+    if (!ok) bad.push(label);
+  });
+  if (!bad.length) { err.hidden = true; return; }
+  err.innerHTML = `<div class="alert alert-warn">The 853 ${bad.join(' and ')}
+    indicator${bad.length > 1 ? 's take' : ' takes'} 0, 1, 2 or 3. Until
+    ${bad.length > 1 ? "they do, the preset's values are" : "it does, the preset's value is"}
+    written instead.</div>`;
+  err.hidden = false;
+}
+['batch-ind1', 'batch-ind2'].forEach(id =>
+  document.getElementById(id).addEventListener('input', markInvalidIndicators));
 
 /** Flag subfields MARC will not accept, or that two levels are fighting over. */
 function markInvalidSubfields() {

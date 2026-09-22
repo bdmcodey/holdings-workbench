@@ -1,6 +1,6 @@
 {
   "name": "MARC Serials Toolkit",
-  "version": "0.20.0",
+  "version": "0.20.1",
   "released": "2026-09-22",
   "status": "Proof of concept — under active development. Check your output before loading it into the catalog.",
   "description": "One tool for MARC serials holdings. Upload a MARC file, find the patterns in its 866 statements, confirm what each part of a pattern means, and convert to structured 853 caption/pattern and 863 enumeration/chronology fields. Statements no pattern matches are converted by the standard parser.",
@@ -9,6 +9,25 @@
   "contact": "Matthew Codey, codey@usc.edu",
   "_comment": "Written for cataloging staff, not developers. Say what changed about the output or the screen, not how the code changed. Newest version first.",
   "changelog": [
+    {
+      "version": "0.20.1",
+      "date": "2026-09-22",
+      "summary": "The 853 indicator boxes in Conversion settings accept only the values MARC 21 defines.",
+      "changes": [
+        {
+          "tool": "MARC Serials Toolkit",
+          "text": "The two \"853 indicators\" boxes in Conversion settings wrote whatever was typed into every generated 853. A 4 or a 9 in the first box went into the file as the first indicator, and a box left empty wrote a blank, although MARC 21 defines only 0, 1, 2 and 3 for either indicator. Nothing on the screen or in the run summary said so."
+        },
+        {
+          "tool": "MARC Serials Toolkit",
+          "text": "A value other than 0, 1, 2 or 3 is now refused, and the 853 keeps the preset's value instead -- 3 and 1 for the standard preset, 2 and 0 for house practice. The box turns red and a note beside it says so while you type, and the run summary names the value that was refused and the one kept in its place. Each indicator is checked on its own, so a mistyped second indicator does not cost you the first."
+        },
+        {
+          "tool": "MARC Serials Toolkit",
+          "text": "An 853 that was already in your record before conversion is still kept exactly as it came in, indicators included."
+        }
+      ]
+    },
     {
       "version": "0.20.0",
       "date": "2026-09-22",

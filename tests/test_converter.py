@@ -87,6 +87,35 @@ def test_standard_and_house_differ_where_expected():
     assert house["chron_as_text"] is True
 
 
+def test_an_853_indicator_the_standard_does_not_define_keeps_the_preset():
+    """
+    The 853 defines 0-3 for both indicators and no blank. Anything else used to
+    be written as typed -- "4" or "9" into every 853, a blank for a cleared
+    box -- with nothing on screen or in the run summary to say so.
+    """
+    for given, expected, refused in (
+            (["4", "1"], ("3", "1"), 1),     # the value a cataloguer asked about
+            (["9", "7"], ("3", "1"), 2),
+            (["", "1"], ("3", "1"), 1),      # a cleared box
+            ([" ", " "], ("3", "1"), 2),
+            (["22", "1"], ("3", "1"), 1),    # more than one character
+            (["2", "x"], ("2", "1"), 1),     # a good first survives a bad second
+    ):
+        spec, rejections = resolve_convention("standard", indicators=given)
+        assert spec["indicators"] == expected, given
+        assert len(rejections) == refused, (given, rejections)
+        assert all("853" in r and "kept" in r for r in rejections), rejections
+
+
+def test_every_853_indicator_the_standard_defines_is_accepted():
+    for i1 in "0123":
+        for i2 in "0123":
+            spec, rejections = resolve_convention(
+                "house", indicators=[i1, i2])
+            assert spec["indicators"] == (i1, i2)
+            assert rejections == []
+
+
 def test_unknown_convention_falls_back_to_standard():
     spec, _ = resolve_convention("nonsense")
     assert spec == resolve_convention("standard")[0]
