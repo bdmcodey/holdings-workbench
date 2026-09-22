@@ -177,6 +177,35 @@ def test_all_records_are_fetched_in_batches_the_server_will_answer():
         "larger than the server's limit loses its later records")
 
 
+def test_each_leader_note_can_be_hidden_and_folds_to_its_count():
+    """
+    The three notes above the review list -- encoding level, holdings beyond
+    the level, Leader/06 single-part -- fire on every upload of a file migrated
+    with default Leader values, so each can be hidden, and stays hidden in this
+    browser. Hidden folds the note to one line that keeps its count and a Show
+    button: nothing the tool found may disappear from the screen.
+    """
+    script = (TEMPLATES / "tool.html").read_text(encoding="utf-8")
+    shown = re.search(
+        r"function showLeaderNotices\(data\)\s*\{(.*?)\n\}", script, re.S)
+    assert shown, "showLeaderNotices() has moved or been renamed"
+    body = shown.group(1)
+
+    for key in ("encoding-level", "beyond-level", "single-part"):
+        assert f"key: '{key}'" in body, f"the {key} note cannot be hidden"
+    assert "hiddenNotices.has(note.key)" in body
+    assert "data-hide-notice" in body and "data-show-notice" in body
+    assert "${note.count}" in body, (
+        "a hidden note has to keep its count on screen, or hiding it makes "
+        "the finding disappear")
+
+    setter = re.search(
+        r"function setNoticeHidden\(key, hide\)\s*\{(.*?)\n\}", script, re.S)
+    assert setter, "setNoticeHidden() has moved or been renamed"
+    assert "localStorage.setItem(HIDDEN_NOTICES_KEY" in setter.group(1)
+    assert "const HIDDEN_NOTICES_KEY = 'mst-hidden-notices';" in script
+
+
 def test_the_stylesheet_is_served(client):
     """
     Closed explicitly, which is why this reads oddly for a two-line check.

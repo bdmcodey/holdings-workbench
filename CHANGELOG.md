@@ -15,6 +15,13 @@ more than one release; numbering resumed with 0.6.1. Reasoning behind the
 parser and converter decisions, including the defects a real corpus exposed and
 what was done about each, is in [CORPUS-FINDINGS.md](CORPUS-FINDINGS.md).
 
+## 0.20.0 — 2026-09-22
+
+The notes about the Leader above the review list can be hidden, and stay hidden in this browser.
+
+- **MARC Serials Toolkit** — Each of the three notes about the Leader above the review list -- the encoding level, holdings that go past the level you are recording at, and records coded as single-part items (06 = x) -- now has a Hide button. On a file whose Leader values are the same defaults on every record, these came back on every upload saying the same thing.
+- **MARC Serials Toolkit** — A hidden note is folded, not removed. It shrinks to one line that still gives its count -- "Hidden: Leader/06 coded as single-part item -- 36 records" -- with a Show button that brings the whole note back. Each note is hidden on its own, and it stays hidden in this browser for every file you upload, as the theme and text size are remembered. The "Leader & level" filter still finds the records whichever notes are hidden.
+
 ## 0.19.0 — 2026-09-22
 
 Choose how many records the review list shows at once: 5, 10, 25, 50, or all of them.
