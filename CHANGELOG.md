@@ -15,6 +15,12 @@ more than one release; numbering resumed with 0.6.1. Reasoning behind the
 parser and converter decisions, including the defects a real corpus exposed and
 what was done about each, is in [CORPUS-FINDINGS.md](CORPUS-FINDINGS.md).
 
+## 0.18.1 — 2026-09-22
+
+The count at the top of a conversion no longer includes the records you skipped.
+
+- **MARC Serials Toolkit** — "Convert all records" counted the records you had marked Skip among the records it converted. Skipping one record of five read "5 records converted" beside "1 record skipped", although that record came out of the run exactly as it went in. The count now gives only the records the run converted -- 4 in that case -- and the skipped ones are counted once, under "records skipped".
+
 ## 0.18.0 — 2026-09-22
 
 Records converted one at a time now stay converted, and each can be downloaded on its own.
