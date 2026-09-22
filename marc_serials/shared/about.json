@@ -1,6 +1,6 @@
 {
   "name": "MARC Serials Toolkit",
-  "version": "0.19.0",
+  "version": "0.20.0",
   "released": "2026-09-22",
   "status": "Proof of concept — under active development. Check your output before loading it into the catalog.",
   "description": "One tool for MARC serials holdings. Upload a MARC file, find the patterns in its 866 statements, confirm what each part of a pattern means, and convert to structured 853 caption/pattern and 863 enumeration/chronology fields. Statements no pattern matches are converted by the standard parser.",
@@ -9,6 +9,21 @@
   "contact": "Matthew Codey, codey@usc.edu",
   "_comment": "Written for cataloging staff, not developers. Say what changed about the output or the screen, not how the code changed. Newest version first.",
   "changelog": [
+    {
+      "version": "0.20.0",
+      "date": "2026-09-22",
+      "summary": "The notes about the Leader above the review list can be hidden, and stay hidden in this browser.",
+      "changes": [
+        {
+          "tool": "MARC Serials Toolkit",
+          "text": "Each of the three notes about the Leader above the review list -- the encoding level, holdings that go past the level you are recording at, and records coded as single-part items (06 = x) -- now has a Hide button. On a file whose Leader values are the same defaults on every record, these came back on every upload saying the same thing."
+        },
+        {
+          "tool": "MARC Serials Toolkit",
+          "text": "A hidden note is folded, not removed. It shrinks to one line that still gives its count -- \"Hidden: Leader/06 coded as single-part item -- 36 records\" -- with a Show button that brings the whole note back. Each note is hidden on its own, and it stays hidden in this browser for every file you upload, as the theme and text size are remembered. The \"Leader & level\" filter still finds the records whichever notes are hidden."
+        }
+      ]
+    },
     {
       "version": "0.19.0",
       "date": "2026-09-22",

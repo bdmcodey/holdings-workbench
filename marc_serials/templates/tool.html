@@ -1634,16 +1634,66 @@ async function loadReviewIndex() {
  * The rows are still reachable, through the "Encoding level" chip, for the
  * file where only a handful disagree and finding those is the point.
  */
+//
+// Each note can be hidden, and stays hidden in this browser for every file.
+// On a file migrated with default Leader values the same note comes back on
+// every upload saying the same thing, and a note read once is noise the
+// second time. Hidden is not gone: it folds to one line that keeps the count
+// and a Show button, so nothing the tool found disappears from the screen.
+const HIDDEN_NOTICES_KEY = 'mst-hidden-notices';
+let hiddenNotices = new Set();
+try {
+  const saved = JSON.parse(localStorage.getItem(HIDDEN_NOTICES_KEY) || '[]');
+  if (Array.isArray(saved)) hiddenNotices = new Set(saved);
+} catch (e) {}
+// The notes are redrawn on every filter change, not only on upload, so the
+// last figures are kept to redraw from when one is hidden or shown.
+let lastLeaderData = null;
+
 function showLeaderNotices(data) {
+  lastLeaderData = data;
   const box = document.getElementById('encoding-level-notice');
   if (!box) return;
-  const parts = [encodingLevelLine(data.encoding_level),
-                 beyondLevelLine(data.beyond_level, data.with_holdings,
-                                 data.declared_level),
-                 singlePartLine(data.single_part, data.total)].filter(Boolean);
-  box.innerHTML = parts.join('');
-  box.hidden = parts.length === 0;
+  const encoding = data.encoding_level || {};
+  const notes = [
+    { key: 'encoding-level', name: 'Encoding level in the Leader',
+      count: encoding.records, body: encodingLevelLine(encoding) },
+    { key: 'beyond-level', name: 'Holdings beyond the level you are recording at',
+      count: data.beyond_level,
+      body: beyondLevelLine(data.beyond_level, data.with_holdings,
+                            data.declared_level) },
+    { key: 'single-part', name: 'Leader/06 coded as single-part item',
+      count: data.single_part, body: singlePartLine(data.single_part, data.total) },
+  ].filter(note => note.body);
+
+  box.innerHTML = notes.map((note, i) => hiddenNotices.has(note.key)
+    ? `<div class="notice-hidden small dim${i ? ' mt-1' : ''}">
+         Hidden: ${escHtml(note.name)} — ${note.count}
+         record${note.count !== 1 ? 's' : ''}.
+         <button type="button" class="btn btn-ghost btn-sm"
+                 data-show-notice="${note.key}">Show</button></div>`
+    : `<div class="alert alert-info${i ? ' mt-2' : ''}">${note.body}
+         <button type="button" class="btn btn-ghost btn-sm"
+                 data-hide-notice="${note.key}"
+                 title="Folds this note to one line, in this browser, for every file you upload"
+                 >Hide</button></div>`).join('');
+  box.hidden = notes.length === 0;
 }
+
+function setNoticeHidden(key, hide) {
+  hide ? hiddenNotices.add(key) : hiddenNotices.delete(key);
+  try {
+    localStorage.setItem(HIDDEN_NOTICES_KEY, JSON.stringify([...hiddenNotices]));
+  } catch (e) {}
+  if (lastLeaderData) showLeaderNotices(lastLeaderData);
+}
+
+document.getElementById('encoding-level-notice').addEventListener('click', e => {
+  const hide = e.target.closest('[data-hide-notice]');
+  const show = e.target.closest('[data-show-notice]');
+  if (hide) setNoticeHidden(hide.dataset.hideNotice, true);
+  if (show) setNoticeHidden(show.dataset.showNotice, false);
+});
 
 /**
  * Leader/06 says single-part item; the holdings say otherwise.
@@ -1660,15 +1710,14 @@ function showLeaderNotices(data) {
 function singlePartLine(count, total) {
   if (!count) return '';
   const many = count !== 1;
-  return `<div class="alert alert-info mt-2">
+  return `
     ${count} of ${total} record${many ? 's are' : ' is'} coded in the Leader as
     single-part item holdings (<code>06 = x</code>), while the holdings
     ${many ? 'name' : 'names'} a volume, an issue, or a span of more than one
     part. A single-part item is complete in one piece, so that coding cannot be
     right for ${many ? 'them' : 'it'} — but whether ${many ? 'they are' : 'it is'}
     a serial (<code>y</code>) or a multipart item (<code>v</code>) is a
-    cataloguing decision this tool does not make. The Leader is never changed.
-  </div>`;
+    cataloguing decision this tool does not make. The Leader is never changed.`;
 }
 
 /**
@@ -1687,7 +1736,7 @@ function singlePartLine(count, total) {
 function beyondLevelLine(count, total, declared) {
   if (!count) return '';
   const many = count !== 1;
-  return `<div class="alert alert-info mt-2">
+  return `
     You are recording at level ${escHtml(declared || '3')}, which is summary
     holdings — the first level of enumeration and chronology only.
     ${count} of ${total} record${many ? 's' : ''} produced fields that go
@@ -1695,7 +1744,7 @@ function beyondLevelLine(count, total, declared) {
     ${many ? 'they' : 'it'} carr${many ? 'y' : 'ies'}. Record at level 4 if
     these holdings are detailed.
     <button type="button" class="btn btn-ghost btn-sm"
-            onclick="filterTo('encoding')">Show them</button></div>`;
+            onclick="filterTo('encoding')">Show them</button>`;
 }
 
 function encodingLevelLine(summary) {
@@ -1705,7 +1754,7 @@ function encodingLevelLine(summary) {
     .map(([value, n]) => `${n} at <code>${escHtml(value)}</code>`)
     .join(', ');
   const many = summary.records !== 1;
-  return `<div class="alert alert-info">
+  return `
     ${summary.records} of ${summary.total} record${many ? 's' : ''}
     declare${many ? '' : 's'} an encoding level in the Leader that is not the
     level you are recording at (${levels}, against
@@ -1714,7 +1763,7 @@ function encodingLevelLine(summary) {
     own holdings. Set it in your catalogue if these records should say what
     they now carry, or record at that level instead.
     <button type="button" class="btn btn-ghost btn-sm"
-            onclick="filterTo('encoding')">Show them</button></div>`;
+            onclick="filterTo('encoding')">Show them</button>`;
 }
 
 /** Switch the review filter from somewhere other than a chip. */
