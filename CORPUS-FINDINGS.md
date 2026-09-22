@@ -2358,6 +2358,18 @@ a capability these records do not support, so `3` is correct as long as `$u` is
 absent. Worth knowing that `$u` is the only thing standing between this output
 and machine-compressible holdings, if that ever matters.
 
+**Followed through · 0.21.0.** `$u` became a setting ("Issues per volume") in
+0.19 and the indicator did not follow it: an 853 carrying `$u 12` still said
+`3`. The cataloguer's decision, 22 September 2026: an 853 with a `$u` is written
+`2`, can compress or expand. Measured on the fixtures with the count set to 12:
+3 of 5 853s on `example_holdings.mrc` and 1 of 10 on `messy_holdings.mrc` carry
+the `$u` and move to `2`; the rest are one- or three-level and stay `3`, so the
+indicator is decided per field, not per run. Two limits kept, both because the
+reasoning above still holds for them: `var` and `und` stay `3`, since a count
+that varies or is not known is the absence of what compression needs; and only
+`3` is replaced, so a `0` or `1` typed in the indicator box, and the house
+preset's `2`, are left as they are.
+
 **Left alone, with the reasoning recorded.** Second indicator `1` is *"Captions
 verified; all levels may not be present"* — captions as they appear on the
 item. Where the tool writes `(*)`, or a caption supplied on the Patterns step,

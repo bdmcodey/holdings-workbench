@@ -1,6 +1,6 @@
 {
   "name": "MARC Serials Toolkit",
-  "version": "0.20.1",
+  "version": "0.21.0",
   "released": "2026-09-22",
   "status": "Proof of concept — under active development. Check your output before loading it into the catalog.",
   "description": "One tool for MARC serials holdings. Upload a MARC file, find the patterns in its 866 statements, confirm what each part of a pattern means, and convert to structured 853 caption/pattern and 863 enumeration/chronology fields. Statements no pattern matches are converted by the standard parser.",
@@ -9,6 +9,25 @@
   "contact": "Matthew Codey, codey@usc.edu",
   "_comment": "Written for cataloging staff, not developers. Say what changed about the output or the screen, not how the code changed. Newest version first.",
   "changelog": [
+    {
+      "version": "0.21.0",
+      "date": "2026-09-22",
+      "summary": "An 853 that carries a count in $u is now written as able to compress or expand.",
+      "changes": [
+        {
+          "tool": "MARC Serials Toolkit",
+          "text": "When you fill in \"Issues per volume\" in Conversion settings, each 853 that takes the count in $u now has first indicator 2, \"Can compress or expand\", in place of 3, \"Unknown\". MARC 21 ties compression to $u and $v being present, and the tool already writes $v; the count was the missing piece. An 853 that does not take the count -- a serial numbered by volume alone, or one with three levels of enumeration -- stays at 3, so a single run can write both."
+        },
+        {
+          "tool": "MARC Serials Toolkit",
+          "text": "A count of var or und leaves the indicator at 3, because a number that varies or is not known is not one compression can use. A first indicator you have typed yourself in the \"853 indicators\" box, and the house preset's 2, are left as they are: only 3 is replaced."
+        },
+        {
+          "tool": "MARC Serials Toolkit",
+          "text": "Fixed: \"Issues per volume\" was left out of two places since it was added in 0.19. Opening a record showed its 853 without the $u, and \"Convert this record\" wrote the record without it, while \"Convert all records\" included it. So the same record came out differently depending on which button converted it, and the preview agreed with the one that was wrong. A record converted on its own, or previewed, now gets the $u \"Convert all records\" gives it. Records you converted one at a time with a count set are worth converting again."
+        }
+      ]
+    },
     {
       "version": "0.20.1",
       "date": "2026-09-22",

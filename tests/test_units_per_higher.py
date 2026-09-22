@@ -130,11 +130,52 @@ def test_the_codes_the_standard_defines_are_written_as_themselves():
     assert "$u var" in got, got
 
 
-def test_it_reaches_the_converted_file(client):
-    """The screen is where it is checked; the file is what reaches the catalogue."""
+def _853_first_indicator(statement: str, **kwargs) -> str:
+    return convert_holdings(parse_866(statement), **kwargs).field_853.indicator1
+
+
+def test_an_853_carrying_a_count_can_be_compressed_or_expanded():
+    """
+    "Compression of the contents of subfields $a-$m in field 863 or 864
+    requires information in subfields $u and $v." Without $u the first
+    indicator is 3, Unknown; with a numeric one it is 2, Can compress or
+    expand -- the cataloguer's decision, 22 September 2026.
+    """
+    assert _853_first_indicator(TWO_LEVEL, units_per_higher="12") == "2"
+    assert _853_first_indicator(TWO_LEVEL) == "3"
+
+
+def test_the_indicator_follows_the_field_not_the_setting():
+    """
+    $u is only written on a two-level 853, so one run over a file writes
+    both: an 853 the count never reached makes no claim it could support.
+    """
+    assert _853_first_indicator(ONE_LEVEL, units_per_higher="12") == "3"
+    three = "ser. 2 v. 1 no. 1 (1990)-ser. 2 v. 5 no. 4 (1994)"
+    assert "$u" not in _853(three, units_per_higher="12")
+    assert _853_first_indicator(three, units_per_higher="12") == "3"
+
+
+@pytest.mark.parametrize("code", ["var", "und"])
+def test_a_count_that_varies_or_is_unknown_is_not_enough(code):
+    """The $u is written, but it says the number compression needs is missing."""
+    assert f"$u {code}" in _853(TWO_LEVEL, units_per_higher=code)
+    assert _853_first_indicator(TWO_LEVEL, units_per_higher=code) == "3"
+
+
+@pytest.mark.parametrize("given", ["0", "1", "2"])
+def test_a_first_indicator_somebody_chose_is_left_alone(given):
+    """Only Unknown is replaced; a 0 or 1 in the box is a deliberate statement."""
+    from marc_serials.converter import resolve_convention
+    spec, _ = resolve_convention("standard", indicators=[given, "1"])
+    got = convert_holdings(parse_866(TWO_LEVEL), convention_spec=spec,
+                           units_per_higher="12").field_853.indicator1
+    assert got == given
+
+
+def _two_level_file() -> bytes:
     import io
-    from pymarc import Field, MARCReader, MARCWriter, Record, Subfield
-    from conftest import upload_marc
+    from pymarc import Field, MARCWriter, Record, Subfield
 
     buf = io.BytesIO()
     writer = MARCWriter(buf)
@@ -145,8 +186,15 @@ def test_it_reaches_the_converted_file(client):
                         subfields=[Subfield(code="a", value=TWO_LEVEL)]))
     writer.write(rec)
     writer.close(close_fh=False)
+    return buf.getvalue()
 
-    upload_marc(client, buf.getvalue())
+
+def test_it_reaches_the_converted_file(client):
+    """The screen is where it is checked; the file is what reaches the catalogue."""
+    from pymarc import MARCReader
+    from conftest import upload_marc
+
+    upload_marc(client, _two_level_file())
     assert client.post("/api/batch-convert",
                        json={"units_per_higher": "12",
                              "numbering_continuity": "r"}).status_code == 200
@@ -160,3 +208,30 @@ def test_it_reaches_the_converted_file(client):
     assert fields[0].get("u") == "12"
     # Immediately after the caption it describes, before $v.
     assert codes.index("u") == codes.index("b") + 1, codes
+
+
+def test_a_record_converted_on_its_own_takes_it_too(client):
+    """
+    "Convert this record" and opening a record both go through their own
+    routes, and until 0.21.0 neither passed the count on: the record came out
+    of "Convert all" with $u 12 and out of its own Convert button without,
+    and the preview showed the second. A setting honoured on one path and
+    dropped on another looks right on screen and loads wrong.
+    """
+    from pymarc import MARCReader
+    from conftest import upload_marc
+
+    upload_marc(client, _two_level_file())
+
+    preview = client.post("/api/preview-record", json={
+        "record_index": 0, "units_per_higher": "12"}).get_json()
+    assert "$u 12" in preview["previews"][0]["field_853"], preview["previews"][0]
+
+    res = client.post("/api/convert-record", json={
+        "record_index": 0, "units_per_higher": "12",
+        "conversions": [{"text": TWO_LEVEL, "numbering_continuity": "r"}]})
+    assert res.status_code == 200, res.get_data()
+    with client.get("/api/download-converted") as got:
+        field = list(MARCReader(got.data))[0].get_fields("853")[0]
+    assert field.get("u") == "12", str(field)
+    assert field.indicator1 == "2", str(field)

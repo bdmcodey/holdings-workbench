@@ -844,6 +844,23 @@ def _build_853(
     if frequency:
         sfs.append(SubfieldData("w", frequency))
 
+    # First indicator 3, "Unknown", is the honest value while an 853 has no
+    # $u: "Compression of the contents of subfields $a-$m in field 863 or 864
+    # requires information in subfields $u and $v", and $v alone cannot
+    # support a claim that the holdings can be compressed or expanded. A
+    # numeric $u supplies what was missing, so an 853 carrying one is written
+    # as 2, "Can compress or expand" -- the cataloguer's call, 22 September
+    # 2026. Decided per field: $u only goes on a two-level 853, so one run
+    # writes both.
+    #
+    # Only a numeric $u. "var" and "und" say the count varies or is not
+    # known, which is the absence of what compression needs. And only over a
+    # 3: a 0 or 1 in the box is somebody's deliberate statement, and the house
+    # preset is 2 already.
+    if (ind1 == "3" and units_per_higher.isdigit()
+            and any(sf.code == "u" for sf in sfs)):
+        ind1 = "2"
+
     return FieldData(
         tag="853",
         indicator1=ind1,
