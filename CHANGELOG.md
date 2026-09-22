@@ -15,6 +15,14 @@ more than one release; numbering resumed with 0.6.1. Reasoning behind the
 parser and converter decisions, including the defects a real corpus exposed and
 what was done about each, is in [CORPUS-FINDINGS.md](CORPUS-FINDINGS.md).
 
+## 0.19.0 — 2026-09-22
+
+Choose how many records the review list shows at once: 5, 10, 25, 50, or all of them.
+
+- **MARC Serials Toolkit** — A "Show" menu beside the record count sets how many records a page of the review list holds: 5, 10, 25 or 50 per page, or every record in the file on one page. Ten is still where it starts. The menu stays in view whatever you choose, so "All records" can always be changed back.
+- **MARC Serials Toolkit** — Your choice is remembered in this browser, as the theme and text size are, so it is still set after a reload or a new upload. Changing it takes you back to the first page, as changing a filter does. The filters and the Find box work the same at every size: "All records" under "Needs attention" shows every record that needs attention.
+- **MARC Serials Toolkit** — "All records" loads the whole file, however long it is. The server prepares at most 200 records at a time, so a longer file is loaded in parts rather than stopping at the two-hundredth record.
+
 ## 0.18.1 — 2026-09-22
 
 The count at the top of a conversion no longer includes the records you skipped.
