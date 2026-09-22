@@ -15,6 +15,14 @@ more than one release; numbering resumed with 0.6.1. Reasoning behind the
 parser and converter decisions, including the defects a real corpus exposed and
 what was done about each, is in [CORPUS-FINDINGS.md](CORPUS-FINDINGS.md).
 
+## 0.20.1 — 2026-09-22
+
+The 853 indicator boxes in Conversion settings accept only the values MARC 21 defines.
+
+- **MARC Serials Toolkit** — The two "853 indicators" boxes in Conversion settings wrote whatever was typed into every generated 853. A 4 or a 9 in the first box went into the file as the first indicator, and a box left empty wrote a blank, although MARC 21 defines only 0, 1, 2 and 3 for either indicator. Nothing on the screen or in the run summary said so.
+- **MARC Serials Toolkit** — A value other than 0, 1, 2 or 3 is now refused, and the 853 keeps the preset's value instead -- 3 and 1 for the standard preset, 2 and 0 for house practice. The box turns red and a note beside it says so while you type, and the run summary names the value that was refused and the one kept in its place. Each indicator is checked on its own, so a mistyped second indicator does not cost you the first.
+- **MARC Serials Toolkit** — An 853 that was already in your record before conversion is still kept exactly as it came in, indicators included.
+
 ## 0.20.0 — 2026-09-22
 
 The notes about the Leader above the review list can be hidden, and stay hidden in this browser.
