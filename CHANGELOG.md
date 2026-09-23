@@ -15,6 +15,15 @@ more than one release; numbering resumed with 0.6.1. Reasoning behind the
 parser and converter decisions, including the defects a real corpus exposed and
 what was done about each, is in [CORPUS-FINDINGS.md](CORPUS-FINDINGS.md).
 
+## 0.22.0 — 2026-09-23
+
+853s and 863s already on a record are kept unless you ask for them to be cleared.
+
+- **MARC Serials Toolkit** — A record that already had 863 fields -- added by hand, or by an earlier load -- had them written over by 863s generated from its 866s, even with "Clear existing 853 / 863 first" left unticked. The replacements could lose information the originals carried: on a real 372-record file, 38 hand-entered 863s on 10 records were replaced, and every gap marker ($w g) among them was lost. Nothing on the screen said so.
+- **MARC Serials Toolkit** — A record with 863s of its own is now kept exactly as it came in. Its row in the review list says "has 863s · kept", opening it explains why, and the run summary counts it: "13 records already had 863s, kept as they were". Ticking "Clear existing 853 / 863 first" is how to have such records regenerated from their 866s instead, and the list and previews update as soon as you tick it.
+- **MARC Serials Toolkit** — A record with an 853 but no 863s still takes its new 863s under that 853 when its holdings match it. When they do not, the tool used to write its own 853 over yours; it now adds a second 853 beside it, under the next linking number neither uses, and marks the record "853 to check" so you can decide which pattern is right.
+- **MARC Serials Toolkit** — An 853 already on a record with indicators MARC 21 does not define, or two 853s sharing one linking number, is now reported on that record and listed under "Needs attention". Neither is changed.
+
 ## 0.21.0 — 2026-09-22
 
 An 853 that carries a count in $u is now written as able to compress or expand.

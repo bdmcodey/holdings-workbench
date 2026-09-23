@@ -1241,6 +1241,10 @@ function conventionPayload() {
     numbering_continuity: document.getElementById('batch-continuity').value,
     holdings_level: document.getElementById('batch-holdings-level').value,
     units_per_higher: unitsPerHigher(),
+    // Carried with every preview, not only with the conversions: whether a
+    // record that already has 863s is kept or regenerated changes what its
+    // preview should show.
+    clear_existing_853_863: document.getElementById('batch-clear853863').checked,
   };
 }
 
@@ -1278,6 +1282,12 @@ document.getElementById('batch-units').addEventListener('change', () => {
   document.querySelectorAll('.pattern-card').forEach(card => {
     if (!card.querySelector('.pc-body')?.hidden) refreshPreview(card);
   });
+  if (allRecords.length) refreshReview();
+});
+
+document.getElementById('batch-clear853863').addEventListener('change', () => {
+  // Ticking it turns every record kept for its own 863s into one that will be
+  // regenerated, so the list and any open preview are out of date.
   if (allRecords.length) refreshReview();
 });
 
@@ -1864,6 +1874,12 @@ function paintRecordStatus() {
       slot.innerHTML = '<span class="pill skipped-pill">skipped</span>';
       return;
     }
+    if (entry.kept_existing) {
+      slot.innerHTML = `<span class="pill"
+        title="Already has ${entry.existing_863} 863 field${entry.existing_863 !== 1 ? 's' : ''}; left as it is">has 863s · kept</span>`
+        + ((entry.record_notes || []).length ? ' <span class="pill decide">to check</span>' : '');
+      return;
+    }
     if (!entry.has_866) {
       slot.innerHTML = '<span class="pill">no 866</span>';
       return;
@@ -1872,6 +1888,7 @@ function paintRecordStatus() {
     if (entry.converted) bits.push(`<span class="pill has-866">${entry.converted} converted</span>`);
     if (entry.held) bits.push(`<span class="pill decide">${entry.held} held</span>`);
     if (entry.flagged) bits.push(`<span class="pill decide">${entry.flagged} to check</span>`);
+    if ((entry.record_notes || []).length) bits.push('<span class="pill decide">853 to check</span>');
     // No marker for the encoding level. Recording at level 3 against a file
     // of detailed holdings marked 242 of 371 rows, which is the third time
     // this shape has come up: a majority is not a signal, it is a property of
@@ -1916,7 +1933,8 @@ function recordMatchesFilter(entry, index) {
     // Leader/17 disagreed with the declared level, so 371 of 372 records
     // landed here and the filter stopped meaning anything. Encoding level has
     // a chip of its own now, and "Needs attention" is about conversion again.
-    case 'held':       return entry.held > 0 || entry.flagged > 0;
+    case 'held':       return entry.held > 0 || entry.flagged > 0
+                             || (entry.record_notes || []).length > 0;
     case 'encoding':   return !!entry.leader_note || !!entry.leader_mismatch
                              || !!entry.single_part;
     case 'pattern':    return entry.sources.some(
@@ -3332,6 +3350,10 @@ async function renderRecordDetail(idx) {
   // usually costs nothing; a record outside the current page still asks.
   const cached = recordPreviews.get(idx);
   let previews = cached ? cached.previews : null;
+  // What the record says about itself as a whole: kept for its own 863s, or
+  // an existing 853 worth a look. Carried on the cached row and on the
+  // single-record preview alike.
+  let about = cached || null;
 
   if (!previews) {
     detail.innerHTML = '<span class="spinner"></span>';
@@ -3341,11 +3363,26 @@ async function renderRecordDetail(idx) {
         ...conventionPayload(),
       });
       previews = data.previews;
+      about = data;
     } catch (err) {
       detail.innerHTML =
         `<div class="alert alert-err">Preview failed: ${escHtml(err.message)}</div>`;
       return;
     }
+  }
+
+  const notesHtml = ((about && about.record_notes) || [])
+    .map(n => `<div class="alert alert-warn mt-2">${escHtml(n)}</div>`).join('');
+  if (about && about.kept_existing) {
+    const n = about.existing_863;
+    detail.innerHTML = `
+      <div class="alert alert-info">This record already has ${n} 863
+        field${n !== 1 ? 's' : ''}, so it is kept exactly as it is: nothing is
+        generated beside ${n !== 1 ? 'them' : 'it'} and nothing is replaced.
+        To regenerate its 853s and 863s from its 866s instead, tick
+        "Clear existing 853 / 863 first" in Conversion settings.</div>
+      ${notesHtml}`;
+    return;
   }
 
   // Group by linking number, preserving first-appearance order. Statements held
@@ -3421,6 +3458,7 @@ async function renderRecordDetail(idx) {
     </div>` : '';
 
   detail.innerHTML = `
+    ${notesHtml}
     ${groupsHtml}
     ${reviewHtml}
     <div class="btn-row">
@@ -3456,6 +3494,12 @@ async function applyAllInRecord(recIdx) {
       })),
       ...settings,
     });
+    if (data.kept_existing) {
+      // Nothing was converted, and "Converted 0 statements" would say
+      // something happened. Say why nothing did.
+      showAlert(status, (data.warnings || []).join(' '), 'info');
+      return;
+    }
     const converted = data.previews.filter(p => p.fields_863.length).length;
     const held = data.previews.filter(p => !p.fields_863.length).length;
     const n = data.records_with_decisions || 1;
@@ -3518,6 +3562,10 @@ function renderBatchSummary(data) {
                plural(data.skipped_records, 'record skipped', 'records skipped')) : '',
     data.own_decisions
       ? figure(data.own_decisions, 'kept as you converted them') : '',
+    data.kept_existing
+      ? figure(data.kept_existing,
+               plural(data.kept_existing, 'record already had 863s, kept as it was',
+                                          'records already had 863s, kept as they were')) : '',
     bySource('unmatched') ? figure(bySource('unmatched'), 'left as they are') : '',
     bySource('skipped') ? figure(bySource('skipped'), 'skipped by a pattern') : '',
   ].join('');

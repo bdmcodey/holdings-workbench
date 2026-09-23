@@ -350,6 +350,61 @@ def add_853(record, field_data) -> None:
     record.add_ordered_field(field_data.to_pymarc())
 
 
+def existing_863_count(record) -> int:
+    """
+    863s the record carried before this tool touched it.
+
+    A record that has them was coded by hand, or by an earlier load, and the
+    cataloguer's rule is that data already there is kept unless the tool is
+    told to overwrite it ("Clear existing 853 / 863 first"). Measured on a real
+    372-record export before that rule existed: 10 of the 13 records with 863s
+    lost some or all of them to regenerated ones -- 38 fields, among them every
+    $w g gap marker, since an 866 cannot carry one back.
+    """
+    return len(record.get_fields("863"))
+
+
+def kept_existing_note(count: int) -> str:
+    """What a record left alone because of its own 863s says about itself."""
+    many = count != 1
+    return (f"This record already has {count} 863 field{'s' if many else ''}, "
+            f"so it was left exactly as it was: nothing was generated beside "
+            f"{'them' if many else 'it'} and nothing was replaced. Tick "
+            f"\"Clear existing 853 / 863 first\" to regenerate this record's "
+            f"853s and 863s from its 866s instead.")
+
+
+def existing_853_notes(record) -> list:
+    """
+    What is wrong with the 853s already on a record, said and never corrected.
+
+    Two things: an indicator MARC 21 does not define for the 853 (0-3 in both
+    positions, no blank), and two 853s sharing one $8, which leaves the 863s
+    under that number unable to say which pattern they follow. Both were
+    found on a real export -- one 853 coded "X" and blank, sharing $8 1 with
+    the record's real pattern.
+    """
+    notes: list = []
+    by_link: dict = {}
+    for f in record.get_fields("853"):
+        link = (f.get("8") or "").strip()
+        by_link.setdefault(link, []).append(f)
+        i1, i2 = f.indicator1 or " ", f.indicator2 or " "
+        if i1 not in "0123" or i2 not in "0123" or " " in (i1, i2):
+            shown = f"{i1}{i2}".replace(" ", "#")
+            notes.append(
+                f"The 853 already on this record with $8 {link or '(none)'} has "
+                f"indicators \"{shown}\"; MARC 21 defines 0, 1, 2 and 3 for "
+                f"each. It was left as it is.")
+    for link, fields in by_link.items():
+        if len(fields) > 1:
+            notes.append(
+                f"{len(fields)} 853s already on this record share "
+                f"$8 {link or '(none)'}, so the 863s under that number cannot "
+                f"say which pattern they follow. Left as they are.")
+    return notes
+
+
 def apply_record_conversion(record, rc) -> None:
     """
     Write a RecordConversion onto a pymarc record.

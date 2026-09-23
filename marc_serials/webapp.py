@@ -74,6 +74,9 @@ from marc_serials.records import (
     encoding_level_conflict,
     encoding_level_differs,
     encoding_level_summary,
+    existing_853_notes,
+    existing_863_count,
+    kept_existing_note,
     single_part_conflict,
     match_866_sources as _match_866_sources,
     read_marc_file as _read_marc_file,
@@ -346,7 +349,8 @@ def _review_row(record, index, *, patterns, fallback, conv_opts, captions,
                 frequency, continuity, rejections, merge_patterns,
                 skipped: bool, with_previews: bool,
                 holdings_level: str = DEFAULT_HOLDINGS_LEVEL,
-                units_per_higher: str = "") -> dict:
+                units_per_higher: str = "",
+                clear_existing: bool = False) -> dict:
     """
     One record as the review screen sees it: what it would produce, and what
     read it.
@@ -381,30 +385,41 @@ def _review_row(record, index, *, patterns, fallback, conv_opts, captions,
         # same reason as the encoding level: on a migrated file it is true of
         # nearly all of them.
         "single_part": False,
+        # 863s the record already had. Left exactly as they are unless the
+        # cataloguer asks for them to be cleared: see existing_863_count().
+        "existing_863": existing_863_count(record),
+        "kept_existing": False,
+        # Things about the record, not any one statement, that want a look: a
+        # second 853 beside one already there, or an existing 853 with an
+        # indicator MARC does not define. Reported, never corrected.
+        "record_notes": [] if clear_existing else existing_853_notes(record),
     }
     if with_previews:
         row["previews"] = []
 
     statements = [t for t in ((f["a"] or "") for f in record.get_fields("866")) if t]
     row["has_866"] = bool(statements)
+    row["kept_existing"] = bool(row["existing_863"]) and not clear_existing
 
     # A preview that showed fields a skipped record will never get would be
-    # showing something that is not going to happen.
-    if skipped or not statements:
+    # showing something that is not going to happen -- and the same goes for a
+    # record kept as it is because of its own 863s.
+    if skipped or not statements or row["kept_existing"]:
         return row
 
     parsed, sources = _parse_all(statements, patterns, fallback)
+    existing_853s = [] if clear_existing else list(record.get_fields("853"))
     rc = convert_record(
-        parsed, existing_853s=list(record.get_fields("853")), captions=captions,
+        parsed, existing_853s=existing_853s, captions=captions,
         frequency=frequency, numbering_continuity=continuity,
         merge_patterns=merge_patterns, holdings_level=holdings_level,
         units_per_higher=units_per_higher,
         **conv_opts,
     )
-    previews = _previews_from(rc, rejections, list(record.get_fields("853")),
-                              sources, patterns)
+    previews = _previews_from(rc, rejections, existing_853s, sources, patterns)
     for preview, text in zip(previews, statements):
         preview["source_866"] = text
+    row["record_notes"] += rc.record_notes
 
     row["converted"] = sum(1 for p in previews if p["fields_863"])
     row["held"] = sum(1 for p in previews if not p["fields_863"])
@@ -1191,37 +1206,31 @@ def api_preview_record():
         return jsonify({"error": "Record index out of range."}), 400
 
     try:
-        record = all_records[record_index]
         conv_opts, rejections = _convention_opts(data)
-        patterns = _load_library()
-
-        existing_853s = list(record.get_fields("853"))
-        statements = [t for t in ((f["a"] or "") for f in record.get_fields("866")) if t]
-        parsed, sources = _parse_all(statements, patterns,
-                                     _parser_fallback(data))
-
-        rc = convert_record(
-            parsed,
-            existing_853s=existing_853s,
-            captions=data.get("captions") or None,
+        # The same row the review list is built from. This route used to
+        # repeat that conversion by hand, and a copy drifts: it lost the $u
+        # until 0.21.0, and would have gone on converting records the list
+        # says are kept as they are.
+        row = _review_row(
+            all_records[record_index], record_index,
+            patterns=_load_library(), fallback=_parser_fallback(data),
+            conv_opts=conv_opts, captions=data.get("captions") or None,
             frequency=data.get("frequency", ""),
-            numbering_continuity=data.get("numbering_continuity", "r"),
+            continuity=data.get("numbering_continuity", "r"),
+            rejections=rejections,
             merge_patterns=record_index not in _keep_separate(data),
+            skipped=False, with_previews=True,
             holdings_level=resolve_holdings_level(data.get("holdings_level")),
-            # Missing until 0.21.0: opening a record showed its 853 without the
-            # $u that "Convert all" would write.
             units_per_higher=resolve_units_per_higher(data.get("units_per_higher")),
-            **conv_opts,
-        )
+            clear_existing=bool(data.get("clear_existing_853_863")))
         # Deliberately no write and no save: preview leaves the file untouched.
-        previews = _previews_from(rc, rejections, existing_853s, sources, patterns)
-        for pv, text in zip(previews, statements):
-            pv["source_866"] = text
-
         return jsonify({
             "success": True,
             "record_index": record_index,
-            "previews": previews,
+            "previews": row["previews"],
+            "kept_existing": row["kept_existing"],
+            "existing_863": row["existing_863"],
+            "record_notes": row["record_notes"],
         })
     except Exception as exc:
         app.logger.exception("Request failed")
@@ -1283,7 +1292,8 @@ def api_preview_records():
                         merge_patterns=index not in keep_separate,
                         skipped=index in skip_records,
                         with_previews=True, holdings_level=holdings_level,
-                        units_per_higher=units_per_higher)
+                        units_per_higher=units_per_higher,
+                        clear_existing=bool(data.get("clear_existing_853_863")))
             for index in wanted
         ]
 
@@ -1347,7 +1357,8 @@ def api_review_index():
                         merge_patterns=index not in keep_separate,
                         skipped=index in skip_records,
                         with_previews=False, holdings_level=holdings_level,
-                        units_per_higher=units_per_higher)
+                        units_per_higher=units_per_higher,
+                        clear_existing=bool(data.get("clear_existing_853_863")))
             for index, record in enumerate(all_records)
         ]
         # The file-wide half of the encoding-level question, counted once.
@@ -1365,6 +1376,8 @@ def api_review_index():
             "beyond_level": sum(1 for r in rows if r.get("leader_note")),
             "with_holdings": sum(1 for r in rows if r.get("has_866")),
             "declared_level": holdings_level,
+            # Records left as they are because they already carry 863s.
+            "kept_existing": sum(1 for r in rows if r.get("kept_existing")),
         })
     except Exception as exc:
         app.logger.exception("Request failed")
@@ -1550,6 +1563,7 @@ def _rebuild_converted(decisions: dict, previews_for: Optional[int] = None):
     skipped_total = 0
     own_total = 0
     skipped_own = 0
+    kept_total = 0
 
     for rec_idx, record in enumerate(all_records):
         decision = per_record.get(str(rec_idx))
@@ -1575,6 +1589,31 @@ def _rebuild_converted(decisions: dict, previews_for: Optional[int] = None):
             })
             continue
 
+        # Next, and still before anything is cleared: a record that already
+        # carries 863s is kept exactly as it is unless whichever instruction
+        # applies to it -- its own decision, or the run over the file -- says
+        # to clear them. Before 0.22.0 they were regenerated from the 866s
+        # and written over, 38 hand-entered fields on a real 372-record file.
+        if decision is not None:
+            clears = bool(decision.get("clear_existing_853_863"))
+        else:
+            clears = batch is not None and bool(clear_existing)
+        count_863 = existing_863_count(record)
+        if count_863 and not clears and (decision is not None or batch is not None):
+            kept_total += 1
+            summary.append({
+                "index": rec_idx,
+                "converted_fields": 0,
+                "conformed_fields": 0,
+                "needs_review": 0,
+                "kept_existing": True,
+                "warnings": [kept_existing_note(count_863)]
+                            + existing_853_notes(record),
+            })
+            continue
+        # Said about the 853s the record keeps; nothing to say once cleared.
+        notes_853 = [] if clears else existing_853_notes(record)
+
         if decision is not None:
             rc, record_previews, sources = _apply_one_decision(
                 record, decision, patterns)
@@ -1590,7 +1629,7 @@ def _rebuild_converted(decisions: dict, previews_for: Optional[int] = None):
                 "conformed_fields": rc.conformed,
                 "needs_review": rc.needs_review,
                 "own_decision": True,
-                "warnings": rc.warnings,
+                "warnings": notes_853 + rc.warnings,
             })
             continue
 
@@ -1636,7 +1675,7 @@ def _rebuild_converted(decisions: dict, previews_for: Optional[int] = None):
             "converted_fields": rc.converted,
             "conformed_fields": rc.conformed,
             "needs_review": rc.needs_review,
-            "warnings": rc.warnings,
+            "warnings": notes_853 + rc.warnings,
         })
 
     _save_file("marc_file_converted", _records_to_bytes(all_records))
@@ -1649,9 +1688,13 @@ def _rebuild_converted(decisions: dict, previews_for: Optional[int] = None):
         "skipped_records": skipped_total,
         "own_decisions": own_total,
         "skipped_own_decisions": skipped_own,
+        "kept_existing": kept_total,
         "previews": previews,
+        # A record kept for its own 863s was not converted, so it is not
+        # counted as converted and gets no download of its own as one.
         "converted_indexes": [row["index"] for row in summary
-                              if not row.get("skipped")],
+                              if not row.get("skipped")
+                              and not row.get("kept_existing")],
     }
 
 
@@ -1680,6 +1723,8 @@ def api_convert_record():
         result = _rebuild_converted(decisions, previews_for=record_index)
         _save_decisions(decisions)
 
+        this = next((row for row in result["summary"]
+                     if row["index"] == record_index), {})
         return jsonify({
             "success": True,
             "previews": result["previews"],
@@ -1687,6 +1732,10 @@ def api_convert_record():
             # at a time, so the screen can say so rather than leave them
             # counting.
             "records_with_decisions": result["own_decisions"],
+            # Kept for its own 863s, so the screen says that instead of
+            # "Converted 0 statements".
+            "kept_existing": bool(this.get("kept_existing")),
+            "warnings": this.get("warnings", []),
         })
     except Exception as exc:
         app.logger.exception("Request failed")
@@ -1729,6 +1778,7 @@ def api_batch_convert():
             "skipped_records": result["skipped_records"],
             "own_decisions": result["own_decisions"],
             "skipped_own_decisions": result["skipped_own_decisions"],
+            "kept_existing": result["kept_existing"],
             "converted_indexes": result["converted_indexes"],
             "rejections": result["rejections"],
             "by_source": [
