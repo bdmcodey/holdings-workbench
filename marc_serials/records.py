@@ -18,7 +18,7 @@ from __future__ import annotations
 import io
 from typing import Optional
 
-from pymarc import MARCReader, MARCWriter
+from pymarc import MARCReader, MARCWriter, Subfield
 
 # The default lives with the setting it belongs to, so the two cannot drift.
 from .converter import DEFAULT_HOLDINGS_LEVEL, SubfieldData
@@ -196,6 +196,80 @@ def record_identifier(record, spec: str = DEFAULT_IDENTIFIER_SPEC) -> str:
     return (field.get(code) or "").strip()
 
 
+def summarise_866(f) -> dict:
+    """One 866 as the screen shows it, and as its Edit button starts from."""
+    subfield_a = f.get("a") or ""
+    subfield_z = f.get("z") or ""
+    subfield_x = f.get("x") or ""
+    return {
+        "ind1": f.indicator1,
+        "ind2": f.indicator2,
+        "a": subfield_a,
+        "z": subfield_z,
+        "x": subfield_x,
+        "display": f"866 {f.indicator1}{f.indicator2} $a {subfield_a}"
+                   + (f" $z {subfield_z}" if subfield_z else "")
+                   + (f" $x {subfield_x}" if subfield_x else ""),
+    }
+
+
+# The subfields a cataloguer may correct in the Workbench: the holdings
+# statement, and the two notes the conversion carries onto the 863s.
+EDITABLE_866_SUBFIELDS = ("a", "z", "x")
+
+
+def apply_866_edits(record, edits: dict) -> None:
+    """
+    Put a cataloguer's corrections into a record's 866s, in place.
+
+    `edits` is {field position: {subfield code: {"value": ..., "was": ...}}},
+    the position counted among the record's 866s. The corrected text replaces
+    the first occurrence of that subfield; a note the field did not have is
+    added; an emptied note is removed. The corrected field is what the
+    converted file carries, so the record goes back to the catalogue fixed.
+    """
+    fields = record.get_fields("866")
+    for position, by_code in (edits or {}).items():
+        try:
+            field = fields[int(position)]
+        except (ValueError, IndexError):
+            continue
+        for code, edit in by_code.items():
+            if code not in EDITABLE_866_SUBFIELDS:
+                continue
+            value = (edit or {}).get("value", "")
+            at = next((i for i, sf in enumerate(field.subfields)
+                       if sf.code == code), None)
+            if at is None:
+                if value:
+                    field.add_subfield(code, value)
+            elif value:
+                field.subfields[at] = Subfield(code, value)
+            else:
+                del field.subfields[at]
+
+
+def edit_notes(edits: dict) -> list:
+    """What the cataloguer changed, said the way a record's other notes are."""
+    notes = []
+    for position, by_code in sorted((edits or {}).items(),
+                                    key=lambda kv: int(kv[0])):
+        for code in EDITABLE_866_SUBFIELDS:
+            edit = by_code.get(code)
+            if not edit:
+                continue
+            was, now = edit.get("was", ""), edit.get("value", "")
+            which = f"866 no. {int(position) + 1}"
+            if not was:
+                notes.append(f"You added {which} ${code}: \"{now}\".")
+            elif not now:
+                notes.append(f"You removed {which} ${code}, which read \"{was}\".")
+            else:
+                notes.append(f"You edited {which} ${code}: it read \"{was}\" "
+                             f"and now reads \"{now}\".")
+    return notes
+
+
 def read_marc_file(fileobj,
                    identifier_spec: str = DEFAULT_IDENTIFIER_SPEC) -> list[dict]:
     """
@@ -250,18 +324,7 @@ def read_marc_file(fileobj,
             loc_parts = holdings_loc.get_subfields("b", "c")
             location = " > ".join(loc_parts)
 
-        fields_866 = []
-        for f in record.get_fields("866"):
-            subfield_a = f.get("a") or ""
-            subfield_z = f.get("z") or ""
-            fields_866.append({
-                "ind1": f.indicator1,
-                "ind2": f.indicator2,
-                "a": subfield_a,
-                "z": subfield_z,
-                "display": f"866 {f.indicator1}{f.indicator2} $a {subfield_a}"
-                           + (f" $z {subfield_z}" if subfield_z else ""),
-            })
+        fields_866 = [summarise_866(f) for f in record.get_fields("866")]
 
         records_out.append({
             "index": rec_idx,

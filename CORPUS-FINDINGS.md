@@ -2478,6 +2478,54 @@ split 8/8. The test corpus is unchanged (0 of 128 statements carry the
 punctuation), and so are the 1,071 863s the file's 357 migration records
 produce.
 
+## Correcting an 866 in the Workbench · **0.23.0**
+
+*23 September 2026.* Requested by the cataloguer: a typo in a hand-written 866
+meant leaving the Workbench to fix the record and starting over, and the point
+of the project is less of that.
+
+**How much of the real export it touches.** Of 1,057 statements, 2 convert to
+nothing and 10 records carry flagged statements. Two are typos in the plain
+sense -- `(Fal 1995-Fall 1999)`, which converted without its season, and
+`57-59 61, 63, 65-66-(...)`, which converted to nothing. Most of the rest are
+wording MARC has no code for (`1st Quarter 1992`, `July 2014 Addendum`) or
+chronology-only lists the parser does not read yet (`(Jan-May, Sep-Nov
+1983)`). An edit fixes the first kind and is a way round the others.
+
+**How it is built.** An edit is a decision like a per-record conversion:
+stored with the session, forgotten on a new upload, and applied in
+`_load_all_records()` -- the one place every screen, both conversions and the
+download read records from -- so none of them had to learn about edits. `$a`,
+`$z` and `$x` are editable; `$a` cannot be emptied. Decided by the cataloguer:
+the corrected 866 is what the file carries, and each edit is said on the
+record ("You edited 866 no. 3 $a: it read ... and now reads ...") and in the
+run summary, but not under Needs attention -- an intentional correction is
+not a problem, and not silent either.
+
+Tried on the two real typos through the Edit button: `Fal` corrected, the
+statement converts with `$j 23-23` and is no longer flagged; the second
+converts to five 863s with their gaps.
+
+### Every 866 subfield, and where it goes
+
+Checked against `docs/marc/hd866868.md` and `hd863865.md` at the cataloguer's
+request. The 866 defines six:
+
+| 866 | 863 | |
+|---|---|---|
+| `$a` textual holdings | `$a`-`$m`, `$w` | converted |
+| `$x` nonpublic note | `$x` | carried (0.22.0) |
+| `$z` public note | `$z` | carried (0.22.0) |
+| `$2` source of notation | none -- coded holdings need no notation source | 866 kept, said |
+| `$6` linkage | the 863 has one, but the 880 it points to pairs with the 866 | 866 kept, said |
+| `$8` field link | superseded by the 863s' own | not carried |
+
+The indicators do not carry either: the 866's encoding level is the declared
+one, and its type of notation has no 863 counterpart. The 863 subfields with
+no 866 counterpart (`$o`, `$p`, `$q`, `$t`) could only arrive as wording in
+`$a`; none of the real export's 866s carries any such wording, nor a `$2`,
+`$6` or `$x`.
+
 ## Requested, not yet started
 
 Raised 1 September 2026 alongside D15–D18, recorded here so they are not lost.
@@ -2543,6 +2591,9 @@ The first two are done; the rest are Workbench UI and are not started.
   a log would carry; the work is gathering the per-record decisions and the
   review-list notes into one place and choosing a format a cataloguer can
   sort and search (a CSV opens in Excel; MarcEdit can take a list of 001s).
+  Since 0.23.0 it should carry the cataloguer's own 866 corrections too --
+  intentional, so not warnings, but a record of what the file now says that
+  the catalogue did not.
 
 ## A note on this corpus
 
