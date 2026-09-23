@@ -419,8 +419,8 @@ def _review_row(record, index, *, patterns, fallback, conv_opts, captions,
         row["previews"] = []
 
     all_866s = record.get_fields("866")
-    source_866s = [f for f in all_866s if (f["a"] or "")]
-    statements = [f["a"] for f in source_866s]
+    source_866s = [f for f in all_866s if (f.get("a") or "")]
+    statements = [f.get("a") for f in source_866s]
     row["has_866"] = bool(statements)
     row["kept_existing"] = bool(row["existing_863"]) and not clear_existing
 
@@ -973,7 +973,7 @@ def api_pattern_preview():
 
             texts, field_indexes = [], []
             for idx, fld in enumerate(record.get_fields("866")):
-                text = fld["a"] or ""
+                text = fld.get("a") or ""
                 if text:
                     texts.append(text)
                     field_indexes.append(idx)
@@ -1683,7 +1683,7 @@ def _rebuild_converted(decisions: dict, previews_for: Optional[int] = None):
         if not fields_866:
             continue
 
-        texts = [f["a"] or "" for f in fields_866]
+        texts = [f.get("a") or "" for f in fields_866]
         sources_866 = [f for f, t in zip(fields_866, texts) if t]
         statements = [t for t in texts if t]
 
@@ -1817,9 +1817,9 @@ def api_edit_866():
             "record_index": record_index,
             "fields_866": [summarise_866(f) for f in record.get_fields("866")],
             "edited": edit_notes(decisions["edits"].get(str(record_index))),
-            "statements": [f["a"].strip() for r in records
+            "statements": [f.get("a").strip() for r in records
                            for f in r.get_fields("866")
-                           if (f["a"] or "").strip()],
+                           if (f.get("a") or "").strip()],
         })
     except Exception as exc:
         app.logger.exception("Request failed")

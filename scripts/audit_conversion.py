@@ -147,7 +147,7 @@ def statements_from(path: Path) -> list[tuple[str, str]]:
                     continue
                 where = record["001"].data if record["001"] else f"record {index + 1}"
                 for field in record.get_fields("866"):
-                    text = (field["a"] or "").strip()
+                    text = (field.get("a") or "").strip()
                     if text:
                         out.append((where, text))
         return out
