@@ -1,6 +1,6 @@
 {
   "name": "MARC Serials Toolkit",
-  "version": "0.25.0",
+  "version": "0.25.1",
   "released": "2026-09-22",
   "status": "Proof of concept — under active development. Check your output before loading it into the catalog.",
   "description": "One tool for MARC serials holdings. Upload a MARC file, find the patterns in its 866 statements, confirm what each part of a pattern means, and convert to structured 853 caption/pattern and 863 enumeration/chronology fields. Statements no pattern matches are converted by the standard parser.",
@@ -9,6 +9,17 @@
   "contact": "Matthew Codey, codey@usc.edu",
   "_comment": "Written for cataloging staff, not developers. Say what changed about the output or the screen, not how the code changed. Newest version first.",
   "changelog": [
+    {
+      "version": "0.25.1",
+      "date": "2026-09-23",
+      "summary": "Ticking Skip no longer opens the record and moves the cursor to its note box.",
+      "changes": [
+        {
+          "tool": "MARC Serials Toolkit",
+          "text": "Ticking Skip now only marks the record skipped, as it did before 0.25.0. Opening the record and jumping to its note box got in the way when skipping several records in a row, and under \"Needs attention\" it did nothing, because a skipped record leaves that list. To write a reason for a skip, open the record: the \"Your note\" box is still at the bottom. The Skipped filter shows every skipped record together, so you can skip first and write notes afterwards."
+        }
+      ]
+    },
     {
       "version": "0.25.0",
       "date": "2026-09-23",

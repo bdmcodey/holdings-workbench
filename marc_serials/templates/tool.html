@@ -1671,13 +1671,9 @@ function renderRecordList(records) {
       await reloadReview();
       const row = document.querySelector(`.rec-row[data-index="${idx}"]`);
       if (row && !row.querySelector('.rec-detail').hidden) await renderRecordDetail(idx);
-      // A skip is a decision worth a reason: open the record at its note, so
-      // writing it down is the next thing to hand. Optional -- nothing asks.
-      if (e.target.checked && row) {
-        if (row.querySelector('.rec-detail').hidden) await selectRecord(idx);
-        const note = document.getElementById(`note-${idx}`);
-        if (note) { note.scrollIntoView({ block: 'center' }); note.focus(); }
-      }
+      // Nothing opens and the cursor stays put: skipping several records in a
+      // row should be one click each. The note box is in the record's detail,
+      // and the Skipped filter gathers them for writing reasons afterwards.
     }));
 
   box.querySelectorAll('.rec-reviewed').forEach(box_ =>
