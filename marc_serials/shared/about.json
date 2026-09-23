@@ -29,6 +29,18 @@
         {
           "tool": "MARC Serials Toolkit",
           "text": "An 853 already on a record with indicators MARC 21 does not define, or two 853s sharing one linking number, is now reported on that record and listed under \"Needs attention\". Neither is changed."
+        },
+        {
+          "tool": "MARC Serials Toolkit",
+          "text": "A statement that ends in a comma now records the gap it marks. \"v.45(1988),\" is how Alma displays an 863 with a gap after it ($w g), and the comma used to be read and dropped, so the 863 written from it had no gap and a display rebuilt from that 863 would lose the comma. A comma between two runs of one statement is read the same way -- \"v.1(1990)-v.5(1994), v.7(1996)-v.9(1998)\" records the gap after v.5 -- unless the numbering carries straight on. A semicolon records a break that is not a gap ($w n), as Z39.71 punctuates it."
+        },
+        {
+          "tool": "MARC Serials Toolkit",
+          "text": "Notes on an 866 now go onto the 863s written from it: a public note ($z) such as \"Incomplete\", and a nonpublic note ($x). They used to be left behind. When one statement becomes several 863s, the note goes on the last of them, and the record says so, because the note does not say which part it belongs to."
+        },
+        {
+          "tool": "MARC Serials Toolkit",
+          "text": "\"Remove each 866 once it has been converted\" no longer removes an 866 with something on it that has nowhere to go. Before, an 866's $z note was deleted with it and nothing said so. Now its notes are carried, and an 866 carrying anything else is kept, with a note on the record saying what."
         }
       ]
     },

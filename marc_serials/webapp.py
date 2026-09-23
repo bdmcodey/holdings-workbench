@@ -70,6 +70,7 @@ from marc_serials.records import (
     record_identifier,
     add_853 as _add_853,
     apply_record_conversion as _apply_record_conversion,
+    carry_866_notes as _carry_866_notes,
     display_marc_field as _display_marc_field,
     encoding_level_conflict,
     encoding_level_differs,
@@ -397,7 +398,8 @@ def _review_row(record, index, *, patterns, fallback, conv_opts, captions,
     if with_previews:
         row["previews"] = []
 
-    statements = [t for t in ((f["a"] or "") for f in record.get_fields("866")) if t]
+    source_866s = [f for f in record.get_fields("866") if (f["a"] or "")]
+    statements = [f["a"] for f in source_866s]
     row["has_866"] = bool(statements)
     row["kept_existing"] = bool(row["existing_863"]) and not clear_existing
 
@@ -416,6 +418,8 @@ def _review_row(record, index, *, patterns, fallback, conv_opts, captions,
         units_per_higher=units_per_higher,
         **conv_opts,
     )
+    # Before the previews, so what is shown is what will be written.
+    _carry_866_notes(source_866s, rc)
     previews = _previews_from(rc, rejections, existing_853s, sources, patterns)
     for preview, text in zip(previews, statements):
         preview["source_866"] = text
@@ -1499,6 +1503,7 @@ def _apply_one_decision(record, decision: dict, patterns: list) -> tuple:
             first.get("units_per_higher", decision.get("units_per_higher"))),
         **conv_opts,
     )
+    _carry_866_notes(sources_866, rc)
     _apply_record_conversion(record, rc)
 
     if remove_866:
@@ -1664,6 +1669,7 @@ def _rebuild_converted(decisions: dict, previews_for: Optional[int] = None):
             units_per_higher=units_per_higher,
             **conv_opts,
         )
+        _carry_866_notes(sources_866, rc)
         _apply_record_conversion(record, rc)
 
         if remove_866:

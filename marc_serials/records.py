@@ -21,7 +21,7 @@ from typing import Optional
 from pymarc import MARCReader, MARCWriter
 
 # The default lives with the setting it belongs to, so the two cannot drift.
-from .converter import DEFAULT_HOLDINGS_LEVEL
+from .converter import DEFAULT_HOLDINGS_LEVEL, SubfieldData
 
 
 # ---------------------------------------------------------------------------
@@ -452,6 +452,48 @@ def match_866_sources(record, texts) -> list:
     return matched
 
 
+# 866 subfields the conversion accounts for. $a is what is converted; $x and $z
+# are carried onto the 863s by carry_866_notes(); $8 links the 866 to an 863
+# the conversion supersedes. Anything else on an 866 goes nowhere, so an 866
+# carrying it is not removed.
+ACCOUNTED_866_SUBFIELDS = frozenset("axz8")
+
+
+def carry_866_notes(sources, rc) -> None:
+    """
+    Put each 866's notes -- $x nonpublic, $z public -- on the 863s it became.
+
+    863 defines both, and Alma writes an 863's $z back out as its 866's $z, so
+    a note left behind is a note the regenerated display loses. Measured on a
+    real export: 5 of 5 hand-entered 863s with "$z Incomplete" had it in their
+    Alma-generated 866, and the tool dropped all five.
+
+    One statement can become several 863s, and a note is about the statement.
+    It goes on the last of them, where a display reading them in order puts it
+    after the holdings it qualifies -- and the placement is said, because it is
+    a choice the note itself does not make.
+
+    `sources` is aligned with rc.results, as for remove_converted_866s().
+    """
+    for field, result in zip(sources, rc.results):
+        if field is None or not result.fields_863:
+            continue
+        notes = [(sf.code, sf.value) for sf in field.subfields
+                 if sf.code in ("x", "z") and (sf.value or "").strip()]
+        if not notes:
+            continue
+        target = result.fields_863[-1]
+        for code, value in notes:
+            target.subfields.append(SubfieldData(code, value))
+        if len(result.fields_863) > 1:
+            shown = "; ".join(f"${c} {v}" for c, v in notes)
+            result.warnings.append(
+                f"This statement became {len(result.fields_863)} 863s and its "
+                f"866 carried a note ({shown}). The note was put on the last "
+                f"of them; check whether it belongs to all of the holdings or "
+                f"only to part.")
+
+
 def remove_converted_866s(record, sources, rc) -> None:
     """
     Drop only those 866s whose statement actually produced 863s.
@@ -471,6 +513,17 @@ def remove_converted_866s(record, sources, rc) -> None:
     """
     for field, result in zip(sources, rc.results):
         if field is not None and result.fields_863:
+            # Removing an 866 used to take its $z with it, silently. $x and $z
+            # are carried now; anything else would still go nowhere, so the
+            # field stays and says why.
+            left = sorted({sf.code for sf in field.subfields
+                           if sf.code not in ACCOUNTED_866_SUBFIELDS})
+            if left:
+                result.warnings.append(
+                    "This 866 was kept although its holdings were converted: it "
+                    "also carries " + ", ".join(f"${c}" for c in left)
+                    + ", which has nowhere to go in an 863.")
+                continue
             record.remove_field(field)
 
 

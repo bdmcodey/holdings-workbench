@@ -2415,7 +2415,7 @@ tool is told to overwrite it.
 
 After: 0 hand-entered fields changed; 13 kept; 359 converted.
 
-### Three readings of one holding · **measured, not yet acted on**
+### Three readings of one holding · **measured; breaks and notes carried in 0.22.0**
 
 The 13 records make a test the corpus cannot: their 866s were generated *by
 Alma* from the hand-entered 863s -- each 866 carries the `$8` of the 863 it was
@@ -2452,10 +2452,31 @@ field from content, which is the derivation D18 considered and set aside for
 the 863. Worth knowing before a reload: the ILS may not agree with a declared
 `4`.
 
-**Found alongside, and not fixed here:** with "Remove each 866" ticked, an 866
-whose statement converts is removed along with any `$z` note it carries, and
-no warning names the note. Confirmed on a synthetic record. On this file the
-one 866 with a note does not convert, so it survives -- by luck.
+**Found alongside:** with "Remove each 866" ticked, an 866 whose statement
+converted was removed along with any `$z` note it carried, and no warning
+named the note. Confirmed on a synthetic record; on this file the one 866 with
+a note does not convert, so it survived by luck.
+
+**Acted on, same release.**
+
+- *Breaks.* A statement's own punctuation now writes `$w`: a comma after its
+  last run is `g`, a semicolon `n` (Z39.71's gap and non-gap break). Between two
+  runs of one statement a comma is `g` unless the first-level numbering carries
+  straight on, the test `_gap_after()` already applied inside a list, and a
+  semicolon is `n`. The between-runs case was the same defect one step earlier:
+  `v.1(1990)-v.5(1994), v.7(1996)-v.9(1998)` wrote two 863s and no gap.
+- *Notes.* An 866's `$x` (nonpublic) and `$z` (public) go onto the 863s it
+  became -- the last of them when a statement becomes several, which is said,
+  since the note itself does not say which part it qualifies.
+- *Removing the 866.* It is removed only when everything on it is accounted
+  for: `$a` converted, `$x`/`$z` carried, `$8` superseded. An 866 carrying
+  anything else is kept, and says what.
+
+After: **all 48 statements agree on every subfield.** The 8 that differ at
+all differ only in the single-part second indicator, where the hand coding is
+split 8/8. The test corpus is unchanged (0 of 128 statements carry the
+punctuation), and so are the 1,071 863s the file's 357 migration records
+produce.
 
 ## Requested, not yet started
 
@@ -2508,6 +2529,20 @@ The first two are done; the rest are Workbench UI and are not started.
   supplementary material or an index and does not belong in an 866, and leave
   the move to a person. Worth noting that the pattern path already *converts*
   these, into an 863, which is the wrong field — so the flag is also a guard.
+
+- **A session log to take back to Alma or MarcEdit.** Raised 23 September
+  2026, not started. Beside the converted `.mrc`, a downloadable record of
+  everything a session said about a record: warnings, statements held for
+  review, records skipped, records kept for their own 863s, 853s flagged,
+  settings refused. Much of it asks a cataloguer to fix a record by hand, in
+  the ILS or MarcEdit, where the Workbench's row number means nothing -- so
+  each line wants the record's identifier (the field chosen on upload), the
+  statement it concerns, and what to do. Today all of it is on screen, one
+  record at a time, and gone when the session ends. The run summary rows
+  (`summary[].warnings`, `kept_existing`, `skipped`) already hold most of what
+  a log would carry; the work is gathering the per-record decisions and the
+  review-list notes into one place and choosing a format a cataloguer can
+  sort and search (a CSV opens in Excel; MarcEdit can take a list of 001s).
 
 ## A note on this corpus
 
