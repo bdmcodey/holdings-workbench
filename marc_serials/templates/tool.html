@@ -908,8 +908,8 @@ v.6(1995)-"></textarea>
         <div class="review-meta">
           <span id="review-count" class="small dim"></span>
           <!-- Here, not beside Previous / Next: the pager hides itself when the
-               list fits on one page, and on "All" it always does, so a choice
-               made there could never be taken back. -->
+               list fits on one page, so a choice made there could not always
+               be taken back. -->
           <span class="page-size">
             <label for="review-page-size" class="small dim">Show</label>
             <select id="review-page-size">
@@ -917,7 +917,6 @@ v.6(1995)-"></textarea>
               <option value="10" selected>10 per page</option>
               <option value="25">25 per page</option>
               <option value="50">50 per page</option>
-              <option value="all">All records</option>
             </select>
           </span>
           <button type="button" class="btn btn-ghost btn-sm" id="btn-expand-all">Open all</button>
@@ -1092,11 +1091,19 @@ let reviewSearch   = '';    // what the Find box is narrowing the list to
 // Nothing here fetches less than it did: previews were already requested a
 // page at a time, so a smaller page means more requests, each smaller.
 //
-// The review list's size is now the cataloguer's to choose -- 5, 10, 25, 50 or
-// every record -- and ten stays the default for the reason above. The choice is
-// kept in this browser, like the theme and text size, so it survives a reload
-// and a new upload.
-const REVIEW_PAGE_SIZES = ['5', '10', '25', '50', 'all'];
+// The review list's size is now the cataloguer's to choose -- 5, 10, 25 or 50
+// -- and ten stays the default for the reason above. The choice is kept in this
+// browser, like the theme and text size, so it survives a reload and a new
+// upload.
+//
+// "All records" was offered from 0.19.0 and withdrawn in 0.24.1: on a
+// 372-record file, opening and closing a record lagged noticeably in the
+// cataloguer's browser with every row on screen. Measured headless it did not
+// (about 0.1s at every size, the page holding the same 8,275 elements), so the
+// cost is in drawing 372 rows, which a headless test does not do. Fifty is the
+// cataloguer's cap. A saved "all" from before becomes 50, the nearest size
+// still offered, rather than falling back to ten.
+const REVIEW_PAGE_SIZES = ['5', '10', '25', '50'];
 let reviewPageSize = '10';
 const PATTERN_PAGE = 10;
 
@@ -1108,7 +1115,7 @@ const PREVIEW_BATCH = {{ preview_batch }};
 
 /** Records per page in the review list, as a number the paging can add up. */
 function reviewPageLimit() {
-  return reviewPageSize === 'all' ? Infinity : Number(reviewPageSize);
+  return Number(reviewPageSize);
 }
 
 // Which page of the patterns still wanting a decision is on screen. The
@@ -2237,6 +2244,7 @@ document.getElementById('btn-page-next').addEventListener('click', () => {
   const select = document.getElementById('review-page-size');
   let saved = null;
   try { saved = localStorage.getItem('mst-review-page'); } catch (e) {}
+  if (saved === 'all') saved = '50';
   if (REVIEW_PAGE_SIZES.includes(saved)) reviewPageSize = saved;
   select.value = reviewPageSize;
 

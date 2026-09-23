@@ -1,6 +1,6 @@
 {
   "name": "MARC Serials Toolkit",
-  "version": "0.24.0",
+  "version": "0.24.1",
   "released": "2026-09-22",
   "status": "Proof of concept — under active development. Check your output before loading it into the catalog.",
   "description": "One tool for MARC serials holdings. Upload a MARC file, find the patterns in its 866 statements, confirm what each part of a pattern means, and convert to structured 853 caption/pattern and 863 enumeration/chronology fields. Statements no pattern matches are converted by the standard parser.",
@@ -9,6 +9,17 @@
   "contact": "Matthew Codey, codey@usc.edu",
   "_comment": "Written for cataloging staff, not developers. Say what changed about the output or the screen, not how the code changed. Newest version first.",
   "changelog": [
+    {
+      "version": "0.24.1",
+      "date": "2026-09-23",
+      "summary": "The review list shows at most 50 records a page.",
+      "changes": [
+        {
+          "tool": "MARC Serials Toolkit",
+          "text": "The \"All records\" choice in the review list's \"Show\" menu has been withdrawn: with every record of a large file on screen at once, opening and closing a record was slow. The largest page is now 50 records; 5, 10 and 25 are still offered, and 10 is still where it starts. If you had chosen \"All records\", the list now opens at 50 per page."
+        }
+      ]
+    },
     {
       "version": "0.24.0",
       "date": "2026-09-23",

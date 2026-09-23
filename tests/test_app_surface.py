@@ -142,12 +142,17 @@ def test_the_find_box_and_its_controls_are_on_the_page(client):
 
 
 def test_the_review_list_offers_a_choice_of_page_size(client):
-    """Five, ten, twenty-five, fifty or every record; ten unless changed."""
+    """
+    Five, ten, twenty-five or fifty; ten unless changed.
+
+    "All records" was withdrawn in 0.24.1 at the cataloguer's request: every
+    row of a 372-record file on screen made opening a record lag.
+    """
     page = client.get("/").get_data(as_text=True)
     menu = re.search(r'<select id="review-page-size">(.*?)</select>', page, re.S)
     assert menu, "the records-per-page menu is missing from the page"
     values = re.findall(r'<option value="([^"]+)"', menu.group(1))
-    assert values == ["5", "10", "25", "50", "all"]
+    assert values == ["5", "10", "25", "50"]
     assert '<option value="10" selected>' in menu.group(1)
 
     script = (TEMPLATES / "tool.html").read_text(encoding="utf-8")

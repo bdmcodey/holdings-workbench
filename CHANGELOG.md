@@ -15,6 +15,12 @@ more than one release; numbering resumed with 0.6.1. Reasoning behind the
 parser and converter decisions, including the defects a real corpus exposed and
 what was done about each, is in [CORPUS-FINDINGS.md](CORPUS-FINDINGS.md).
 
+## 0.24.1 — 2026-09-23
+
+The review list shows at most 50 records a page.
+
+- **MARC Serials Toolkit** — The "All records" choice in the review list's "Show" menu has been withdrawn: with every record of a large file on screen at once, opening and closing a record was slow. The largest page is now 50 records; 5, 10 and 25 are still offered, and 10 is still where it starts. If you had chosen "All records", the list now opens at 50 per page.
+
 ## 0.24.0 — 2026-09-23
 
 A session log: a spreadsheet of every record with something to look at, to take back to your catalogue or MarcEdit.
