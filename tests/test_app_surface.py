@@ -215,6 +215,22 @@ def test_each_leader_note_can_be_hidden_and_folds_to_its_count():
     assert "const HIDDEN_NOTICES_KEY = 'mst-hidden-notices';" in script
 
 
+def test_a_skipped_record_never_needs_attention():
+    """
+    Skipping is the cataloguer taking a record in hand. Held and flagged
+    counts fall to 0 on a skip by themselves, but notes about a record's
+    existing 853s do not, and until 0.24.2 they kept a skipped record under
+    "Needs attention" -- two records on a real file, found in testing.
+    """
+    script = (TEMPLATES / "tool.html").read_text(encoding="utf-8")
+    held = re.search(r"case 'held':\s*return (.*?);", script, re.S)
+    assert held, "the Needs attention filter has moved or been renamed"
+    rule = held.group(1)
+    assert rule.lstrip().startswith("!entry.skipped"), (
+        "a skipped record has to be excluded before anything else is asked")
+    assert "record_notes" in rule
+
+
 def test_the_stylesheet_is_served(client):
     """
     Closed explicitly, which is why this reads oddly for a two-line check.

@@ -1979,8 +1979,15 @@ function recordMatchesFilter(entry, index) {
     // Leader/17 disagreed with the declared level, so 371 of 372 records
     // landed here and the filter stopped meaning anything. Encoding level has
     // a chip of its own now, and "Needs attention" is about conversion again.
-    case 'held':       return entry.held > 0 || entry.flagged > 0
-                             || (entry.record_notes || []).length > 0;
+    // Skipping a record is the cataloguer taking it in hand, so it no longer
+    // needs attention here. Held and flagged counts drop to 0 on a skip by
+    // themselves -- a skipped record is not converted -- but record_notes are
+    // about the 853s already on the record and survive it, which left records
+    // with an 853 warning under this filter after they were skipped (0.24.2).
+    // The notes still show when the record is opened.
+    case 'held':       return !entry.skipped
+                             && (entry.held > 0 || entry.flagged > 0
+                                 || (entry.record_notes || []).length > 0);
     case 'encoding':   return !!entry.leader_note || !!entry.leader_mismatch
                              || !!entry.single_part;
     case 'pattern':    return entry.sources.some(
