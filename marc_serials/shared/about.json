@@ -1,6 +1,6 @@
 {
   "name": "MARC Serials Toolkit",
-  "version": "0.22.0",
+  "version": "0.23.0",
   "released": "2026-09-22",
   "status": "Proof of concept — under active development. Check your output before loading it into the catalog.",
   "description": "One tool for MARC serials holdings. Upload a MARC file, find the patterns in its 866 statements, confirm what each part of a pattern means, and convert to structured 853 caption/pattern and 863 enumeration/chronology fields. Statements no pattern matches are converted by the standard parser.",
@@ -9,6 +9,25 @@
   "contact": "Matthew Codey, codey@usc.edu",
   "_comment": "Written for cataloging staff, not developers. Say what changed about the output or the screen, not how the code changed. Newest version first.",
   "changelog": [
+    {
+      "version": "0.23.0",
+      "date": "2026-09-23",
+      "summary": "Correct an 866 in the Workbench: an Edit button beside each 866 re-checks the statement and regenerates its 853 and 863s.",
+      "changes": [
+        {
+          "tool": "MARC Serials Toolkit",
+          "text": "Opening a record now lists its 866 fields, each with an Edit button. Edit opens the field for correction, with a menu to choose what to change: the holdings statement ($a), which is where it starts, or the public ($z) or nonpublic ($x) note. \"Save and check again\" re-reads the corrected statement straight away: the record's 853 and 863s are regenerated, the review list is updated, and pattern detection runs again if you have run it. A typo such as \"Fal 1995\" no longer means leaving the Workbench to fix the record and starting over."
+        },
+        {
+          "tool": "MARC Serials Toolkit",
+          "text": "The corrected 866 is what the converted file carries, so the record goes back to your catalogue fixed. Each correction is shown on the record -- \"You edited 866 no. 3 $a: it read ... and now reads ...\" -- and in the run summary, and the record is marked \"866 edited\" in the list. It is not listed under Needs attention: it is a change you made on purpose, not a problem. \"Put back as uploaded\" undoes a correction, and uploading a new file forgets them all."
+        },
+        {
+          "tool": "MARC Serials Toolkit",
+          "text": "The holdings statement cannot be emptied; use \"Put back as uploaded\" to undo a change instead. An emptied note is removed."
+        }
+      ]
+    },
     {
       "version": "0.22.0",
       "date": "2026-09-23",

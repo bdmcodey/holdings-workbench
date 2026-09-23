@@ -47,6 +47,8 @@ JOINED_ROUTES = {
     # One record on its own, for the cataloguer who has converted a handful by
     # hand and wants those rather than the whole file.
     "/api/download-record",
+    # Correcting an 866 in the Workbench rather than before it.
+    "/api/edit-866",
 }
 
 

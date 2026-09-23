@@ -70,6 +70,10 @@ from marc_serials.records import (
     record_identifier,
     add_853 as _add_853,
     apply_record_conversion as _apply_record_conversion,
+    apply_866_edits,
+    edit_notes,
+    EDITABLE_866_SUBFIELDS,
+    summarise_866,
     carry_866_notes as _carry_866_notes,
     display_marc_field as _display_marc_field,
     encoding_level_conflict,
@@ -293,7 +297,18 @@ def _load_all_records() -> Optional[list]:
     marc_bytes = _load_file("marc_file")
     if not marc_bytes:
         return None
-    return records_from_bytes(marc_bytes)
+    records = records_from_bytes(marc_bytes)
+    # The cataloguer's corrections to 866s, applied here and only here: every
+    # screen, every conversion and the file downloaded read records through
+    # this function, so each of them sees the corrected text without being
+    # told about edits at all.
+    edits = _load_decisions().get("edits") or {}
+    for index, by_field in edits.items():
+        try:
+            apply_866_edits(records[int(index)], by_field)
+        except (ValueError, IndexError):
+            continue
+    return records
 
 
 # ---------------------------------------------------------------------------
@@ -351,7 +366,8 @@ def _review_row(record, index, *, patterns, fallback, conv_opts, captions,
                 skipped: bool, with_previews: bool,
                 holdings_level: str = DEFAULT_HOLDINGS_LEVEL,
                 units_per_higher: str = "",
-                clear_existing: bool = False) -> dict:
+                clear_existing: bool = False,
+                edited: Optional[list] = None) -> dict:
     """
     One record as the review screen sees it: what it would produce, and what
     read it.
@@ -394,11 +410,16 @@ def _review_row(record, index, *, patterns, fallback, conv_opts, captions,
         # second 853 beside one already there, or an existing 853 with an
         # indicator MARC does not define. Reported, never corrected.
         "record_notes": [] if clear_existing else existing_853_notes(record),
+        # The cataloguer's own corrections to this record's 866s. Said, since
+        # the file will carry them, but not "needs attention": they are the
+        # attention, already given.
+        "edited": list(edited or []),
     }
     if with_previews:
         row["previews"] = []
 
-    source_866s = [f for f in record.get_fields("866") if (f["a"] or "")]
+    all_866s = record.get_fields("866")
+    source_866s = [f for f in all_866s if (f["a"] or "")]
     statements = [f["a"] for f in source_866s]
     row["has_866"] = bool(statements)
     row["kept_existing"] = bool(row["existing_863"]) and not clear_existing
@@ -421,8 +442,11 @@ def _review_row(record, index, *, patterns, fallback, conv_opts, captions,
     # Before the previews, so what is shown is what will be written.
     _carry_866_notes(source_866s, rc)
     previews = _previews_from(rc, rejections, existing_853s, sources, patterns)
-    for preview, text in zip(previews, statements):
+    for preview, text, field in zip(previews, statements, source_866s):
         preview["source_866"] = text
+        # Which 866 this is on the record, for its Edit button.
+        preview["field_index"] = next(i for i, f in enumerate(all_866s)
+                                      if f is field)
     row["record_notes"] += rc.record_notes
 
     row["converted"] = sum(1 for p in previews if p["fields_863"])
@@ -1226,7 +1250,8 @@ def api_preview_record():
             skipped=False, with_previews=True,
             holdings_level=resolve_holdings_level(data.get("holdings_level")),
             units_per_higher=resolve_units_per_higher(data.get("units_per_higher")),
-            clear_existing=bool(data.get("clear_existing_853_863")))
+            clear_existing=bool(data.get("clear_existing_853_863")),
+            edited=edit_notes(_load_decisions()["edits"].get(str(record_index))))
         # Deliberately no write and no save: preview leaves the file untouched.
         return jsonify({
             "success": True,
@@ -1235,6 +1260,7 @@ def api_preview_record():
             "kept_existing": row["kept_existing"],
             "existing_863": row["existing_863"],
             "record_notes": row["record_notes"],
+            "edited": row["edited"],
         })
     except Exception as exc:
         app.logger.exception("Request failed")
@@ -1285,6 +1311,7 @@ def api_preview_records():
     keep_separate = _keep_separate(data)
     skip_records = _skipped_records(data)
 
+    session_edits = _load_decisions()["edits"]
     try:
         wanted = _requested_indices(data, len(all_records), offset, limit)
         out = [
@@ -1297,7 +1324,8 @@ def api_preview_records():
                         skipped=index in skip_records,
                         with_previews=True, holdings_level=holdings_level,
                         units_per_higher=units_per_higher,
-                        clear_existing=bool(data.get("clear_existing_853_863")))
+                        clear_existing=bool(data.get("clear_existing_853_863")),
+                        edited=edit_notes(session_edits.get(str(index))))
             for index in wanted
         ]
 
@@ -1351,6 +1379,7 @@ def api_review_index():
     keep_separate = _keep_separate(data)
     skip_records = _skipped_records(data)
 
+    session_edits = _load_decisions()["edits"]
     try:
         rows = [
             _review_row(record, index,
@@ -1362,7 +1391,8 @@ def api_review_index():
                         skipped=index in skip_records,
                         with_previews=False, holdings_level=holdings_level,
                         units_per_higher=units_per_higher,
-                        clear_existing=bool(data.get("clear_existing_853_863")))
+                        clear_existing=bool(data.get("clear_existing_853_863")),
+                        edited=edit_notes(session_edits.get(str(index))))
             for index, record in enumerate(all_records)
         ]
         # The file-wide half of the encoding-level question, counted once.
@@ -1423,7 +1453,7 @@ DECISIONS_KEY = "conversion_decisions"
 
 def _empty_decisions() -> dict:
     """Nothing decided yet: no record converted on its own, no run over the file."""
-    return {"records": {}, "batch": None}
+    return {"records": {}, "batch": None, "edits": {}}
 
 
 def _load_decisions() -> dict:
@@ -1439,9 +1469,12 @@ def _load_decisions() -> dict:
         return _empty_decisions()
     records = document.get("records")
     batch = document.get("batch")
+    edits = document.get("edits")
     return {
         "records": records if isinstance(records, dict) else {},
         "batch": batch if isinstance(batch, dict) else None,
+        # Corrections to 866s, by record then 866: see apply_866_edits().
+        "edits": edits if isinstance(edits, dict) else {},
     }
 
 
@@ -1686,6 +1719,15 @@ def _rebuild_converted(decisions: dict, previews_for: Optional[int] = None):
 
     _save_file("marc_file_converted", _records_to_bytes(all_records))
 
+    # Every row says what the cataloguer corrected on that record, first: it
+    # is what the file now carries, and what a log of the session must name.
+    session_edits = decisions.get("edits") or {}
+    for row in summary:
+        notes = edit_notes(session_edits.get(str(row["index"])))
+        if notes:
+            row["edited"] = notes
+            row["warnings"] = notes + row["warnings"]
+
     return {
         "summary": summary,
         "by_source": by_source,
@@ -1702,6 +1744,86 @@ def _rebuild_converted(decisions: dict, previews_for: Optional[int] = None):
                               if not row.get("skipped")
                               and not row.get("kept_existing")],
     }
+
+
+@app.route("/api/edit-866", methods=["POST"])
+def api_edit_866():
+    """
+    Correct one subfield of one 866, or put it back as it came in.
+
+    POST JSON: {"record_index": 12, "field_index": 0, "code": "a",
+                "value": "v. 5 no. 1-v. 8 no. 2 (Fall 1995-Fall 1999)"}
+               or {..., "revert": true} to undo that subfield's correction.
+
+    The correction is a decision like any other: stored with the session's
+    decisions, gone with a new upload, and applied where records are read, so
+    the review list, both conversions and the downloaded file all carry it.
+    The record's summary and the file's statements come back so the screen
+    can redraw the record and re-run pattern detection on the corrected text.
+    """
+    if not HAS_PYMARC:
+        return jsonify({"error": "pymarc is not installed on the server."}), 500
+    data = request.get_json(force=True) or {}
+    marc_bytes = _load_file("marc_file")
+    if not marc_bytes:
+        return jsonify({"error": "No MARC file found. Please upload a file first."}), 400
+    original = records_from_bytes(marc_bytes)
+
+    try:
+        record_index = int(data.get("record_index"))
+        field_index = int(data.get("field_index"))
+    except (TypeError, ValueError):
+        return jsonify({"error": "Which record and which 866 to edit is missing."}), 400
+    if not 0 <= record_index < len(original):
+        return jsonify({"error": "Record index out of range."}), 400
+    fields = original[record_index].get_fields("866")
+    if not 0 <= field_index < len(fields):
+        return jsonify({"error": "That record has no such 866."}), 400
+    code = str(data.get("code", "a"))
+    if code not in EDITABLE_866_SUBFIELDS:
+        return jsonify({"error": f"${code} cannot be edited here; "
+                                 "$a, $z and $x can."}), 400
+
+    # Against the field as uploaded, so "was" is always the original text and
+    # reverting is simply forgetting the correction.
+    was = fields[field_index].get(code) or ""
+    value = "" if data.get("revert") else " ".join(str(data.get("value", "")).split())
+    if code == "a" and not data.get("revert") and not value:
+        return jsonify({"error": "An 866 needs its holdings statement. Put the "
+                                 "original back with Revert instead."}), 400
+
+    decisions = _load_decisions()
+    by_record = decisions["edits"].setdefault(str(record_index), {})
+    by_field = by_record.setdefault(str(field_index), {})
+    if data.get("revert") or value == was:
+        by_field.pop(code, None)
+    else:
+        by_field[code] = {"value": value, "was": was}
+    if not by_field:
+        by_record.pop(str(field_index), None)
+    if not by_record:
+        decisions["edits"].pop(str(record_index), None)
+    _save_decisions(decisions)
+
+    try:
+        # Once anything has been converted, the file behind Download has to
+        # carry the correction too; before that there is nothing to rebuild.
+        if decisions["batch"] is not None or decisions["records"]:
+            _rebuild_converted(decisions)
+        records = _load_all_records()
+        record = records[record_index]
+        return jsonify({
+            "success": True,
+            "record_index": record_index,
+            "fields_866": [summarise_866(f) for f in record.get_fields("866")],
+            "edited": edit_notes(decisions["edits"].get(str(record_index))),
+            "statements": [f["a"].strip() for r in records
+                           for f in r.get_fields("866")
+                           if (f["a"] or "").strip()],
+        })
+    except Exception as exc:
+        app.logger.exception("Request failed")
+        return jsonify({"error": str(exc)}), 500
 
 
 @app.route("/api/convert-record", methods=["POST"])

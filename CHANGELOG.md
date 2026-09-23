@@ -15,6 +15,14 @@ more than one release; numbering resumed with 0.6.1. Reasoning behind the
 parser and converter decisions, including the defects a real corpus exposed and
 what was done about each, is in [CORPUS-FINDINGS.md](CORPUS-FINDINGS.md).
 
+## 0.23.0 — 2026-09-23
+
+Correct an 866 in the Workbench: an Edit button beside each 866 re-checks the statement and regenerates its 853 and 863s.
+
+- **MARC Serials Toolkit** — Opening a record now lists its 866 fields, each with an Edit button. Edit opens the field for correction, with a menu to choose what to change: the holdings statement ($a), which is where it starts, or the public ($z) or nonpublic ($x) note. "Save and check again" re-reads the corrected statement straight away: the record's 853 and 863s are regenerated, the review list is updated, and pattern detection runs again if you have run it. A typo such as "Fal 1995" no longer means leaving the Workbench to fix the record and starting over.
+- **MARC Serials Toolkit** — The corrected 866 is what the converted file carries, so the record goes back to your catalogue fixed. Each correction is shown on the record -- "You edited 866 no. 3 $a: it read ... and now reads ..." -- and in the run summary, and the record is marked "866 edited" in the list. It is not listed under Needs attention: it is a change you made on purpose, not a problem. "Put back as uploaded" undoes a correction, and uploading a new file forgets them all.
+- **MARC Serials Toolkit** — The holdings statement cannot be emptied; use "Put back as uploaded" to undo a change instead. An emptied note is removed.
+
 ## 0.22.0 — 2026-09-23
 
 853s and 863s already on a record are kept unless you ask for them to be cleared.

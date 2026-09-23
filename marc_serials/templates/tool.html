@@ -247,6 +247,12 @@
     .conv-level { font-size: var(--fs-sm); color: var(--text); }
     .conv-sf    { text-align: center; }
     .conv-sf.invalid { border-color: var(--danger); background: var(--danger-soft); }
+    .f866-list { margin-bottom: var(--sp-3); }
+    .f866-row { display: flex; gap: var(--sp-2); align-items: flex-start; margin-top: var(--sp-1); }
+    .f866-row .field-display { flex: 1; }
+    .edit866 { flex: 1; border: 2px solid var(--focus); border-radius: var(--radius); padding: var(--sp-2); }
+    .edit866 textarea { min-height: 3.5rem; font-family: var(--font-mono); }
+    .edit866 select { width: auto; }
     #batch-ind1.invalid, #batch-ind2.invalid { border-color: var(--danger); background: var(--danger-soft); }
 
     #drop-zone {
@@ -1877,7 +1883,8 @@ function paintRecordStatus() {
     if (entry.kept_existing) {
       slot.innerHTML = `<span class="pill"
         title="Already has ${entry.existing_863} 863 field${entry.existing_863 !== 1 ? 's' : ''}; left as it is">has 863s · kept</span>`
-        + ((entry.record_notes || []).length ? ' <span class="pill decide">to check</span>' : '');
+        + ((entry.record_notes || []).length ? ' <span class="pill decide">to check</span>' : '')
+        + ((entry.edited || []).length ? ' <span class="pill">866 edited</span>' : '');
       return;
     }
     if (!entry.has_866) {
@@ -1889,6 +1896,7 @@ function paintRecordStatus() {
     if (entry.held) bits.push(`<span class="pill decide">${entry.held} held</span>`);
     if (entry.flagged) bits.push(`<span class="pill decide">${entry.flagged} to check</span>`);
     if ((entry.record_notes || []).length) bits.push('<span class="pill decide">853 to check</span>');
+    if ((entry.edited || []).length) bits.push('<span class="pill">866 edited</span>');
     // No marker for the encoding level. Recording at level 3 against a file
     // of detailed holdings marked 242 of 371 rows, which is the third time
     // this shape has come up: a majority is not a signal, it is a property of
@@ -3335,6 +3343,85 @@ async function selectRecord(idx) {
   await renderRecordDetail(idx);
 }
 
+/**
+ * The record's 866s as they stand, each with an Edit button.
+ *
+ * Above the conversion rather than inside it, so every 866 can be corrected --
+ * a statement nothing was converted from as much as one that converted wrong,
+ * and on a record kept for its own 863s too.
+ */
+function fields866Html(idx) {
+  const fields = allRecords[idx].fields_866 || [];
+  if (!fields.length) return '';
+  return `
+    <div class="f866-list">
+      <div class="pair-col-label">866 fields — edit one to correct a typo and check it again</div>
+      ${fields.map((f, fi) => `
+        <div class="f866-row" id="f866-${idx}-${fi}">
+          <div class="field-display">${highlightField(escHtml(f.display))}</div>
+          <button type="button" class="btn btn-secondary btn-sm"
+                  onclick="openEdit866(${idx}, ${fi})">Edit</button>
+        </div>`).join('')}
+    </div>`;
+}
+
+const EDIT_866_LABELS = { a: '$a Textual holdings', z: '$z Public note', x: '$x Nonpublic note' };
+
+function openEdit866(idx, fi) {
+  const f = allRecords[idx].fields_866[fi];
+  const row = document.getElementById(`f866-${idx}-${fi}`);
+  const id = `${idx}-${fi}`;
+  row.innerHTML = `
+    <div class="edit866">
+      <label class="small" for="e866-code-${id}">Subfield</label>
+      <select id="e866-code-${id}">
+        ${Object.entries(EDIT_866_LABELS).map(([code, label]) =>
+          `<option value="${code}"${code === 'a' ? ' selected' : ''}>${escHtml(label)}</option>`).join('')}
+      </select>
+      <textarea id="e866-text-${id}" rows="2" class="mt-1"
+                aria-label="New text for this subfield">${escHtml(f.a || '')}</textarea>
+      <div class="btn-row mt-1">
+        <button type="button" class="btn btn-primary btn-sm"
+                onclick="saveEdit866(${idx}, ${fi}, false)">Save and check again</button>
+        <button type="button" class="btn btn-ghost btn-sm"
+                onclick="renderRecordDetail(${idx})">Cancel</button>
+        <button type="button" class="btn btn-ghost btn-sm"
+                title="Undo your correction to this subfield"
+                onclick="saveEdit866(${idx}, ${fi}, true)">Put back as uploaded</button>
+      </div>
+      <div id="e866-status-${id}"></div>
+    </div>`;
+  const code = document.getElementById(`e866-code-${id}`);
+  const text = document.getElementById(`e866-text-${id}`);
+  code.addEventListener('change', () => { text.value = f[code.value] || ''; text.focus(); });
+  text.focus();
+}
+
+/**
+ * Store the correction, then redraw everything that read the old text: this
+ * record's preview, the list the filters run on, and -- when the holdings
+ * statement changed and patterns have been found -- pattern detection.
+ */
+async function saveEdit866(idx, fi, revert) {
+  const id = `${idx}-${fi}`;
+  const code = document.getElementById(`e866-code-${id}`).value;
+  const value = document.getElementById(`e866-text-${id}`).value;
+  const status = document.getElementById(`e866-status-${id}`);
+  status.innerHTML = '<span class="spinner"></span>';
+  try {
+    const data = await postJson('api/edit-866', {
+      record_index: idx, field_index: fi, code, value, revert });
+    allRecords[idx].fields_866 = data.fields_866;
+    allStatements = data.statements;
+    recordPreviews.delete(idx);
+    await reloadReview();
+    await renderRecordDetail(idx);
+    if (code === 'a' && detected && detected.length) runDetect();
+  } catch (err) {
+    showAlert(status, err.message, 'err');
+  }
+}
+
 async function renderRecordDetail(idx) {
   const rec = allRecords[idx];
   // The title is already on the row's own button, so the detail does not repeat it.
@@ -3373,6 +3460,9 @@ async function renderRecordDetail(idx) {
 
   const notesHtml = ((about && about.record_notes) || [])
     .map(n => `<div class="alert alert-warn mt-2">${escHtml(n)}</div>`).join('');
+  const editedHtml = ((about && about.edited) || [])
+    .map(n => `<div class="alert alert-info mt-2">${escHtml(n)}</div>`).join('');
+  const sourceHtml = fields866Html(idx) + editedHtml;
   if (about && about.kept_existing) {
     const n = about.existing_863;
     detail.innerHTML = `
@@ -3381,7 +3471,8 @@ async function renderRecordDetail(idx) {
         generated beside ${n !== 1 ? 'them' : 'it'} and nothing is replaced.
         To regenerate its 853s and 863s from its 866s instead, tick
         "Clear existing 853 / 863 first" in Conversion settings.</div>
-      ${notesHtml}`;
+      ${notesHtml}
+      <div class="mt-2">${sourceHtml}</div>`;
     return;
   }
 
@@ -3458,6 +3549,7 @@ async function renderRecordDetail(idx) {
     </div>` : '';
 
   detail.innerHTML = `
+    ${sourceHtml}
     ${notesHtml}
     ${groupsHtml}
     ${reviewHtml}
