@@ -15,6 +15,18 @@ more than one release; numbering resumed with 0.6.1. Reasoning behind the
 parser and converter decisions, including the defects a real corpus exposed and
 what was done about each, is in [CORPUS-FINDINGS.md](CORPUS-FINDINGS.md).
 
+## 0.24.2 — 2026-09-23
+
+A skipped record no longer stays under "Needs attention".
+
+- **MARC Serials Toolkit** — A record with a warning about the 853s already on it stayed under "Needs attention" after you marked it Skip, while other records left the list when skipped. Skipping a record means you are handling it yourself, so a skipped record is no longer listed there, whatever it carries. The warnings still show when you open the record, and the session log still lists it as skipped.
+
+## 0.24.1 — 2026-09-23
+
+The review list shows at most 50 records a page.
+
+- **MARC Serials Toolkit** — The "All records" choice in the review list's "Show" menu has been withdrawn: with every record of a large file on screen at once, opening and closing a record was slow. The largest page is now 50 records; 5, 10 and 25 are still offered, and 10 is still where it starts. If you had chosen "All records", the list now opens at 50 per page.
+
 ## 0.24.0 — 2026-09-23
 
 A session log: a spreadsheet of every record with something to look at, to take back to your catalogue or MarcEdit.

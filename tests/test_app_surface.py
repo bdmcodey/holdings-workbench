@@ -142,12 +142,17 @@ def test_the_find_box_and_its_controls_are_on_the_page(client):
 
 
 def test_the_review_list_offers_a_choice_of_page_size(client):
-    """Five, ten, twenty-five, fifty or every record; ten unless changed."""
+    """
+    Five, ten, twenty-five or fifty; ten unless changed.
+
+    "All records" was withdrawn in 0.24.1 at the cataloguer's request: every
+    row of a 372-record file on screen made opening a record lag.
+    """
     page = client.get("/").get_data(as_text=True)
     menu = re.search(r'<select id="review-page-size">(.*?)</select>', page, re.S)
     assert menu, "the records-per-page menu is missing from the page"
     values = re.findall(r'<option value="([^"]+)"', menu.group(1))
-    assert values == ["5", "10", "25", "50", "all"]
+    assert values == ["5", "10", "25", "50"]
     assert '<option value="10" selected>' in menu.group(1)
 
     script = (TEMPLATES / "tool.html").read_text(encoding="utf-8")
@@ -208,6 +213,22 @@ def test_each_leader_note_can_be_hidden_and_folds_to_its_count():
     assert setter, "setNoticeHidden() has moved or been renamed"
     assert "localStorage.setItem(HIDDEN_NOTICES_KEY" in setter.group(1)
     assert "const HIDDEN_NOTICES_KEY = 'mst-hidden-notices';" in script
+
+
+def test_a_skipped_record_never_needs_attention():
+    """
+    Skipping is the cataloguer taking a record in hand. Held and flagged
+    counts fall to 0 on a skip by themselves, but notes about a record's
+    existing 853s do not, and until 0.24.2 they kept a skipped record under
+    "Needs attention" -- two records on a real file, found in testing.
+    """
+    script = (TEMPLATES / "tool.html").read_text(encoding="utf-8")
+    held = re.search(r"case 'held':\s*return (.*?);", script, re.S)
+    assert held, "the Needs attention filter has moved or been renamed"
+    rule = held.group(1)
+    assert rule.lstrip().startswith("!entry.skipped"), (
+        "a skipped record has to be excluded before anything else is asked")
+    assert "record_notes" in rule
 
 
 def test_the_stylesheet_is_served(client):
