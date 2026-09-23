@@ -21,7 +21,7 @@ from typing import Optional
 from pymarc import MARCReader, MARCWriter
 
 # The default lives with the setting it belongs to, so the two cannot drift.
-from .converter import DEFAULT_HOLDINGS_LEVEL
+from .converter import DEFAULT_HOLDINGS_LEVEL, SubfieldData
 
 
 # ---------------------------------------------------------------------------
@@ -350,6 +350,61 @@ def add_853(record, field_data) -> None:
     record.add_ordered_field(field_data.to_pymarc())
 
 
+def existing_863_count(record) -> int:
+    """
+    863s the record carried before this tool touched it.
+
+    A record that has them was coded by hand, or by an earlier load, and the
+    cataloguer's rule is that data already there is kept unless the tool is
+    told to overwrite it ("Clear existing 853 / 863 first"). Measured on a real
+    372-record export before that rule existed: 10 of the 13 records with 863s
+    lost some or all of them to regenerated ones -- 38 fields, among them every
+    $w g gap marker, since an 866 cannot carry one back.
+    """
+    return len(record.get_fields("863"))
+
+
+def kept_existing_note(count: int) -> str:
+    """What a record left alone because of its own 863s says about itself."""
+    many = count != 1
+    return (f"This record already has {count} 863 field{'s' if many else ''}, "
+            f"so it was left exactly as it was: nothing was generated beside "
+            f"{'them' if many else 'it'} and nothing was replaced. Tick "
+            f"\"Clear existing 853 / 863 first\" to regenerate this record's "
+            f"853s and 863s from its 866s instead.")
+
+
+def existing_853_notes(record) -> list:
+    """
+    What is wrong with the 853s already on a record, said and never corrected.
+
+    Two things: an indicator MARC 21 does not define for the 853 (0-3 in both
+    positions, no blank), and two 853s sharing one $8, which leaves the 863s
+    under that number unable to say which pattern they follow. Both were
+    found on a real export -- one 853 coded "X" and blank, sharing $8 1 with
+    the record's real pattern.
+    """
+    notes: list = []
+    by_link: dict = {}
+    for f in record.get_fields("853"):
+        link = (f.get("8") or "").strip()
+        by_link.setdefault(link, []).append(f)
+        i1, i2 = f.indicator1 or " ", f.indicator2 or " "
+        if i1 not in "0123" or i2 not in "0123" or " " in (i1, i2):
+            shown = f"{i1}{i2}".replace(" ", "#")
+            notes.append(
+                f"The 853 already on this record with $8 {link or '(none)'} has "
+                f"indicators \"{shown}\"; MARC 21 defines 0, 1, 2 and 3 for "
+                f"each. It was left as it is.")
+    for link, fields in by_link.items():
+        if len(fields) > 1:
+            notes.append(
+                f"{len(fields)} 853s already on this record share "
+                f"$8 {link or '(none)'}, so the 863s under that number cannot "
+                f"say which pattern they follow. Left as they are.")
+    return notes
+
+
 def apply_record_conversion(record, rc) -> None:
     """
     Write a RecordConversion onto a pymarc record.
@@ -397,6 +452,48 @@ def match_866_sources(record, texts) -> list:
     return matched
 
 
+# 866 subfields the conversion accounts for. $a is what is converted; $x and $z
+# are carried onto the 863s by carry_866_notes(); $8 links the 866 to an 863
+# the conversion supersedes. Anything else on an 866 goes nowhere, so an 866
+# carrying it is not removed.
+ACCOUNTED_866_SUBFIELDS = frozenset("axz8")
+
+
+def carry_866_notes(sources, rc) -> None:
+    """
+    Put each 866's notes -- $x nonpublic, $z public -- on the 863s it became.
+
+    863 defines both, and Alma writes an 863's $z back out as its 866's $z, so
+    a note left behind is a note the regenerated display loses. Measured on a
+    real export: 5 of 5 hand-entered 863s with "$z Incomplete" had it in their
+    Alma-generated 866, and the tool dropped all five.
+
+    One statement can become several 863s, and a note is about the statement.
+    It goes on the last of them, where a display reading them in order puts it
+    after the holdings it qualifies -- and the placement is said, because it is
+    a choice the note itself does not make.
+
+    `sources` is aligned with rc.results, as for remove_converted_866s().
+    """
+    for field, result in zip(sources, rc.results):
+        if field is None or not result.fields_863:
+            continue
+        notes = [(sf.code, sf.value) for sf in field.subfields
+                 if sf.code in ("x", "z") and (sf.value or "").strip()]
+        if not notes:
+            continue
+        target = result.fields_863[-1]
+        for code, value in notes:
+            target.subfields.append(SubfieldData(code, value))
+        if len(result.fields_863) > 1:
+            shown = "; ".join(f"${c} {v}" for c, v in notes)
+            result.warnings.append(
+                f"This statement became {len(result.fields_863)} 863s and its "
+                f"866 carried a note ({shown}). The note was put on the last "
+                f"of them; check whether it belongs to all of the holdings or "
+                f"only to part.")
+
+
 def remove_converted_866s(record, sources, rc) -> None:
     """
     Drop only those 866s whose statement actually produced 863s.
@@ -416,6 +513,17 @@ def remove_converted_866s(record, sources, rc) -> None:
     """
     for field, result in zip(sources, rc.results):
         if field is not None and result.fields_863:
+            # Removing an 866 used to take its $z with it, silently. $x and $z
+            # are carried now; anything else would still go nowhere, so the
+            # field stays and says why.
+            left = sorted({sf.code for sf in field.subfields
+                           if sf.code not in ACCOUNTED_866_SUBFIELDS})
+            if left:
+                result.warnings.append(
+                    "This 866 was kept although its holdings were converted: it "
+                    "also carries " + ", ".join(f"${c}" for c in left)
+                    + ", which has nowhere to go in an 863.")
+                continue
             record.remove_field(field)
 
 

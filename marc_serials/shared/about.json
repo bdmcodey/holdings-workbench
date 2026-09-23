@@ -1,6 +1,6 @@
 {
   "name": "MARC Serials Toolkit",
-  "version": "0.21.0",
+  "version": "0.22.0",
   "released": "2026-09-22",
   "status": "Proof of concept — under active development. Check your output before loading it into the catalog.",
   "description": "One tool for MARC serials holdings. Upload a MARC file, find the patterns in its 866 statements, confirm what each part of a pattern means, and convert to structured 853 caption/pattern and 863 enumeration/chronology fields. Statements no pattern matches are converted by the standard parser.",
@@ -9,6 +9,41 @@
   "contact": "Matthew Codey, codey@usc.edu",
   "_comment": "Written for cataloging staff, not developers. Say what changed about the output or the screen, not how the code changed. Newest version first.",
   "changelog": [
+    {
+      "version": "0.22.0",
+      "date": "2026-09-23",
+      "summary": "853s and 863s already on a record are kept unless you ask for them to be cleared.",
+      "changes": [
+        {
+          "tool": "MARC Serials Toolkit",
+          "text": "A record that already had 863 fields -- added by hand, or by an earlier load -- had them written over by 863s generated from its 866s, even with \"Clear existing 853 / 863 first\" left unticked. The replacements could lose information the originals carried: on a real 372-record file, 38 hand-entered 863s on 10 records were replaced, and every gap marker ($w g) among them was lost. Nothing on the screen said so."
+        },
+        {
+          "tool": "MARC Serials Toolkit",
+          "text": "A record with 863s of its own is now kept exactly as it came in. Its row in the review list says \"has 863s · kept\", opening it explains why, and the run summary counts it: \"13 records already had 863s, kept as they were\". Ticking \"Clear existing 853 / 863 first\" is how to have such records regenerated from their 866s instead, and the list and previews update as soon as you tick it."
+        },
+        {
+          "tool": "MARC Serials Toolkit",
+          "text": "A record with an 853 but no 863s still takes its new 863s under that 853 when its holdings match it. When they do not, the tool used to write its own 853 over yours; it now adds a second 853 beside it, under the next linking number neither uses, and marks the record \"853 to check\" so you can decide which pattern is right."
+        },
+        {
+          "tool": "MARC Serials Toolkit",
+          "text": "An 853 already on a record with indicators MARC 21 does not define, or two 853s sharing one linking number, is now reported on that record and listed under \"Needs attention\". Neither is changed."
+        },
+        {
+          "tool": "MARC Serials Toolkit",
+          "text": "A statement that ends in a comma now records the gap it marks. \"v.45(1988),\" is how Alma displays an 863 with a gap after it ($w g), and the comma used to be read and dropped, so the 863 written from it had no gap and a display rebuilt from that 863 would lose the comma. A comma between two runs of one statement is read the same way -- \"v.1(1990)-v.5(1994), v.7(1996)-v.9(1998)\" records the gap after v.5 -- unless the numbering carries straight on. A semicolon records a break that is not a gap ($w n), as Z39.71 punctuates it."
+        },
+        {
+          "tool": "MARC Serials Toolkit",
+          "text": "Notes on an 866 now go onto the 863s written from it: a public note ($z) such as \"Incomplete\", and a nonpublic note ($x). They used to be left behind. When one statement becomes several 863s, the note goes on the last of them, and the record says so, because the note does not say which part it belongs to."
+        },
+        {
+          "tool": "MARC Serials Toolkit",
+          "text": "\"Remove each 866 once it has been converted\" no longer removes an 866 with something on it that has nowhere to go. Before, an 866's $z note was deleted with it and nothing said so. Now its notes are carried, and an 866 carrying anything else is kept, with a note on the record saying what."
+        }
+      ]
+    },
     {
       "version": "0.21.0",
       "date": "2026-09-22",

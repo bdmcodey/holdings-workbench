@@ -1550,6 +1550,9 @@ class RecordConversion:
     # The cataloguer may disagree that those are one publication, so the screen
     # marks them rather than presenting the merge as a finding.
     merged_links: List[str] = field(default_factory=list)
+    # About the record rather than any one statement: a second 853 written
+    # beside one that was already there, for instance.
+    record_notes: List[str] = field(default_factory=list)
 
     @property
     def needs_review(self) -> int:
@@ -1566,6 +1569,10 @@ class RecordConversion:
     @property
     def warnings(self) -> List[str]:
         seen, out = set(), []
+        for w in self.record_notes:
+            if w not in seen:
+                seen.add(w)
+                out.append(w)
         for r in self.results:
             for w in r.warnings:
                 if w not in seen:
@@ -1734,9 +1741,16 @@ def convert_record(
         group["members"].append(cr)
         open_group = group
 
-    # Allocate link numbers in run order, stepping around any a conformed group
-    # already owns.
-    taken = {g["link"] for g in groups if g["link"]}
+    # Allocate link numbers in run order, stepping around every 853 already on
+    # the record -- not only the ones a statement conformed to. Stepping around
+    # the conformed ones alone gave a new pattern $8 1 on a record whose own
+    # 853 was $8 1 and matched nothing, and writing the new field then removed
+    # the old one (records.add_853 replaces by $8). Measured on a real file
+    # before this: an 853 with no 863s, whose statements took a different
+    # pattern, came out replaced by the tool's own.
+    existing_links = {(f.get("8") or "").strip() for f in existing}
+    existing_links.discard("")
+    taken = {g["link"] for g in groups if g["link"]} | existing_links
     nxt = 1
     for group in groups:
         if group["link"]:
@@ -1774,6 +1788,15 @@ def convert_record(
         head = group["head"]
         if head.field_853 is not None:
             out.fields_853.append(head.field_853)
+            if existing_links:
+                # Kept beside, not written over: the 853 already there is the
+                # cataloguer's, and which pattern is right is theirs to say.
+                out.record_notes.append(
+                    f"An 853 was already on this record "
+                    f"(${'8 ' + ', $8 '.join(sorted(existing_links))}), and "
+                    f"these holdings do not match it. A second 853 was added "
+                    f"as $8 {link} rather than replace it - check which "
+                    f"pattern is right.")
 
     return out
 

@@ -236,9 +236,10 @@ class HoldingsRange:
     raw: str = ""                     # original text for this range
     # 863 $w on this field: the break between it and the next 863.  Set only
     # where the statement itself shows the break -- one run of a discontinuous
-    # list to the next.  Two separate 866s may have a gap between them too, but
-    # that is a reading of the record rather than of the statement, and is not
-    # decided here.
+    # list to the next, a comma or semicolon between two runs, or one the
+    # statement ends on.  Two separate 866s may have a gap between them that
+    # neither states, but that is a reading of the record rather than of the
+    # statement, and is not decided here.
     break_after: str = ""
 
     def __post_init__(self) -> None:
@@ -1008,6 +1009,48 @@ def _split_ranges(text: str) -> List[str]:
     return results
 
 
+def _split_with_separators(text: str) -> List[Tuple[str, str]]:
+    """_split_ranges(), keeping the separator after each segment."""
+    segments = _split_ranges(text)
+    # Re-find the separators rather than re-deriving the split: the segments
+    # are known, so the character after each one in the text is its separator.
+    out: List[Tuple[str, str]] = []
+    at = 0
+    for seg in segments:
+        found = text.find(seg, at)
+        if found < 0:           # cannot happen for a segment taken from text
+            out.append((seg, ""))
+            continue
+        at = found + len(seg)
+        rest = text[at:].lstrip()
+        out.append((seg, rest[0] if rest[:1] in (",", ";") else ""))
+    return out
+
+
+def _break_between(prev: "HoldingsRange", sep: str, nxt: Optional["HoldingsRange"]) -> str:
+    """
+    The $w a separator between two runs of one statement stands for.
+
+    Z39.71: a comma marks a gap, a semicolon a break that is not a gap. A comma
+    between two runs whose first-level numbering carries straight on is not
+    written, the same test _gap_after() applies inside a list. At the end of a
+    statement there is nothing to compare with, so the comma is taken at its
+    word.
+    """
+    if sep == ";":
+        return BREAK_NON_GAP
+    if sep != ",":
+        return ""
+    if nxt is not None:
+        last = prev.end if prev.end is not None else prev.start
+        if last.enum and nxt.start.enum:
+            ends = _FIRST_INT_RE.findall(last.enum[0].value or "")
+            starts = _FIRST_INT_RE.findall(nxt.start.enum[0].value or "")
+            if ends and starts and int(starts[0]) == int(ends[-1]) + 1:
+                return ""
+    return BREAK_GAP
+
+
 def _chron_unit_value(raw: str) -> str:
     """
     MARC code for a month/season if recognised, else normalised text.
@@ -1707,40 +1750,25 @@ def parse_866(text: str) -> ParseResult:
     # read and deliberately not converted. The generic per-segment line is not
     # worth carrying: on that path it only repeats what the degenerate result
     # already says.
-    segments = _split_ranges(cleaned)
+    segments = _split_with_separators(cleaned)
     notes: List[str] = []
-    for seg in segments:
-        seg_notes: List[str] = []
-
-        # A segment listing several discontinuous runs is several ranges, and
-        # MARC records them as several 863s.  Tried before the unit parser
-        # because the unit parser reads the first run and refuses the rest.
-        listed = _parse_distributed_list(seg, seg_notes)
-        if listed is not None:
-            notes.extend(w for w in seg_notes if w not in notes)
-            result.ranges.extend(listed)
-            continue
-
-        # A list stated as chronology alone, "(1986-1988, 1993-1994)". Tried
-        # before the unit parser for the same reason the enumerated list is:
-        # the unit parser reads the first run and drops the rest.
-        seg_notes = []
-        chron_runs = _parse_chronology_list(seg, seg_notes)
-        if chron_runs is not None:
-            notes.extend(w for w in seg_notes if w not in notes)
-            result.ranges.extend(chron_runs)
-            continue
-
-        seg_notes = []
-        hr = _parse_one_range(seg, seg_notes)
-        notes.extend(w for w in seg_notes if w not in notes)
-        if not hr.start.has_enum() and not hr.start.has_chron():
-            result.skipped_segments.append(seg)
-            result.warnings.append(
-                f"Could not parse segment: '{seg}' — it will be skipped."
-            )
-            continue
-        result.ranges.append(hr)
+    # (last range read from a segment, the separator after that segment), for
+    # the $w each separator stands for once the next segment is read.
+    pending_break: List[Tuple["HoldingsRange", str]] = []
+    for seg, sep in segments:
+        before = len(result.ranges)
+        _read_segment(seg, result, notes)
+        if len(result.ranges) > before:
+            if pending_break:
+                prev, prev_sep = pending_break.pop()
+                if not prev.break_after:
+                    prev.break_after = _break_between(
+                        prev, prev_sep, result.ranges[before])
+            pending_break = [(result.ranges[-1], sep)] if sep else []
+    if pending_break:
+        prev, prev_sep = pending_break.pop()
+        if not prev.break_after:
+            prev.break_after = _break_between(prev, prev_sep, None)
 
     result.warnings.extend(w for w in notes if w not in result.warnings)
 
@@ -1751,6 +1779,41 @@ def parse_866(text: str) -> ParseResult:
         return degenerate
 
     return result
+
+
+def _read_segment(seg: str, result: "ParseResult", notes: List[str]) -> None:
+    """Read one segment of a statement into `result`, as parse_866 always has."""
+    seg_notes: List[str] = []
+
+    # A segment listing several discontinuous runs is several ranges, and
+    # MARC records them as several 863s.  Tried before the unit parser
+    # because the unit parser reads the first run and refuses the rest.
+    listed = _parse_distributed_list(seg, seg_notes)
+    if listed is not None:
+        notes.extend(w for w in seg_notes if w not in notes)
+        result.ranges.extend(listed)
+        return
+
+    # A list stated as chronology alone, "(1986-1988, 1993-1994)". Tried
+    # before the unit parser for the same reason the enumerated list is:
+    # the unit parser reads the first run and drops the rest.
+    seg_notes = []
+    chron_runs = _parse_chronology_list(seg, seg_notes)
+    if chron_runs is not None:
+        notes.extend(w for w in seg_notes if w not in notes)
+        result.ranges.extend(chron_runs)
+        return
+
+    seg_notes = []
+    hr = _parse_one_range(seg, seg_notes)
+    notes.extend(w for w in seg_notes if w not in notes)
+    if not hr.start.has_enum() and not hr.start.has_chron():
+        result.skipped_segments.append(seg)
+        result.warnings.append(
+            f"Could not parse segment: '{seg}' — it will be skipped."
+        )
+        return
+    result.ranges.append(hr)
 
 
 def _parse_degenerate(text: str) -> ParseResult:

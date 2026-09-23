@@ -2380,6 +2380,104 @@ changed; noted so the next person does not have to re-derive it.
 
 ---
 
+## Holdings already on the record are the cataloguer's · **0.22.0**
+
+*23 September 2026. Measured against the real 372-record export, which was
+read in a scratch session and is not in this repository.*
+
+**What the file holds.** 357 records carry only 866s. 13 carry 853 and 863
+fields entered by hand after the Alma migration; 2 carry an 853 with no 863.
+
+**What conversion did to them, default settings.** 10 of the 13 lost some or
+all of their 863s -- 38 fields -- replaced by 863s regenerated from the 866s.
+The replacements were not equivalent: every `$w g` gap marker went, and the
+sequence numbers closed up (`1.1, 1.3, 1.4, 1.6` became `1.1-1.4`). Two
+mechanisms: a statement conforming to an existing 853 had the 863s under that
+`$8` dropped as "an earlier run of this tool", which is right for the tool's
+own output and wrong for a cataloguer's; and a statement *not* conforming was
+given `$8 1` without regard to the 853s already there, so `add_853()` replaced
+the existing 853 by number. The second did not occur on this file -- both
+853-only records conformed -- but does on any whose statements take another
+pattern.
+
+**The rule now, the cataloguer's:** data already there is preferred unless the
+tool is told to overwrite it.
+
+- A record with 863s is kept exactly as it came in, counted, and said so on the
+  row, in the preview and in the run summary. "Clear existing 853 / 863 first"
+  is the instruction that regenerates it.
+- An 853 the statements do not match keeps its `$8`; the new pattern takes the
+  next number no existing 853 uses, and the record is flagged.
+- An existing 853 with an indicator MARC does not define, or two 853s sharing a
+  `$8`, is reported and left. One record has both: an 853 coded `X#` carrying
+  what look like next-issue values, sharing `$8 1` with the real pattern --
+  probably an Alma prediction pattern exported as an 853.
+
+After: 0 hand-entered fields changed; 13 kept; 359 converted.
+
+### Three readings of one holding · **measured; breaks and notes carried in 0.22.0**
+
+The 13 records make a test the corpus cannot: their 866s were generated *by
+Alma* from the hand-entered 863s -- each 866 carries the `$8` of the 863 it was
+built from -- so every statement exists three ways. Reading Alma's 866 back
+through the parser and comparing with the 863 it came from is a round trip
+through Alma's display and the tool, the same kind of trip a reloaded file
+takes through the ILS's normalisation.
+
+**48 statements. The enumeration and chronology agree in all 48.** Every
+volume, issue, year and month the tool reads from Alma's text matches the 863
+it was generated from. 17 are identical outright. The 31 that differ do so in
+three ways only, and each has a fixed cause:
+
+| | Statements | Hand 863 | Alma's 866 | Tool's 863 |
+|---|---|---|---|---|
+| Gap after this run | 23 | `$w g` | trailing comma, 23 of 23 | not written |
+| Note | 5 | `$z Incomplete` | `866 $z`, 5 of 5 | not written |
+| Single part, 2nd indicator | 8 | `0` on 8 singles, `1` on 8 | not shown | `1` |
+
+Two of these are the reload risk. If the ILS regenerates 866s from 863s, an
+863 without `$w g` comes back without its comma and an 863 without `$z` comes
+back without its note: the gap and "Incomplete" disappear from display. The
+357 migration records carry no trailing commas in any of their 972 866s, and
+one `$z` -- so on this file the exposure is the 13 records, which are now kept.
+
+The third is not a loss. The hand coding is itself split 8/8 on single parts;
+the tool follows the standard (see *Form of holdings describes the field*).
+
+**Also seen: Alma derives the 866 encoding level; the 863s declare it.** Every
+Alma 866 whose statement stops at the first level of enumeration has first
+indicator `3`, and every one that goes deeper has `4` -- 29 and 19, without
+exception -- while all 48 hand 863s say `4`. So the ILS computes the level per
+field from content, which is the derivation D18 considered and set aside for
+the 863. Worth knowing before a reload: the ILS may not agree with a declared
+`4`.
+
+**Found alongside:** with "Remove each 866" ticked, an 866 whose statement
+converted was removed along with any `$z` note it carried, and no warning
+named the note. Confirmed on a synthetic record; on this file the one 866 with
+a note does not convert, so it survived by luck.
+
+**Acted on, same release.**
+
+- *Breaks.* A statement's own punctuation now writes `$w`: a comma after its
+  last run is `g`, a semicolon `n` (Z39.71's gap and non-gap break). Between two
+  runs of one statement a comma is `g` unless the first-level numbering carries
+  straight on, the test `_gap_after()` already applied inside a list, and a
+  semicolon is `n`. The between-runs case was the same defect one step earlier:
+  `v.1(1990)-v.5(1994), v.7(1996)-v.9(1998)` wrote two 863s and no gap.
+- *Notes.* An 866's `$x` (nonpublic) and `$z` (public) go onto the 863s it
+  became -- the last of them when a statement becomes several, which is said,
+  since the note itself does not say which part it qualifies.
+- *Removing the 866.* It is removed only when everything on it is accounted
+  for: `$a` converted, `$x`/`$z` carried, `$8` superseded. An 866 carrying
+  anything else is kept, and says what.
+
+After: **all 48 statements agree on every subfield.** The 8 that differ at
+all differ only in the single-part second indicator, where the hand coding is
+split 8/8. The test corpus is unchanged (0 of 128 statements carry the
+punctuation), and so are the 1,071 863s the file's 357 migration records
+produce.
+
 ## Requested, not yet started
 
 Raised 1 September 2026 alongside D15–D18, recorded here so they are not lost.
@@ -2431,6 +2529,20 @@ The first two are done; the rest are Workbench UI and are not started.
   supplementary material or an index and does not belong in an 866, and leave
   the move to a person. Worth noting that the pattern path already *converts*
   these, into an 863, which is the wrong field — so the flag is also a guard.
+
+- **A session log to take back to Alma or MarcEdit.** Raised 23 September
+  2026, not started. Beside the converted `.mrc`, a downloadable record of
+  everything a session said about a record: warnings, statements held for
+  review, records skipped, records kept for their own 863s, 853s flagged,
+  settings refused. Much of it asks a cataloguer to fix a record by hand, in
+  the ILS or MarcEdit, where the Workbench's row number means nothing -- so
+  each line wants the record's identifier (the field chosen on upload), the
+  statement it concerns, and what to do. Today all of it is on screen, one
+  record at a time, and gone when the session ends. The run summary rows
+  (`summary[].warnings`, `kept_existing`, `skipped`) already hold most of what
+  a log would carry; the work is gathering the per-record decisions and the
+  review-list notes into one place and choosing a format a cataloguer can
+  sort and search (a CSV opens in Excel; MarcEdit can take a list of 001s).
 
 ## A note on this corpus
 
