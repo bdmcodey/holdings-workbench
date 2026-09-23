@@ -248,6 +248,8 @@
     .conv-sf    { text-align: center; }
     .conv-sf.invalid { border-color: var(--danger); background: var(--danger-soft); }
     .f866-list { margin-bottom: var(--sp-3); }
+    .rec-note { margin-top: var(--sp-3); border-top: 1px solid var(--border); padding-top: var(--sp-2); }
+    .rec-note textarea { min-height: 3rem; font-family: var(--font-sans); }
     .f866-row { display: flex; gap: var(--sp-2); align-items: flex-start; margin-top: var(--sp-1); }
     .f866-row .field-display { flex: 1; }
     .edit866 { flex: 1; border: 2px solid var(--focus); border-radius: var(--radius); padding: var(--sp-2); }
@@ -1669,6 +1671,13 @@ function renderRecordList(records) {
       await reloadReview();
       const row = document.querySelector(`.rec-row[data-index="${idx}"]`);
       if (row && !row.querySelector('.rec-detail').hidden) await renderRecordDetail(idx);
+      // A skip is a decision worth a reason: open the record at its note, so
+      // writing it down is the next thing to hand. Optional -- nothing asks.
+      if (e.target.checked && row) {
+        if (row.querySelector('.rec-detail').hidden) await selectRecord(idx);
+        const note = document.getElementById(`note-${idx}`);
+        if (note) { note.scrollIntoView({ block: 'center' }); note.focus(); }
+      }
     }));
 
   box.querySelectorAll('.rec-reviewed').forEach(box_ =>
@@ -1909,6 +1918,17 @@ function paintRecordStatus() {
   document.querySelectorAll('.rec-row').forEach(row => {
     const entry = recordIndex.get(Number(row.dataset.index));
     const slot = row.querySelector('.rec-status');
+    paintStatusPills(slot, entry);
+    // After whatever else the row says: a note of the cataloguer's own.
+    if (entry && entry.note) {
+      slot.insertAdjacentHTML('beforeend',
+        ` <span class="pill" title="${escHtml(entry.note)}">note</span>`);
+    }
+  });
+}
+
+function paintStatusPills(slot, entry) {
+  {
     if (!entry) { slot.innerHTML = ''; return; }
     if (entry.skipped) {
       slot.innerHTML = '<span class="pill skipped-pill">skipped</span>';
@@ -1942,7 +1962,7 @@ function paintRecordStatus() {
     // once and acted on in the catalogue. The records are still gathered by
     // the "Leader & level" chip for the file where only a handful disagree.
     slot.innerHTML = bits.join(' ');
-  });
+  }
 }
 
 /**
@@ -3411,6 +3431,49 @@ function fields866Html(idx) {
     </div>`;
 }
 
+/**
+ * The cataloguer's own note on this record: for the log, never the file.
+ *
+ * A reminder to a person -- why a record was skipped, what to look at when it
+ * is opened in the ILS -- rather than $x or $z, which are written into the
+ * record. Saved when it loses focus as well as on the button, so a note
+ * typed and walked away from is not lost.
+ */
+function recordNoteHtml(idx) {
+  const entry = recordIndex.get(idx) || {};
+  return `
+    <div class="rec-note">
+      <label class="pair-col-label" for="note-${idx}">Your note — goes in the log only, never in the record</label>
+      <textarea id="note-${idx}" rows="2" class="mt-1"
+                placeholder="Why this record was skipped, or what to check in the catalogue"
+                data-saved="${escHtml(entry.note || '')}"
+                onblur="saveRecordNote(${idx})">${escHtml(entry.note || '')}</textarea>
+      <div class="btn-row mt-1">
+        <button type="button" class="btn btn-secondary btn-sm"
+                onclick="saveRecordNote(${idx}, true)">Save note</button>
+        <span id="note-status-${idx}" class="small dim" style="align-self:center;"></span>
+      </div>
+    </div>`;
+}
+
+async function saveRecordNote(idx, force) {
+  const box = document.getElementById(`note-${idx}`);
+  if (!box) return;
+  const note = box.value.trim();
+  if (!force && note === (box.dataset.saved || '')) return;
+  const status = document.getElementById(`note-status-${idx}`);
+  try {
+    const data = await postJson('api/record-note', { record_index: idx, note });
+    box.dataset.saved = data.note;
+    const entry = recordIndex.get(idx);
+    if (entry) entry.note = data.note;
+    paintRecordStatus();
+    if (status) status.textContent = data.note ? 'Saved. It will be in the log.' : 'Note removed.';
+  } catch (err) {
+    if (status) status.textContent = `Not saved: ${err.message}`;
+  }
+}
+
 const EDIT_866_LABELS = { a: '$a Textual holdings', z: '$z Public note', x: '$x Nonpublic note' };
 
 function openEdit866(idx, fi) {
@@ -3475,7 +3538,8 @@ async function renderRecordDetail(idx) {
 
   if (!rec.fields_866.length) {
     detail.innerHTML =
-      '<div class="alert alert-info">No 866 fields found in this record.</div>';
+      '<div class="alert alert-info">No 866 fields found in this record.</div>'
+      + recordNoteHtml(idx);
     return;
   }
 
@@ -3518,7 +3582,8 @@ async function renderRecordDetail(idx) {
         To regenerate its 853s and 863s from its 866s instead, tick
         "Clear existing 853 / 863 first" in Conversion settings.</div>
       ${notesHtml}
-      <div class="mt-2">${sourceHtml}</div>`;
+      <div class="mt-2">${sourceHtml}</div>
+      ${recordNoteHtml(idx)}`;
     return;
   }
 
@@ -3610,7 +3675,8 @@ async function renderRecordDetail(idx) {
         Download this record
       </a>
     </div>
-    <div id="record-status-${idx}" class="mt-2"></div>`;
+    <div id="record-status-${idx}" class="mt-2"></div>
+    ${recordNoteHtml(idx)}`;
 }
 
 async function applyAllInRecord(recIdx) {

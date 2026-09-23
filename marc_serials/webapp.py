@@ -1298,6 +1298,7 @@ def api_preview_record():
         # Deliberately no write and no save: preview leaves the file untouched.
         return jsonify({
             "success": True,
+            "note": _load_decisions()["notes"].get(str(record_index), ""),
             "record_index": record_index,
             "previews": row["previews"],
             "kept_existing": row["kept_existing"],
@@ -1371,6 +1372,9 @@ def api_preview_records():
                         edited=edit_notes(session_edits.get(str(index))))
             for index in wanted
         ]
+        session_notes = _load_decisions()["notes"]
+        for row in out:
+            row["note"] = session_notes.get(str(row["index"]), "")
 
         return jsonify({
             "records": out,
@@ -1438,6 +1442,9 @@ def api_review_index():
                         edited=edit_notes(session_edits.get(str(index))))
             for index, record in enumerate(all_records)
         ]
+        session_notes = _load_decisions()["notes"]
+        for row in rows:
+            row["note"] = session_notes.get(str(row["index"]), "")
         # The file-wide half of the encoding-level question, counted once.
         # A marker on every row said this badly; one line says it well.
         return jsonify({
@@ -1496,7 +1503,7 @@ DECISIONS_KEY = "conversion_decisions"
 
 def _empty_decisions() -> dict:
     """Nothing decided yet: no record converted on its own, no run over the file."""
-    return {"records": {}, "batch": None, "edits": {}}
+    return {"records": {}, "batch": None, "edits": {}, "notes": {}}
 
 
 def _load_decisions() -> dict:
@@ -1513,11 +1520,15 @@ def _load_decisions() -> dict:
     records = document.get("records")
     batch = document.get("batch")
     edits = document.get("edits")
+    notes = document.get("notes")
     return {
         "records": records if isinstance(records, dict) else {},
         "batch": batch if isinstance(batch, dict) else None,
         # Corrections to 866s, by record then 866: see apply_866_edits().
         "edits": edits if isinstance(edits, dict) else {},
+        # The cataloguer's own notes, by record: for the log only, never
+        # written into the file. See api_record_note().
+        "notes": notes if isinstance(notes, dict) else {},
     }
 
 
@@ -1828,7 +1839,8 @@ def _statement_report(texts, rc) -> list:
 LOG_COLUMNS = ("Record", "Identifier", "Title", "What", "866", "Details")
 
 
-def _log_rows(result: dict, records: list, identifier_spec: str) -> list:
+def _log_rows(result: dict, records: list, identifier_spec: str,
+             notes: Optional[dict] = None) -> list:
     """
     The run summary as rows a cataloguer can sort, filter and search.
 
@@ -1841,13 +1853,22 @@ def _log_rows(result: dict, records: list, identifier_spec: str) -> list:
     for problem in result.get("rejections") or []:
         rows.append(("", "", "", "Setting refused", "", problem))
 
-    for entry in result["summary"]:
-        index = entry["index"]
+    notes = notes or {}
+    by_index = {entry["index"]: entry for entry in result["summary"]}
+    # A record with a note of the cataloguer's is in the log even when nothing
+    # else is wrong with it -- the note is the reason to find it again.
+    noted = {int(i) for i, text in notes.items() if str(text).strip()}
+    for index in sorted(set(by_index) | noted):
+        entry = by_index.get(index, {"index": index, "warnings": []})
         record = records[index] if index < len(records) else None
         who = (str(index + 1),
                record_identifier(record, identifier_spec) if record else "",
                (_record_title(record) if record else "") or "")
 
+        # First among the record's lines: it is what the cataloguer wanted
+        # to be reminded of.
+        if str(notes.get(str(index), "")).strip():
+            rows.append(who + ("Your note", "", notes[str(index)].strip()))
         for note in entry.get("edited") or []:
             rows.append(who + ("Edited by you", "", note))
         if entry.get("skipped"):
@@ -1891,7 +1912,8 @@ def api_download_log():
         buf = io.StringIO()
         writer = csv.writer(buf)
         writer.writerow(LOG_COLUMNS)
-        writer.writerows(_log_rows(result, _load_all_records(), _identifier_spec()))
+        writer.writerows(_log_rows(result, _load_all_records(), _identifier_spec(),
+                                   decisions.get("notes")))
         data = ("\ufeff" + buf.getvalue()).encode("utf-8")
         return send_file(io.BytesIO(data), mimetype="text/csv",
                          as_attachment=True,
@@ -1899,6 +1921,38 @@ def api_download_log():
     except Exception as exc:
         app.logger.exception("Request failed")
         return jsonify({"error": str(exc)}), 500
+
+
+@app.route("/api/record-note", methods=["POST"])
+def api_record_note():
+    """
+    Keep a cataloguer's note on one record, for the log and nowhere else.
+
+    POST JSON: {"record_index": 12, "note": "Check v. 7 against the shelf"}.
+    An empty note removes it. Not $x or $z: those go into the file, and this
+    is a reminder to a person -- the cataloguer later, or a colleague -- about
+    why a record was skipped or what to look at when it is opened in the ILS.
+    Kept with the session's other decisions, so a new upload forgets it.
+    """
+    data = request.get_json(force=True) or {}
+    marc_bytes = _load_file("marc_file")
+    if not marc_bytes:
+        return jsonify({"error": "No MARC file found. Please upload a file first."}), 400
+    try:
+        record_index = int(data.get("record_index"))
+    except (TypeError, ValueError):
+        return jsonify({"error": "Which record the note is for is missing."}), 400
+    if not 0 <= record_index < len(records_from_bytes(marc_bytes)):
+        return jsonify({"error": "Record index out of range."}), 400
+
+    note = str(data.get("note") or "").strip()
+    decisions = _load_decisions()
+    if note:
+        decisions["notes"][str(record_index)] = note
+    else:
+        decisions["notes"].pop(str(record_index), None)
+    _save_decisions(decisions)
+    return jsonify({"success": True, "record_index": record_index, "note": note})
 
 
 @app.route("/api/edit-866", methods=["POST"])

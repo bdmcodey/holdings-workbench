@@ -15,6 +15,14 @@ more than one release; numbering resumed with 0.6.1. Reasoning behind the
 parser and converter decisions, including the defects a real corpus exposed and
 what was done about each, is in [CORPUS-FINDINGS.md](CORPUS-FINDINGS.md).
 
+## 0.25.0 — 2026-09-23
+
+Write your own note on a record -- a reminder for you or a colleague that goes into the log, never into the record.
+
+- **MARC Serials Toolkit** — Opening a record now shows a "Your note" box at the bottom. Write a reminder for yourself or a colleague -- why the record was skipped, or what to check when you open it in your catalogue -- and it is saved when you click away or press "Save note". The note goes into the session log and nowhere else: unlike a $x or $z, it is never written into the record. Emptying the box removes the note.
+- **MARC Serials Toolkit** — Ticking Skip on a record now opens it with the cursor in the note box, so the reason for skipping is easy to write down. Nothing asks you to: skipping without a note works as before.
+- **MARC Serials Toolkit** — A record with a note is marked "note" in the list (hover to read it), and appears in the log even if nothing else is wrong with it, with the note as its first line under "Your note". Like everything else in a session, notes are kept until you upload a new file or the session ends -- download the log first if you want to keep them.
+
 ## 0.24.2 — 2026-09-23
 
 A skipped record no longer stays under "Needs attention".
