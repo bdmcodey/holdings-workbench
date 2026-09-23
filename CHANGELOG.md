@@ -15,6 +15,22 @@ more than one release; numbering resumed with 0.6.1. Reasoning behind the
 parser and converter decisions, including the defects a real corpus exposed and
 what was done about each, is in [CORPUS-FINDINGS.md](CORPUS-FINDINGS.md).
 
+## 0.24.0 — 2026-09-23
+
+A session log: a spreadsheet of every record with something to look at, to take back to your catalogue or MarcEdit.
+
+- **MARC Serials Toolkit** — Once you have converted anything, a "Download log" button appears beside "Download .mrc". It gives you a spreadsheet (a CSV file, which opens in Excel) with one line for each thing a record needs looked at: records you skipped, records kept because they already had 863s, 853s to check, statements that were not converted, statements converted with a note, corrections you made to 866s, and settings that were refused.
+- **MARC Serials Toolkit** — Each line names the record three ways -- its place in the file, its identifier (the field you chose when uploading, 999 $b unless you changed it) and its title -- with the 866 statement concerned and what was said about it, so you can find the record again in your catalogue or in MarcEdit and fix it there. Sort or filter by the "What" column to work through one kind at a time. Records with nothing to report are left out. The log describes the same file the Download button gives you, including records you converted one at a time.
+
+## 0.23.1 — 2026-09-23
+
+A file with an 866 that carries only a note no longer stops the records being checked, and one record the tool cannot handle no longer stops the rest.
+
+- **MARC Serials Toolkit** — An 866 with no holdings statement -- one carrying only a note, such as "$z Current issues in reading room" -- stopped the whole file being checked. The list still appeared and "All" showed every record, but "Read by the parser" and "Read by a pattern" found nothing, and "Convert all records" failed. Such an 866 is now kept as it is, and the record's other 866s are converted as usual.
+- **MARC Serials Toolkit** — If a record cannot be handled for any other reason, it is now marked "could not check", listed under Needs attention, left exactly as it was in the converted file, and the reason is shown when you open it. The rest of the file is checked and converted as usual, where before one such record stopped them all.
+- **MARC Serials Toolkit** — If the records cannot be checked at all, the screen now says so above the list. Before, the only sign was every filter but "All" showing 0 records, which looked like a result rather than a failure.
+- **MARC Serials Toolkit** — Uploading a new file now clears the Find box. Text left in it used to narrow every filter on the next file without saying so.
+
 ## 0.23.0 — 2026-09-23
 
 Correct an 866 in the Workbench: an Edit button beside each 866 re-checks the statement and regenerates its 853 and 863s.

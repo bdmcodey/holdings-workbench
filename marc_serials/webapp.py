@@ -22,6 +22,8 @@ rather than 5000 because macOS gives 5000 to AirPlay Receiver.
 
 from __future__ import annotations
 
+import copy
+import csv
 import io
 import json
 import logging
@@ -419,8 +421,8 @@ def _review_row(record, index, *, patterns, fallback, conv_opts, captions,
         row["previews"] = []
 
     all_866s = record.get_fields("866")
-    source_866s = [f for f in all_866s if (f["a"] or "")]
-    statements = [f["a"] for f in source_866s]
+    source_866s = [f for f in all_866s if (f.get("a") or "")]
+    statements = [f.get("a") for f in source_866s]
     row["has_866"] = bool(statements)
     row["kept_existing"] = bool(row["existing_863"]) and not clear_existing
 
@@ -463,6 +465,47 @@ def _review_row(record, index, *, patterns, fallback, conv_opts, captions,
     if with_previews:
         row["previews"] = previews
     return row
+
+
+def _review_row_safely(record, index, **kwargs) -> dict:
+    """
+    _review_row(), except that one record it cannot handle does not take the
+    file down with it.
+
+    Until 0.23.1 an exception anywhere in one record's row failed the whole
+    request: an 866 with no $a raised KeyError, /api/review-index answered
+    500, and the screen -- holding no index -- showed "0 match" under every
+    filter but All. The record that fails is said instead, on its own row,
+    and is listed under Needs attention; every other record is read as usual.
+    """
+    try:
+        return _review_row(record, index, **kwargs)
+    except Exception as exc:
+        app.logger.exception("Record %s could not be checked", index + 1)
+        row = {
+            "index": index,
+            "title": _record_title(record) or f"Record {index + 1}",
+            "converted": 0, "held": 0, "flagged": 0, "sources": [],
+            "has_866": bool(record.get_fields("866")),
+            "skipped": bool(kwargs.get("skipped")),
+            "leader_note": None, "leader_mismatch": False,
+            "single_part": False,
+            "existing_863": 0, "kept_existing": False,
+            "record_notes": [unreadable_note(exc)],
+            "edited": list(kwargs.get("edited") or []),
+            "unreadable": True,
+        }
+        if kwargs.get("with_previews"):
+            row["previews"] = []
+        return row
+
+
+def unreadable_note(exc: Exception) -> str:
+    """What a record the tool could not handle says about itself."""
+    detail = f"{type(exc).__name__}: {exc}".rstrip(": ")
+    return (f"This record could not be checked, so it is left exactly as it "
+            f"was ({detail}). Everything else in the file is unaffected. "
+            f"Please report it, with the record, so the cause can be fixed.")
 
 
 def _previews_from(rc, rejections=(), existing_853s=(), sources=(),
@@ -973,7 +1016,7 @@ def api_pattern_preview():
 
             texts, field_indexes = [], []
             for idx, fld in enumerate(record.get_fields("866")):
-                text = fld["a"] or ""
+                text = fld.get("a") or ""
                 if text:
                     texts.append(text)
                     field_indexes.append(idx)
@@ -1239,7 +1282,7 @@ def api_preview_record():
         # repeat that conversion by hand, and a copy drifts: it lost the $u
         # until 0.21.0, and would have gone on converting records the list
         # says are kept as they are.
-        row = _review_row(
+        row = _review_row_safely(
             all_records[record_index], record_index,
             patterns=_load_library(), fallback=_parser_fallback(data),
             conv_opts=conv_opts, captions=data.get("captions") or None,
@@ -1315,7 +1358,7 @@ def api_preview_records():
     try:
         wanted = _requested_indices(data, len(all_records), offset, limit)
         out = [
-            _review_row(all_records[index], index,
+            _review_row_safely(all_records[index], index,
                         patterns=patterns, fallback=fallback,
                         conv_opts=conv_opts, captions=captions,
                         frequency=frequency, continuity=continuity,
@@ -1382,7 +1425,7 @@ def api_review_index():
     session_edits = _load_decisions()["edits"]
     try:
         rows = [
-            _review_row(record, index,
+            _review_row_safely(record, index,
                         patterns=patterns, fallback=fallback,
                         conv_opts=conv_opts, captions=captions,
                         frequency=frequency, continuity=continuity,
@@ -1500,7 +1543,7 @@ def _apply_one_decision(record, decision: dict, patterns: list) -> tuple:
     The record has to be freshly read from the upload: a decision says what the
     record should end up as, not what to add to whatever is on it already.
 
-    Returns (result, previews, sources).
+    Returns (result, previews, sources, statements).
     """
     conversions_input = decision.get("conversions", [])
 
@@ -1542,7 +1585,8 @@ def _apply_one_decision(record, decision: dict, patterns: list) -> tuple:
     if remove_866:
         _remove_converted_866s(record, sources_866, rc)
 
-    return rc, _previews_from(rc, rejections, (), sources, patterns), sources
+    return (rc, _previews_from(rc, rejections, (), sources, patterns), sources,
+            texts)
 
 
 def _rebuild_converted(decisions: dict, previews_for: Optional[int] = None):
@@ -1602,120 +1646,143 @@ def _rebuild_converted(decisions: dict, previews_for: Optional[int] = None):
     own_total = 0
     skipped_own = 0
     kept_total = 0
+    unreadable_total = 0
 
     for rec_idx, record in enumerate(all_records):
-        decision = per_record.get(str(rec_idx))
+        # One record the tool cannot handle is left as it came in and said,
+        # rather than failing the run: until 0.23.1 an 866 with no $a raised
+        # KeyError here and "Convert all" failed for the whole file.
+        pristine = copy.deepcopy(record)
+        try:
+            decision = per_record.get(str(rec_idx))
 
-        # Before anything else, including clearing existing fields: a
-        # skipped record is one the run does not touch at all.
-        if rec_idx in skip_records:
-            skipped_total += 1
-            note = "Skipped: this record was left exactly as it was."
+            # Before anything else, including clearing existing fields: a
+            # skipped record is one the run does not touch at all.
+            if rec_idx in skip_records:
+                skipped_total += 1
+                note = "Skipped: this record was left exactly as it was."
+                if decision is not None:
+                    # Said out loud rather than quietly dropped. The decision is
+                    # kept, so clearing the skip and running again brings it back.
+                    skipped_own += 1
+                    note += (" The conversion you ran on this record on its own is "
+                             "not in the file while it is skipped.")
+                summary.append({
+                    "index": rec_idx,
+                    "converted_fields": 0,
+                    "conformed_fields": 0,
+                    "needs_review": 0,
+                    "skipped": True,
+                    "warnings": [note],
+                })
+                continue
+
+            # Next, and still before anything is cleared: a record that already
+            # carries 863s is kept exactly as it is unless whichever instruction
+            # applies to it -- its own decision, or the run over the file -- says
+            # to clear them. Before 0.22.0 they were regenerated from the 866s
+            # and written over, 38 hand-entered fields on a real 372-record file.
             if decision is not None:
-                # Said out loud rather than quietly dropped. The decision is
-                # kept, so clearing the skip and running again brings it back.
-                skipped_own += 1
-                note += (" The conversion you ran on this record on its own is "
-                         "not in the file while it is skipped.")
-            summary.append({
-                "index": rec_idx,
-                "converted_fields": 0,
-                "conformed_fields": 0,
-                "needs_review": 0,
-                "skipped": True,
-                "warnings": [note],
-            })
-            continue
+                clears = bool(decision.get("clear_existing_853_863"))
+            else:
+                clears = batch is not None and bool(clear_existing)
+            count_863 = existing_863_count(record)
+            if count_863 and not clears and (decision is not None or batch is not None):
+                kept_total += 1
+                summary.append({
+                    "index": rec_idx,
+                    "converted_fields": 0,
+                    "conformed_fields": 0,
+                    "needs_review": 0,
+                    "kept_existing": True,
+                    "warnings": [kept_existing_note(count_863)]
+                                + existing_853_notes(record),
+                    "record_notes": existing_853_notes(record),
+                })
+                continue
+            # Said about the 853s the record keeps; nothing to say once cleared.
+            notes_853 = [] if clears else existing_853_notes(record)
 
-        # Next, and still before anything is cleared: a record that already
-        # carries 863s is kept exactly as it is unless whichever instruction
-        # applies to it -- its own decision, or the run over the file -- says
-        # to clear them. Before 0.22.0 they were regenerated from the 866s
-        # and written over, 38 hand-entered fields on a real 372-record file.
-        if decision is not None:
-            clears = bool(decision.get("clear_existing_853_863"))
-        else:
-            clears = batch is not None and bool(clear_existing)
-        count_863 = existing_863_count(record)
-        if count_863 and not clears and (decision is not None or batch is not None):
-            kept_total += 1
-            summary.append({
-                "index": rec_idx,
-                "converted_fields": 0,
-                "conformed_fields": 0,
-                "needs_review": 0,
-                "kept_existing": True,
-                "warnings": [kept_existing_note(count_863)]
-                            + existing_853_notes(record),
-            })
-            continue
-        # Said about the 853s the record keeps; nothing to say once cleared.
-        notes_853 = [] if clears else existing_853_notes(record)
+            if decision is not None:
+                rc, record_previews, sources, texts = _apply_one_decision(
+                    record, decision, patterns)
+                if rec_idx == previews_for:
+                    previews = record_previews
+                for src in sources:
+                    by_source[src] = by_source.get(src, 0) + 1
+                review_total += rc.needs_review
+                own_total += 1
+                summary.append({
+                    "index": rec_idx,
+                    "converted_fields": rc.converted,
+                    "conformed_fields": rc.conformed,
+                    "needs_review": rc.needs_review,
+                    "own_decision": True,
+                    "warnings": notes_853 + rc.warnings,
+                    "record_notes": notes_853 + rc.record_notes,
+                    "statements": _statement_report(texts, rc),
+                })
+                continue
 
-        if decision is not None:
-            rc, record_previews, sources = _apply_one_decision(
-                record, decision, patterns)
-            if rec_idx == previews_for:
-                previews = record_previews
+            if batch is None:
+                continue
+
+            existing_853s = list(record.get_fields("853"))
+            if clear_existing:
+                record.remove_fields("853", "863")
+                existing_853s = []
+
+            fields_866 = record.get_fields("866")
+            if not fields_866:
+                continue
+
+            texts = [f.get("a") or "" for f in fields_866]
+            sources_866 = [f for f, t in zip(fields_866, texts) if t]
+            statements = [t for t in texts if t]
+
+            parsed, sources = _parse_all(statements, patterns, fallback)
             for src in sources:
                 by_source[src] = by_source.get(src, 0) + 1
+
+            rc = convert_record(
+                parsed,
+                existing_853s=existing_853s,
+                captions=captions,
+                frequency=frequency,
+                numbering_continuity=continuity,
+                merge_patterns=rec_idx not in keep_separate,
+                holdings_level=holdings_level,
+                units_per_higher=units_per_higher,
+                **conv_opts,
+            )
+            _carry_866_notes(sources_866, rc)
+            _apply_record_conversion(record, rc)
+
+            if remove_866:
+                _remove_converted_866s(record, sources_866, rc)
+
             review_total += rc.needs_review
-            own_total += 1
             summary.append({
                 "index": rec_idx,
                 "converted_fields": rc.converted,
                 "conformed_fields": rc.conformed,
                 "needs_review": rc.needs_review,
-                "own_decision": True,
                 "warnings": notes_853 + rc.warnings,
+                "record_notes": notes_853 + rc.record_notes,
+                "statements": _statement_report(statements, rc),
             })
-            continue
-
-        if batch is None:
-            continue
-
-        existing_853s = list(record.get_fields("853"))
-        if clear_existing:
-            record.remove_fields("853", "863")
-            existing_853s = []
-
-        fields_866 = record.get_fields("866")
-        if not fields_866:
-            continue
-
-        texts = [f["a"] or "" for f in fields_866]
-        sources_866 = [f for f, t in zip(fields_866, texts) if t]
-        statements = [t for t in texts if t]
-
-        parsed, sources = _parse_all(statements, patterns, fallback)
-        for src in sources:
-            by_source[src] = by_source.get(src, 0) + 1
-
-        rc = convert_record(
-            parsed,
-            existing_853s=existing_853s,
-            captions=captions,
-            frequency=frequency,
-            numbering_continuity=continuity,
-            merge_patterns=rec_idx not in keep_separate,
-            holdings_level=holdings_level,
-            units_per_higher=units_per_higher,
-            **conv_opts,
-        )
-        _carry_866_notes(sources_866, rc)
-        _apply_record_conversion(record, rc)
-
-        if remove_866:
-            _remove_converted_866s(record, sources_866, rc)
-
-        review_total += rc.needs_review
-        summary.append({
-            "index": rec_idx,
-            "converted_fields": rc.converted,
-            "conformed_fields": rc.conformed,
-            "needs_review": rc.needs_review,
-            "warnings": notes_853 + rc.warnings,
-        })
+        except Exception as exc:
+            app.logger.exception("Record %s could not be converted", rec_idx + 1)
+            all_records[rec_idx] = pristine
+            unreadable_total += 1
+            summary.append({
+                "index": rec_idx,
+                "converted_fields": 0,
+                "conformed_fields": 0,
+                "needs_review": 0,
+                "unreadable": True,
+                "warnings": [unreadable_note(exc)],
+            })
 
     _save_file("marc_file_converted", _records_to_bytes(all_records))
 
@@ -1737,13 +1804,101 @@ def _rebuild_converted(decisions: dict, previews_for: Optional[int] = None):
         "own_decisions": own_total,
         "skipped_own_decisions": skipped_own,
         "kept_existing": kept_total,
+        "unreadable": unreadable_total,
         "previews": previews,
         # A record kept for its own 863s was not converted, so it is not
         # counted as converted and gets no download of its own as one.
         "converted_indexes": [row["index"] for row in summary
                               if not row.get("skipped")
-                              and not row.get("kept_existing")],
+                              and not row.get("kept_existing")
+                              and not row.get("unreadable")],
     }
+
+
+def _statement_report(texts, rc) -> list:
+    """Each statement a record was converted from, and what was said about it."""
+    return [{"text": text, "converted": bool(result.fields_863),
+             "warnings": list(result.warnings)}
+            for text, result in zip(texts, rc.results)]
+
+
+# The session log: what a cataloguer may need to find again in the ILS or
+# MarcEdit, one line per thing to look at. Its categories, in the order a
+# record's lines are written.
+LOG_COLUMNS = ("Record", "Identifier", "Title", "What", "866", "Details")
+
+
+def _log_rows(result: dict, records: list, identifier_spec: str) -> list:
+    """
+    The run summary as rows a cataloguer can sort, filter and search.
+
+    Built from the same summary "Convert all" reports, so the log describes
+    the file the Download button hands over -- not a separate reading of it.
+    A record with nothing to say has no line: the log is the work left, and
+    the run summary already counts what went well.
+    """
+    rows: list = []
+    for problem in result.get("rejections") or []:
+        rows.append(("", "", "", "Setting refused", "", problem))
+
+    for entry in result["summary"]:
+        index = entry["index"]
+        record = records[index] if index < len(records) else None
+        who = (str(index + 1),
+               record_identifier(record, identifier_spec) if record else "",
+               (_record_title(record) if record else "") or "")
+
+        for note in entry.get("edited") or []:
+            rows.append(who + ("Edited by you", "", note))
+        if entry.get("skipped"):
+            rows.append(who + ("Skipped", "", entry["warnings"][-1]))
+            continue
+        if entry.get("unreadable"):
+            rows.append(who + ("Could not check", "", entry["warnings"][-1]))
+            continue
+        if entry.get("kept_existing"):
+            kept = next(w for w in entry["warnings"] if "already has" in w)
+            rows.append(who + ("Kept: already has 863s", "", kept))
+        for note in entry.get("record_notes") or []:
+            rows.append(who + ("853 to check", "", note))
+        for statement in entry.get("statements") or []:
+            what = ("Converted with a note" if statement["converted"]
+                    else "Not converted")
+            if statement["converted"] and not statement["warnings"]:
+                continue
+            for warning in statement["warnings"] or [""]:
+                rows.append(who + (what, statement["text"], warning))
+    return rows
+
+
+@app.route("/api/download-log")
+def api_download_log():
+    """
+    The session log as a CSV, beside the converted file it describes.
+
+    Written with a byte-order mark: Excel on Windows reads a CSV without one as
+    the local code page, and a title with an accent or a dash comes out as
+    mojibake -- in the one file meant to be read in Excel.
+    """
+    decisions = _load_decisions()
+    if decisions["batch"] is None and not decisions["records"]:
+        return jsonify({"error": "Nothing has been converted yet, so there is "
+                                 "no log. Convert first."}), 404
+    try:
+        result = _rebuild_converted(decisions)
+        if result is None:
+            return jsonify({"error": "No MARC file found. Please upload a file first."}), 404
+        buf = io.StringIO()
+        writer = csv.writer(buf)
+        writer.writerow(LOG_COLUMNS)
+        writer.writerows(_log_rows(result, _load_all_records(), _identifier_spec()))
+        data = ("\ufeff" + buf.getvalue()).encode("utf-8")
+        return send_file(io.BytesIO(data), mimetype="text/csv",
+                         as_attachment=True,
+                         download_name=f"holdings_log_{time.strftime('%Y-%m-%d')}.csv")
+    except Exception as exc:
+        app.logger.exception("Request failed")
+        return jsonify({"error": str(exc)}), 500
 
 
 @app.route("/api/edit-866", methods=["POST"])
@@ -1817,9 +1972,9 @@ def api_edit_866():
             "record_index": record_index,
             "fields_866": [summarise_866(f) for f in record.get_fields("866")],
             "edited": edit_notes(decisions["edits"].get(str(record_index))),
-            "statements": [f["a"].strip() for r in records
+            "statements": [f.get("a").strip() for r in records
                            for f in r.get_fields("866")
-                           if (f["a"] or "").strip()],
+                           if (f.get("a") or "").strip()],
         })
     except Exception as exc:
         app.logger.exception("Request failed")
@@ -1907,6 +2062,7 @@ def api_batch_convert():
             "own_decisions": result["own_decisions"],
             "skipped_own_decisions": result["skipped_own_decisions"],
             "kept_existing": result["kept_existing"],
+            "unreadable": result["unreadable"],
             "converted_indexes": result["converted_indexes"],
             "rejections": result["rejections"],
             "by_source": [

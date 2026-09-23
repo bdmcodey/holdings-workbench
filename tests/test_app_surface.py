@@ -49,6 +49,8 @@ JOINED_ROUTES = {
     "/api/download-record",
     # Correcting an 866 in the Workbench rather than before it.
     "/api/edit-866",
+    # What a session found, for the cataloguer to take back to the ILS.
+    "/api/download-log",
 }
 
 

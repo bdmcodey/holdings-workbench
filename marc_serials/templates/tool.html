@@ -929,6 +929,10 @@ v.6(1995)-"></textarea>
       </div>
 
       <div id="review-empty" class="mt-2" hidden></div>
+      <!-- Said when the records could not be checked. Without it the filters
+           silently match nothing, which is how a crash on one record looked
+           like "the parser stopped working" until 0.23.1. -->
+      <div id="review-error" class="mt-2" hidden></div>
 
       <div class="check-row mt-2">
         <input type="checkbox" id="batch-remove866" />
@@ -952,6 +956,13 @@ v.6(1995)-"></textarea>
         <button class="btn btn-primary" id="btn-batch-all">Convert all records</button>
         <a href="api/download-converted" class="btn btn-success" id="btn-download"
            style="display:none;">Download .mrc</a>
+        <!-- Beside the file it describes, and shown when it is: everything
+             the session said about a record, one line each, with the
+             record's identifier so it can be found again in the ILS or
+             MarcEdit. A CSV, so it opens in Excel and sorts by "What". -->
+        <a href="api/download-log" class="btn btn-secondary" id="btn-download-log"
+           style="display:none;"
+           title="A spreadsheet of every record with something to look at: skipped, kept, not converted, converted with a note, edited by you">Download log</a>
       </div>
       <div id="batch-status" class="mt-2"></div>
     </div>
@@ -1420,8 +1431,15 @@ async function uploadMarcFile(file) {
     skipRecords.clear();
     convertedRecords.clear();
     document.getElementById('btn-download').style.display = 'none';
+    document.getElementById('btn-download-log').style.display = 'none';
     reviewOffset = 0;
     recordIndex.clear();
+    // A new file starts unsearched. The Find box used to keep its text across
+    // uploads and quietly narrow every filter on the next file -- "1 of 5
+    // match" for a file nobody had searched.
+    reviewSearch = '';
+    document.getElementById('review-search').value = '';
+    document.getElementById('btn-search-clear').hidden = true;
     // Re-read the library from the server rather than trusting what this page
     // read when it loaded. The two used to be able to disagree -- the sidebar
     // showing a hundred confirmed patterns the server had already discarded,
@@ -1665,12 +1683,21 @@ function renderRecordList(records) {
  * the bulky part and only the rows on screen need them.
  */
 async function loadReviewIndex() {
+  const box = document.getElementById('review-error');
   try {
     const data = await postJson('api/review-index', conventionPayload());
     recordIndex = new Map(data.records.map(row => [row.index, row]));
     showLeaderNotices(data);
+    box.hidden = true;
   } catch (err) {
     console.error(err);
+    // Not only the console. With no index every filter but All matches
+    // nothing, and "0 match" reads as a finding rather than a failure.
+    box.innerHTML = `<div class="alert alert-err">The records could not be
+      checked, so the filters and counts below cannot be trusted
+      (${escHtml(err.message)}). Try uploading the file again; if it keeps
+      happening, the server's terminal window says why.</div>`;
+    box.hidden = false;
   }
 }
 
@@ -1878,6 +1905,10 @@ function paintRecordStatus() {
     if (!entry) { slot.innerHTML = ''; return; }
     if (entry.skipped) {
       slot.innerHTML = '<span class="pill skipped-pill">skipped</span>';
+      return;
+    }
+    if (entry.unreadable) {
+      slot.innerHTML = '<span class="pill decide">could not check</span>';
       return;
     }
     if (entry.kept_existing) {
@@ -3605,6 +3636,7 @@ async function applyAllInRecord(recIdx) {
     const own = document.getElementById(`dl-record-${recIdx}`);
     if (own) own.hidden = false;
     document.getElementById('btn-download').style.display = 'inline-flex';
+    document.getElementById('btn-download-log').style.display = 'inline-flex';
   } catch (err) {
     showAlert(status, err.message, 'err');
   }
@@ -3739,6 +3771,7 @@ document.getElementById('btn-batch-all').addEventListener('click', async () => {
       if (own) own.hidden = !convertedRecords.has(i);
     });
     document.getElementById('btn-download').style.display = 'inline-flex';
+    document.getElementById('btn-download-log').style.display = 'inline-flex';
   } catch (err) {
     showAlert(status, err.message, 'err');
   }

@@ -2578,8 +2578,17 @@ The first two are done; the rest are Workbench UI and are not started.
   the move to a person. Worth noting that the pattern path already *converts*
   these, into an 863, which is the wrong field — so the flag is also a guard.
 
-- **A session log to take back to Alma or MarcEdit.** Raised 23 September
-  2026, not started. Beside the converted `.mrc`, a downloadable record of
+- ~~**A session log to take back to Alma or MarcEdit.**~~ Done in 0.24.0: a
+  "Download log" button beside "Download .mrc", once anything is converted.
+  A CSV with a byte-order mark (Excel on Windows misreads UTF-8 without one),
+  one line per thing to look at -- Record, Identifier, Title, What, 866,
+  Details -- built from the run summary, so it describes the file the
+  Download button hands over. "What" is one of: Setting refused, Edited by
+  you, Skipped, Could not check, Kept: already has 863s, 853 to check, Not
+  converted, Converted with a note. A record with nothing to say has no line.
+  On the real export: 183 lines over 116 records, 162 of them "Converted with
+  a note" -- the per-statement warnings the screen shows one record at a time.
+  Raised 23 September 2026. The original request, kept for its reasoning: Beside the converted `.mrc`, a downloadable record of
   everything a session said about a record: warnings, statements held for
   review, records skipped, records kept for their own 863s, 853s flagged,
   settings refused. Much of it asks a cataloguer to fix a record by hand, in

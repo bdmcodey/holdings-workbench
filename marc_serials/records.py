@@ -507,7 +507,7 @@ def match_866_sources(record, texts) -> list:
         for field in record.get_fields("866"):
             if any(field is c for c in claimed):
                 continue
-            if (field["a"] or "").strip() == wanted:
+            if (field.get("a") or "").strip() == wanted:
                 found = field
                 claimed.append(field)
                 break
