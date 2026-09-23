@@ -929,6 +929,10 @@ v.6(1995)-"></textarea>
       </div>
 
       <div id="review-empty" class="mt-2" hidden></div>
+      <!-- Said when the records could not be checked. Without it the filters
+           silently match nothing, which is how a crash on one record looked
+           like "the parser stopped working" until 0.23.1. -->
+      <div id="review-error" class="mt-2" hidden></div>
 
       <div class="check-row mt-2">
         <input type="checkbox" id="batch-remove866" />
@@ -1422,6 +1426,12 @@ async function uploadMarcFile(file) {
     document.getElementById('btn-download').style.display = 'none';
     reviewOffset = 0;
     recordIndex.clear();
+    // A new file starts unsearched. The Find box used to keep its text across
+    // uploads and quietly narrow every filter on the next file -- "1 of 5
+    // match" for a file nobody had searched.
+    reviewSearch = '';
+    document.getElementById('review-search').value = '';
+    document.getElementById('btn-search-clear').hidden = true;
     // Re-read the library from the server rather than trusting what this page
     // read when it loaded. The two used to be able to disagree -- the sidebar
     // showing a hundred confirmed patterns the server had already discarded,
@@ -1665,12 +1675,21 @@ function renderRecordList(records) {
  * the bulky part and only the rows on screen need them.
  */
 async function loadReviewIndex() {
+  const box = document.getElementById('review-error');
   try {
     const data = await postJson('api/review-index', conventionPayload());
     recordIndex = new Map(data.records.map(row => [row.index, row]));
     showLeaderNotices(data);
+    box.hidden = true;
   } catch (err) {
     console.error(err);
+    // Not only the console. With no index every filter but All matches
+    // nothing, and "0 match" reads as a finding rather than a failure.
+    box.innerHTML = `<div class="alert alert-err">The records could not be
+      checked, so the filters and counts below cannot be trusted
+      (${escHtml(err.message)}). Try uploading the file again; if it keeps
+      happening, the server's terminal window says why.</div>`;
+    box.hidden = false;
   }
 }
 
@@ -1878,6 +1897,10 @@ function paintRecordStatus() {
     if (!entry) { slot.innerHTML = ''; return; }
     if (entry.skipped) {
       slot.innerHTML = '<span class="pill skipped-pill">skipped</span>';
+      return;
+    }
+    if (entry.unreadable) {
+      slot.innerHTML = '<span class="pill decide">could not check</span>';
       return;
     }
     if (entry.kept_existing) {
