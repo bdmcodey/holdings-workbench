@@ -15,6 +15,12 @@ more than one release; numbering resumed with 0.6.1. Reasoning behind the
 parser and converter decisions, including the defects a real corpus exposed and
 what was done about each, is in [CORPUS-FINDINGS.md](CORPUS-FINDINGS.md).
 
+## 0.25.1 — 2026-09-23
+
+Ticking Skip no longer opens the record and moves the cursor to its note box.
+
+- **MARC Serials Toolkit** — Ticking Skip now only marks the record skipped, as it did before 0.25.0. Opening the record and jumping to its note box got in the way when skipping several records in a row, and under "Needs attention" it did nothing, because a skipped record leaves that list. To write a reason for a skip, open the record: the "Your note" box is still at the bottom. The Skipped filter shows every skipped record together, so you can skip first and write notes afterwards.
+
 ## 0.25.0 — 2026-09-23
 
 Write your own note on a record -- a reminder for you or a colleague that goes into the log, never into the record.

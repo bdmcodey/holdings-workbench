@@ -86,12 +86,16 @@ def test_a_note_for_a_record_that_is_not_there_is_refused(client):
     assert _note(client, 9, "nowhere").status_code == 400
 
 
-def test_ticking_skip_opens_the_record_at_its_note():
-    """The screen half: a skip is a decision worth a reason, so it asks nothing
-    but puts the cursor where the reason would go."""
+def test_ticking_skip_leaves_the_cursor_where_it_was():
+    """
+    0.25.0 opened a skipped record at its note box. The cataloguer found it got
+    in the way of skipping several records in a row, and under "Needs
+    attention" the record leaves the list, so there was nothing to open. The
+    note is written from the record's detail, or from the Skipped filter.
+    """
     script = (REPO_ROOT / "marc_serials" / "templates" / "tool.html").read_text(
         encoding="utf-8")
     handler = re.search(r"skipRecords\.add\(idx\).*?\}\)\);", script, re.S)
     assert handler, "the Skip handler has moved or been renamed"
     body = handler.group(0)
-    assert "note-${idx}" in body and ".focus()" in body
+    assert ".focus()" not in body and "selectRecord(" not in body
