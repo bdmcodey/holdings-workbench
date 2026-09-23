@@ -51,6 +51,8 @@ JOINED_ROUTES = {
     "/api/edit-866",
     # What a session found, for the cataloguer to take back to the ILS.
     "/api/download-log",
+    # A cataloguer's own note on a record, for the log only.
+    "/api/record-note",
 }
 
 
