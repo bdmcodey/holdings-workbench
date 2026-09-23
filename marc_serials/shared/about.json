@@ -1,6 +1,6 @@
 {
   "name": "MARC Serials Toolkit",
-  "version": "0.23.1",
+  "version": "0.24.0",
   "released": "2026-09-22",
   "status": "Proof of concept — under active development. Check your output before loading it into the catalog.",
   "description": "One tool for MARC serials holdings. Upload a MARC file, find the patterns in its 866 statements, confirm what each part of a pattern means, and convert to structured 853 caption/pattern and 863 enumeration/chronology fields. Statements no pattern matches are converted by the standard parser.",
@@ -9,6 +9,21 @@
   "contact": "Matthew Codey, codey@usc.edu",
   "_comment": "Written for cataloging staff, not developers. Say what changed about the output or the screen, not how the code changed. Newest version first.",
   "changelog": [
+    {
+      "version": "0.24.0",
+      "date": "2026-09-23",
+      "summary": "A session log: a spreadsheet of every record with something to look at, to take back to your catalogue or MarcEdit.",
+      "changes": [
+        {
+          "tool": "MARC Serials Toolkit",
+          "text": "Once you have converted anything, a \"Download log\" button appears beside \"Download .mrc\". It gives you a spreadsheet (a CSV file, which opens in Excel) with one line for each thing a record needs looked at: records you skipped, records kept because they already had 863s, 853s to check, statements that were not converted, statements converted with a note, corrections you made to 866s, and settings that were refused."
+        },
+        {
+          "tool": "MARC Serials Toolkit",
+          "text": "Each line names the record three ways -- its place in the file, its identifier (the field you chose when uploading, 999 $b unless you changed it) and its title -- with the 866 statement concerned and what was said about it, so you can find the record again in your catalogue or in MarcEdit and fix it there. Sort or filter by the \"What\" column to work through one kind at a time. Records with nothing to report are left out. The log describes the same file the Download button gives you, including records you converted one at a time."
+        }
+      ]
+    },
     {
       "version": "0.23.1",
       "date": "2026-09-23",

@@ -23,6 +23,7 @@ rather than 5000 because macOS gives 5000 to AirPlay Receiver.
 from __future__ import annotations
 
 import copy
+import csv
 import io
 import json
 import logging
@@ -1542,7 +1543,7 @@ def _apply_one_decision(record, decision: dict, patterns: list) -> tuple:
     The record has to be freshly read from the upload: a decision says what the
     record should end up as, not what to add to whatever is on it already.
 
-    Returns (result, previews, sources).
+    Returns (result, previews, sources, statements).
     """
     conversions_input = decision.get("conversions", [])
 
@@ -1584,7 +1585,8 @@ def _apply_one_decision(record, decision: dict, patterns: list) -> tuple:
     if remove_866:
         _remove_converted_866s(record, sources_866, rc)
 
-    return rc, _previews_from(rc, rejections, (), sources, patterns), sources
+    return (rc, _previews_from(rc, rejections, (), sources, patterns), sources,
+            texts)
 
 
 def _rebuild_converted(decisions: dict, previews_for: Optional[int] = None):
@@ -1695,13 +1697,14 @@ def _rebuild_converted(decisions: dict, previews_for: Optional[int] = None):
                     "kept_existing": True,
                     "warnings": [kept_existing_note(count_863)]
                                 + existing_853_notes(record),
+                    "record_notes": existing_853_notes(record),
                 })
                 continue
             # Said about the 853s the record keeps; nothing to say once cleared.
             notes_853 = [] if clears else existing_853_notes(record)
 
             if decision is not None:
-                rc, record_previews, sources = _apply_one_decision(
+                rc, record_previews, sources, texts = _apply_one_decision(
                     record, decision, patterns)
                 if rec_idx == previews_for:
                     previews = record_previews
@@ -1716,6 +1719,8 @@ def _rebuild_converted(decisions: dict, previews_for: Optional[int] = None):
                     "needs_review": rc.needs_review,
                     "own_decision": True,
                     "warnings": notes_853 + rc.warnings,
+                    "record_notes": notes_853 + rc.record_notes,
+                    "statements": _statement_report(texts, rc),
                 })
                 continue
 
@@ -1763,6 +1768,8 @@ def _rebuild_converted(decisions: dict, previews_for: Optional[int] = None):
                 "conformed_fields": rc.conformed,
                 "needs_review": rc.needs_review,
                 "warnings": notes_853 + rc.warnings,
+                "record_notes": notes_853 + rc.record_notes,
+                "statements": _statement_report(statements, rc),
             })
         except Exception as exc:
             app.logger.exception("Record %s could not be converted", rec_idx + 1)
@@ -1806,6 +1813,92 @@ def _rebuild_converted(decisions: dict, previews_for: Optional[int] = None):
                               and not row.get("kept_existing")
                               and not row.get("unreadable")],
     }
+
+
+def _statement_report(texts, rc) -> list:
+    """Each statement a record was converted from, and what was said about it."""
+    return [{"text": text, "converted": bool(result.fields_863),
+             "warnings": list(result.warnings)}
+            for text, result in zip(texts, rc.results)]
+
+
+# The session log: what a cataloguer may need to find again in the ILS or
+# MarcEdit, one line per thing to look at. Its categories, in the order a
+# record's lines are written.
+LOG_COLUMNS = ("Record", "Identifier", "Title", "What", "866", "Details")
+
+
+def _log_rows(result: dict, records: list, identifier_spec: str) -> list:
+    """
+    The run summary as rows a cataloguer can sort, filter and search.
+
+    Built from the same summary "Convert all" reports, so the log describes
+    the file the Download button hands over -- not a separate reading of it.
+    A record with nothing to say has no line: the log is the work left, and
+    the run summary already counts what went well.
+    """
+    rows: list = []
+    for problem in result.get("rejections") or []:
+        rows.append(("", "", "", "Setting refused", "", problem))
+
+    for entry in result["summary"]:
+        index = entry["index"]
+        record = records[index] if index < len(records) else None
+        who = (str(index + 1),
+               record_identifier(record, identifier_spec) if record else "",
+               (_record_title(record) if record else "") or "")
+
+        for note in entry.get("edited") or []:
+            rows.append(who + ("Edited by you", "", note))
+        if entry.get("skipped"):
+            rows.append(who + ("Skipped", "", entry["warnings"][-1]))
+            continue
+        if entry.get("unreadable"):
+            rows.append(who + ("Could not check", "", entry["warnings"][-1]))
+            continue
+        if entry.get("kept_existing"):
+            kept = next(w for w in entry["warnings"] if "already has" in w)
+            rows.append(who + ("Kept: already has 863s", "", kept))
+        for note in entry.get("record_notes") or []:
+            rows.append(who + ("853 to check", "", note))
+        for statement in entry.get("statements") or []:
+            what = ("Converted with a note" if statement["converted"]
+                    else "Not converted")
+            if statement["converted"] and not statement["warnings"]:
+                continue
+            for warning in statement["warnings"] or [""]:
+                rows.append(who + (what, statement["text"], warning))
+    return rows
+
+
+@app.route("/api/download-log")
+def api_download_log():
+    """
+    The session log as a CSV, beside the converted file it describes.
+
+    Written with a byte-order mark: Excel on Windows reads a CSV without one as
+    the local code page, and a title with an accent or a dash comes out as
+    mojibake -- in the one file meant to be read in Excel.
+    """
+    decisions = _load_decisions()
+    if decisions["batch"] is None and not decisions["records"]:
+        return jsonify({"error": "Nothing has been converted yet, so there is "
+                                 "no log. Convert first."}), 404
+    try:
+        result = _rebuild_converted(decisions)
+        if result is None:
+            return jsonify({"error": "No MARC file found. Please upload a file first."}), 404
+        buf = io.StringIO()
+        writer = csv.writer(buf)
+        writer.writerow(LOG_COLUMNS)
+        writer.writerows(_log_rows(result, _load_all_records(), _identifier_spec()))
+        data = ("\ufeff" + buf.getvalue()).encode("utf-8")
+        return send_file(io.BytesIO(data), mimetype="text/csv",
+                         as_attachment=True,
+                         download_name=f"holdings_log_{time.strftime('%Y-%m-%d')}.csv")
+    except Exception as exc:
+        app.logger.exception("Request failed")
+        return jsonify({"error": str(exc)}), 500
 
 
 @app.route("/api/edit-866", methods=["POST"])

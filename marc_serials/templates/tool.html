@@ -956,6 +956,13 @@ v.6(1995)-"></textarea>
         <button class="btn btn-primary" id="btn-batch-all">Convert all records</button>
         <a href="api/download-converted" class="btn btn-success" id="btn-download"
            style="display:none;">Download .mrc</a>
+        <!-- Beside the file it describes, and shown when it is: everything
+             the session said about a record, one line each, with the
+             record's identifier so it can be found again in the ILS or
+             MarcEdit. A CSV, so it opens in Excel and sorts by "What". -->
+        <a href="api/download-log" class="btn btn-secondary" id="btn-download-log"
+           style="display:none;"
+           title="A spreadsheet of every record with something to look at: skipped, kept, not converted, converted with a note, edited by you">Download log</a>
       </div>
       <div id="batch-status" class="mt-2"></div>
     </div>
@@ -1424,6 +1431,7 @@ async function uploadMarcFile(file) {
     skipRecords.clear();
     convertedRecords.clear();
     document.getElementById('btn-download').style.display = 'none';
+    document.getElementById('btn-download-log').style.display = 'none';
     reviewOffset = 0;
     recordIndex.clear();
     // A new file starts unsearched. The Find box used to keep its text across
@@ -3628,6 +3636,7 @@ async function applyAllInRecord(recIdx) {
     const own = document.getElementById(`dl-record-${recIdx}`);
     if (own) own.hidden = false;
     document.getElementById('btn-download').style.display = 'inline-flex';
+    document.getElementById('btn-download-log').style.display = 'inline-flex';
   } catch (err) {
     showAlert(status, err.message, 'err');
   }
@@ -3762,6 +3771,7 @@ document.getElementById('btn-batch-all').addEventListener('click', async () => {
       if (own) own.hidden = !convertedRecords.has(i);
     });
     document.getElementById('btn-download').style.display = 'inline-flex';
+    document.getElementById('btn-download-log').style.display = 'inline-flex';
   } catch (err) {
     showAlert(status, err.message, 'err');
   }
