@@ -433,6 +433,28 @@ def test_uncertain_year_is_usable_holdings():
     assert any("uncertain" in w.lower() for w in r.warnings)
 
 
+def test_an_uncertain_year_is_not_also_called_unconverted():
+    """
+    The unit parser's refusal ("... nothing was converted from this statement")
+    was carried onto the last resort's result even where the last resort
+    converted the year, so the record said both things at once.
+    """
+    r = parse_866("2016?")
+    assert r.ranges[0].start.year == "2016"
+    assert not any("nothing was converted" in w for w in r.warnings), r.warnings
+
+
+@pytest.mark.parametrize("text, year", [("2016? {gift}", "2016"), ("foo {gift}", None)])
+def test_a_braced_note_survives_the_last_resort(text, year):
+    """
+    The last resort was given the statement with its note still in it, so
+    "2016? {gift}" converted nothing and neither case said a word about "gift".
+    """
+    r = parse_866(text)
+    assert [hr.start.year for hr in r.ranges] == ([year] if year else [])
+    assert any("'gift'" in w for w in r.warnings), r.warnings
+
+
 @pytest.mark.parametrize("text, missing", [
     ("? 106", "volume, an issue or a year"),
     ("?: 16", "volume or an issue"),

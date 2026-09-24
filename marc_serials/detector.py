@@ -140,14 +140,21 @@ _TOK_RE = re.compile(
     # Month or season, with any slash-joined continuation ("Jul/Aug",
     # "Winter/Spring").  Must precede ISS_CAP to protect "Nov.", and the
     # word boundary keeps "springtime" out.
+    #
+    # The abbreviating full stop belongs to the month: "(?:\.|\b)", not
+    # "\.?\b".  There is no word boundary between a full stop and the space or
+    # ")" after it, so the old form backed off the stop and left it as a
+    # one-character UNKNOWN -- "(Jan. 1990)" and "(Jan 1990)" then landed in
+    # two clusters, one headed "CHRON<text>", each needing its own
+    # confirmation.  14 of the 1057 statements in a real export had the shape.
     r"|(?P<CHRON>\b(?:spring|summer|fall|autumn|winter"
     r"|jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?"
     r"|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?"
-    r"|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\.?\b"
+    r"|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)(?:\.|\b)"
     r"(?:\s*/\s*(?:spring|summer|fall|autumn|winter"
     r"|jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?"
     r"|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?"
-    r"|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\.?\b)*)"
+    r"|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)(?:\.|\b))*)"
     # Issue caption   — no. | nr. | num. | number | iss. | issue
     r"|(?P<ISS_CAP>\b(?:no|nr|num(?:ber)?|iss(?:ue)?)\.?)"
     # Generic number (possibly with trailing letter: "4a", "12b"), with any

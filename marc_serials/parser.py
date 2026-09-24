@@ -1773,9 +1773,20 @@ def parse_866(text: str) -> ParseResult:
     result.warnings.extend(w for w in notes if w not in result.warnings)
 
     if not result.ranges:
-        degenerate = _parse_degenerate(text)
-        degenerate.warnings.extend(w for w in notes
-                                   if w not in degenerate.warnings)
+        # The statement with its notes taken out, as both grammars read it:
+        # given the raw text, "2016? {gift}" matched nothing here and the note
+        # was reported nowhere.
+        degenerate = _parse_degenerate(cleaned)
+        degenerate.raw = text
+        degenerate.warnings[:0] = note_warnings
+        # Why the unit parser refused is worth carrying only when nothing was
+        # converted after all. Where the last resort did read something --
+        # "2016?", a year -- that refusal ends "nothing was converted from this
+        # statement", beside a year that was, and the "?" it points at is
+        # already named by the last resort's own warning.
+        if not degenerate.ranges:
+            degenerate.warnings.extend(w for w in notes
+                                       if w not in degenerate.warnings)
         return degenerate
 
     return result

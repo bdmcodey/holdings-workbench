@@ -72,6 +72,30 @@ def test_a_combined_chronology_is_one_token(text):
     assert tokens[0].raw == text
 
 
+@pytest.mark.parametrize("text", ["Jan.", "Sept.", "Nov.", "Jan./Feb."])
+def test_an_abbreviating_full_stop_belongs_to_the_month(text):
+    """
+    The stop was left behind as a one-character UNKNOWN whenever a space or a
+    ")" followed it, because there is no word boundary after a full stop.
+    """
+    tokens = tokenize(f"({text} 1990)")
+    assert [t.kind for t in tokens if t.kind != "SPACE"] == [
+        "PAREN_OPEN", "CHRON", "YEAR", "PAREN_CLOSE"]
+    assert tokens[1].raw == text
+
+
+def test_a_month_with_and_without_its_full_stop_is_one_shape():
+    """
+    "(Jan. 1990)" and "(Jan 1990)" are the same shape to a cataloguer, and were
+    two clusters, one headed "CHRON<text>" -- two confirmations for one shape.
+    A real 372-record export had 8 such clusters; it now has none.
+    """
+    groups = detect_patterns(["v.1(Jan. 1990)", "v.2(Jan 1991)"])
+    assert len(groups) == 1
+    assert groups[0].human_label == "VOL(CHRONYEAR)"
+    assert groups[0].match_rate == 1.0
+
+
 # ---------------------------------------------------------------------------
 # Fuzzy signatures
 # ---------------------------------------------------------------------------

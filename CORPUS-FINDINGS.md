@@ -2526,6 +2526,33 @@ no 866 counterpart (`$o`, `$p`, `$q`, `$t`) could only arrive as wording in
 `$a`; none of the real export's 866s carries any such wording, nor a `$2`,
 `$6` or `$x`.
 
+## Found while writing the explanation for librarians · **0.25.2**
+
+*24 September 2026.* Writing out how tokenization works, with each example
+run through the code rather than taken from its comments, turned up two
+things the comments said and the code did not do.
+
+**A month's full stop was left behind.** The CHRON rule ended `\.?\b`, and
+there is no word boundary between a full stop and the space or `)` after it,
+so the rule backed off the stop and left it as a one-character UNKNOWN.
+`(Jan. 1990)` and `(Jan 1990)` then clustered apart, one headed
+`CHRON<text>`. The test that guarded "Nov." checked only the first token.
+Measured on the real 1,057-statement export: 14 statements, in 8 clusters of
+that shape; after the fix, 109 clusters instead of 115, and none of that
+shape. The corpus writes its months without stops, so its 44 clusters are
+unchanged. Conversion was never affected -- the parser read both forms -- and
+a pattern confirmed for the old shape still matches.
+
+**The last resort contradicted itself, and lost braced notes.** `2016?`
+converted to `$i 2016` while also saying "nothing was converted from this
+statement": the unit parser's refusal was carried onto the last resort's
+result even when the last resort read the year. And the last resort was given
+the statement with its braced note still in it, so `2016? {gift}` converted
+nothing and "gift" was reported nowhere. Now the refusal is carried only when
+nothing was converted, and the note is taken out and reported first. Neither
+shape is in the corpus or the real export; the audit and corpus report are
+unchanged.
+
 ## Requested, not yet started
 
 Raised 1 September 2026 alongside D15–D18, recorded here so they are not lost.
