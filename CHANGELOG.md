@@ -15,6 +15,14 @@ more than one release; numbering resumed with 0.6.1. Reasoning behind the
 parser and converter decisions, including the defects a real corpus exposed and
 what was done about each, is in [CORPUS-FINDINGS.md](CORPUS-FINDINGS.md).
 
+## 0.25.2 — 2026-09-24
+
+A month written with a full stop ("Jan.") no longer makes a pattern of its own, and an uncertain year like "2016?" no longer says it was not converted when it was.
+
+- **MARC Serials Toolkit** — "Find patterns" put statements like "v.1 (Jan. 1990)" and "v.2 (Jan 1991)" in two different groups, because the full stop after an abbreviated month was treated as a scrap of free text. The group with the full stop was headed "CHRON‹text›" and had to be confirmed separately. The full stop now belongs to the month, so both are one group. What each statement converts to is unchanged, and a pattern you confirmed for the old group still works.
+- **MARC Serials Toolkit** — A statement that is only an uncertain year, such as "2016?", converts to the year as before. It no longer also carries a second warning saying nothing was converted. The warning that the question mark is not encoded remains.
+- **MARC Serials Toolkit** — A note in braces on a statement like that, as in "2016? {gift}", was lost: the statement converted nothing and the note was mentioned nowhere. The year now converts and the note is reported, as it is on every other statement.
+
 ## 0.25.1 — 2026-09-23
 
 Ticking Skip no longer opens the record and moves the cursor to its note box.
