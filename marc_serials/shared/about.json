@@ -1,6 +1,6 @@
 {
   "name": "MARC Serials Toolkit",
-  "version": "0.30.1",
+  "version": "0.30.2",
   "released": "2026-09-25",
   "status": "Proof of concept — under active development. Check your output before loading it into the catalog.",
   "description": "One tool for MARC serials holdings. Upload a MARC file, find the patterns in its 866 statements, confirm what each part of a pattern means, and convert to structured 853 caption/pattern and 863 enumeration/chronology fields. Statements no pattern matches are converted by the standard parser.",
@@ -9,6 +9,17 @@
   "contact": "Matthew Codey, codey@usc.edu",
   "_comment": "Written for cataloging staff, not developers. Say what changed about the output or the screen, not how the code changed. Newest version first.",
   "changelog": [
+    {
+      "version": "0.30.2",
+      "date": "2026-09-25",
+      "summary": "An 866 that holds the values of an 863 written out as text is now named as such, instead of \"No recognisable holdings ranges found\".",
+      "changes": [
+        {
+          "tool": "MARC Serials Toolkit",
+          "text": "Some catalogues have 866s like \"2.1 54-62 1-1 1998-2006 21-21 g\": the values of an 863 ($8 2.1 $a 54-62 $b 1-1 $i 1998-2006 $j 21-21 $w g) with the subfield codes gone. These are still not converted, because what each number counts was in an 853 that is not part of the text. But the record now says what the text looks like and what to do (rewrite it as a statement with Edit, or enter the 853 and 863 by hand), instead of \"No recognisable holdings ranges found\" and a note pointing at the wrong place. Nothing else changes."
+        }
+      ]
+    },
     {
       "version": "0.30.1",
       "date": "2026-09-25",

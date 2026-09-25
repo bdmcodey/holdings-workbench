@@ -1,6 +1,6 @@
 # How the Holdings Workbench Works
 
-*Written for librarians and cataloguers. Describes version 0.30.1.*
+*Written for librarians and cataloguers. Describes version 0.30.2.*
 
 The Holdings Workbench turns the free-text holdings in MARC 866 fields into structured 853 caption/pattern and 863 enumeration/chronology fields, and asks a cataloguer to confirm anything it cannot be sure of. This guide explains how, for librarians rather than programmers.
 
@@ -55,7 +55,7 @@ A confirmed pattern supplies only what the parser cannot work out for itself:
 - **A caption for a level written without one.** The parser writes `(*)` in the 853 for an unnamed level. Your confirmed caption, such as `v.`, fills it. A caption the statement actually prints is never overwritten.
 - **"Leave these alone."** A pattern marked Skip claims every statement of that shape, and none of them is converted.
 
-Where a statement holds several runs of holdings, such as `v. 19 nos. 1, 3, 5, 7-12`, the parser reads it even if a pattern matches, and the record says so. A pattern describes one run, and applying it would have kept only the first and last values.
+Where a statement holds several runs of holdings, such as `v. 19 nos. 1, 3, 5, 7-12`, it is always split into one 863 per run: here four, for nos. 1, 3, 5 and 7-12. The parser does that splitting even when a pattern matches the statement, and the record says the pattern was passed over. A pattern describes a single run, so on its own it could only have recorded the first and last issues as one run (`$b 1-12`), losing the gaps.
 
 Until version 0.10.0 a matched pattern read the statement a second way, on its own. Across 141 test statements the two readings disagreed on 10, and the pattern was wrong on 9 of those. Since then the parser has done all the reading, and a test checks that both routes write the same 863.
 
@@ -152,7 +152,7 @@ The rule is then tried against every statement in its own group, and the screen 
 
 ### Before tokenizing: one statement or several?
 
-An 866 can hold more than one range, as in `v.1(1990)-v.3(1992), v.5(1994)-`. Before tokenizing, the statement is cut at each comma, semicolon or spaced slash (`/`) that falls outside parentheses, and each part is grouped on its own. A bare slash is never a cut, since `v.1/2` and `1990/91` mean something. A list of runs such as `v. 19 nos. 1, 3, 5, 7-12 (Jan, Mar, May, Jul-Dec 1915)` is kept whole, because its parts mean nothing alone.
+An 866 can hold more than one range, as in `v.1(1990)-v.3(1992), v.5(1994)-`. Before tokenizing, the statement is cut at each comma, semicolon or spaced slash (`/`) that falls outside parentheses, and each part is grouped on its own. A bare slash is never a cut, since `v.1/2` and `1990/91` mean something. A list of runs such as `v. 19 nos. 1, 3, 5, 7-12 (Jan, Mar, May, Jul-Dec 1915)` is not cut at its commas here, because a piece like `3` means nothing without the volume and the months around it. This only decides how the statement is grouped on the Patterns screen. When it is converted, the parser still splits it into one 863 per run (see "Reading each part" below).
 
 ## From groups to confirmed patterns
 
@@ -227,7 +227,7 @@ flowchart TD
 
 ### What it refuses to do
 
-The parser would rather write nothing than write part of a statement. If it reads the first part of a unit and can't account for the rest, it converts nothing from that statement and says exactly where it stopped. For example: "Read 'v. 5 (1990)' but could not account for 'Suppl.'" A caption it doesn't know, like `Bd.`, means "No recognisable holdings ranges found", and the record is held for you to look at.
+The parser would rather write nothing than write part of a statement. If it reads the first part of a unit and can't account for the rest, it converts nothing from that statement and says exactly where it stopped. For example: "Read 'v. 5 (1990)' but could not account for 'Suppl.'" A caption it doesn't know, like `Bd.`, means "No recognisable holdings ranges found", and the record is held for you to look at. Text that is really the values of an 863 with its subfield codes gone, like `2.1 54-62 1-1 1998-2006 21-21 g`, is held with a message saying so. The numbers could be lined up with subfields, but what each one counts was in an 853 that isn't in the text, and the parser doesn't guess captions.
 
 ## Writing the 853 and 863s
 
@@ -364,9 +364,9 @@ The log is built from the same summary as the conversion, so it describes exactl
 
 Four checks run before any change is released, and each answers a different question.
 
-| Check | Question it answers | Result as of 0.30.1 |
+| Check | Question it answers | Result as of 0.30.2 |
 | --- | --- | --- |
-| Automated tests | Does every behaviour described here still hold? | 854 passed, 8 skipped |
+| Automated tests | Does every behaviour described here still hold? | 862 passed, 8 skipped |
 | Corpus report | What do 117 real 866 statements convert to, and has any outcome changed? | 90 clean (77%), 22 converted with a warning, 5 with no fields, 0 with values lost |
 | Conversion audit | Did any number in a statement reach no field and no warning? | 0 unaccounted for: the corpus, the LC examples, the other library's catalogue, and all 1,057 statements of the 372-record test export |
 | Round trip | Convert, write the 866 as Alma would, convert again: do the same 863s come back? | Test export: 938 identical, 106 identical apart from an 853 caption, 11 not converted, **0 drift** |

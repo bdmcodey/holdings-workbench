@@ -1986,7 +1986,11 @@ def parse_866(text: str) -> ParseResult:
         # "2016?", a year -- that refusal ends "nothing was converted from this
         # statement", beside a year that was, and the "?" it points at is
         # already named by the last resort's own warning.
-        if not degenerate.ranges:
+        # Nor when the statement is an 863 written out as text: the unit
+        # parser's "Read '2' but could not account for '.1 54-62 ...'" points
+        # at a place reading never stopped for a reason, and the last resort
+        # says what the text is.
+        if not degenerate.ranges and not _looks_like_863_values(cleaned):
             degenerate.warnings.extend(w for w in notes
                                        if w not in degenerate.warnings)
         return degenerate
@@ -2029,6 +2033,21 @@ def _read_segment(seg: str, result: "ParseResult", notes: List[str]) -> None:
     result.ranges.append(hr)
 
 
+# An 863 written out as text, codes gone: "2.1 54-62 1-1 1998-2006 21-21 g" is
+# $8 2.1 $a 54-62 $b 1-1 $i 1998-2006 $j 21-21 $w g. A link number first, then
+# at least two values, a break code or a full stop, and perhaps a note after.
+# Found in another library's catalogue (D33), where it looks like encoded
+# holdings that were never turned back into display text.
+_863_VALUE = r"(?:-?\d+(?:[-/]\d+)*-?|[gn]|\.)"
+_863_AS_TEXT_RE = re.compile(
+    rf"^\s*(?P<link>\d+\.\d+)\s+{_863_VALUE}(?:\s+{_863_VALUE})+(?:\s+\D.*)?$")
+
+
+def _looks_like_863_values(text: str) -> bool:
+    m = _863_AS_TEXT_RE.match(text)
+    return bool(m) and len(re.findall(r"\d+", text[m.end("link"):])) >= 2
+
+
 def _parse_degenerate(text: str) -> ParseResult:
     """
     Last resort for single-value statements that neither grammar accepts:
@@ -2061,6 +2080,21 @@ def _parse_degenerate(text: str) -> ParseResult:
         return result
 
     result.success = False
+    if _looks_like_863_values(text):
+        # Said plainly, because the generic message and "Read '2' but could
+        # not account for '.1 54-62 ...'" both point at the wrong thing. The
+        # values could be lined up with subfields, but what each one counts
+        # was in the 853, which is not in the text, and captions are not
+        # guessed.
+        link = _863_AS_TEXT_RE.match(text).group("link")
+        result.warnings.append(
+            f"This looks like the values of an 863 written out as text "
+            f"(starting with its link number, {link}) rather than a holdings "
+            "statement. What each number counts was in an 853 that is not "
+            "part of the text, so nothing was converted. Rewrite the 866 as a "
+            "statement (Edit), or enter the 853 and 863 by hand."
+        )
+        return result
     result.warnings.append(
         "No recognisable holdings ranges found. "
         "Please check the input format."
