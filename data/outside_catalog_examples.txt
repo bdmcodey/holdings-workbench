@@ -50,15 +50,16 @@ v.35(2025)-
 
 [section: dates without parentheses]
 # The chronology follows the enumeration after a space, as older (AACR2-era)
-# summary statements write it.
-v.3-36 1963-1995                                                # fail:D32
-v.21-26 1997-2002.                                              # fail:D32
-v.40 no.4-6 2003.                                               # fail:D32
-no. 33-34 1993-1995                                             # fail:D32
-v.38-53 1982-1997                                               # fail:D32
-v.1-10 1985/86-1995                                             # fail:D32
-v.6 no.2 1990                                                   # fail:D32
-v.1-8 no.3 1987-August 1994                                     # fail:D32
+# summary statements write it. Read since 0.30.0 as if it were in parentheses
+# (D32). The "//" of a closed run is not read, and is held.
+v.3-36 1963-1995
+v.21-26 1997-2002.
+v.40 no.4-6 2003.
+no. 33-34 1993-1995
+v.38-53 1982-1997
+v.1-10 1985/86-1995
+v.6 no.2 1990
+v.1-8 no.3 1987-August 1994                                     # warn:D2
 v.1// 1982//                                                    # fail:D34
 v. 1// 1948-1949//                                              # fail:D34
 

@@ -1,6 +1,6 @@
 # How the Holdings Workbench Works
 
-*Written for librarians and cataloguers. Describes version 0.29.1.*
+*Written for librarians and cataloguers. Describes version 0.30.0.*
 
 The Holdings Workbench turns the free-text holdings in MARC 866 fields into structured 853 caption/pattern and 863 enumeration/chronology fields, and asks a cataloguer to confirm anything it cannot be sure of. This guide explains how, for librarians rather than programmers.
 
@@ -133,7 +133,7 @@ The labels in order are the statement's **signature**. Every statement with the 
 | `—` (long dash) | The dash dividing the start of the holdings from the end |
 | `–` at the end | An open range: currently received |
 
-So `v.1(1990)-v.5(1994)` and `V. 3 (1980)-v. 9 (1986)` share the heading `VOL(YEAR) — VOL(YEAR)` and are one group.
+So `v.1(1990)-v.5(1994)` and `V. 3 (1980)-v. 9 (1986)` share the heading `VOL(YEAR) — VOL(YEAR)` and are one group. Where the statement had a space between two pieces, the heading keeps one: `v. 9 no. 1 (Nov 1902)` is headed `VOL ISS(CHRON YEAR)`. Dates written after the numbering without parentheses are joined by an ordinary hyphen, as they would be inside them: `v.3-36 1963-1995` is `VOL-VOL YEAR-YEAR`.
 
 ### From a shape to a matching rule
 
@@ -220,6 +220,7 @@ flowchart TD
 - **Start and end** are divided at the hyphen between two units: one just after a closing parenthesis, or just before a caption. Inside parentheses, `1990-1994` is a range of years. In `v.1-5`, the hyphen means volumes 1 through 5 at one level.
 - **Enumeration** is a caption word followed by a value. The parser knows `v.`, `vol.`, `volume` → `v.`; `no.`, `nos.`, `nr.`, `num.`, `iss.`, `issue` → `no.`; `pt.`, `part` → `pt.`; `ser.`, `series` → `ser.`. A value can carry a letter (`4a`) or be combined (`7/8`). The order of levels is the order they appear. The caption word only names a level, it doesn't decide which level it is.
 - **Chronology** in parentheses becomes codes. Months become `01`-`12` and seasons `21`-`24`: Spring 21, Summer 22, Fall 23, Winter 24. `Jan/Feb` becomes `01/02`, and `1996/97` becomes `1996/1997`.
+- **Dates after the numbering without parentheses**, as older summary statements write them, are read as if they were in parentheses: `v.3-36 1963-1995` gives the same 863 as `v.3-36 (1963-1995)`. The dates have to come last and hold only years, months and seasons, so `v.1 2000 copies` is still held. So is `v.1-3 1990-`, which doesn't say whether the run of volumes is open or the holding is.
 - **Dates on their own**, with no volume and no parentheses, are read the Z39.71 way: `1990:Jan.-1994:Dec.` becomes `$i 1990-1994 $j 01-12`, and `2014:Nov. 7` becomes `$i 2014 $j 11 $k 7`.
 - **A range inside one end** is read as "through". In `v. 6 nos. 1-3-v. 14 nos. 10-12`, the run starts at no. 1 and ends at no. 12, so the 863 records `$b 1-12`. A compressed 863 holds only the first and last part, one hyphen per subfield. The record is marked to check, because if `1-3` was one combined issue it should have been written `1/3`. Changing the hyphen to a slash in the 866 (with Edit) keeps it whole.
 - **A year written before a volume** is the volume's date. `1990: v.1` becomes `$a 1 $i 1990`, and `1990: v.1-1992: v.3` becomes `$a 1-3 $i 1990-1992`. A year before an issue number, as in `2004 no. 3`, is left as a level of numbering, because some journals number by year; the cataloguer confirms that on the pattern. A statement that gives a volume two different years, like `1990: v.1 (1991)`, is held rather than guessed at.
@@ -363,17 +364,18 @@ The log is built from the same summary as the conversion, so it describes exactl
 
 Four checks run before any change is released, and each answers a different question.
 
-| Check | Question it answers | Result as of 0.29.1 |
+| Check | Question it answers | Result as of 0.30.0 |
 | --- | --- | --- |
-| Automated tests | Does every behaviour described here still hold? | 822 passed, 8 skipped |
+| Automated tests | Does every behaviour described here still hold? | 843 passed, 8 skipped |
 | Corpus report | What do 117 real 866 statements convert to, and has any outcome changed? | 90 clean (77%), 22 converted with a warning, 5 with no fields, 0 with values lost |
-| Conversion audit | Did any number in a statement reach no field and no warning? | 0 unaccounted for: the corpus, the LC examples, and all 1,057 statements of the 372-record test export |
+| Conversion audit | Did any number in a statement reach no field and no warning? | 0 unaccounted for: the corpus, the LC examples, the other library's catalogue, and all 1,057 statements of the 372-record test export |
 | Round trip | Convert, write the 866 as Alma would, convert again: do the same 863s come back? | Test export: 938 identical, 106 identical apart from an 853 caption, 11 not converted, **0 drift** |
 
 - **The tests** are small worked examples, each saying what should happen to a particular statement or record. Many are named after a real mistake the tool once made, so it can't come back unnoticed. The 8 skipped tests need real library files that aren't kept in the project.
 - **The corpus report** runs a collection of real statements (enumeration and chronology text only, with no identifiers) through both the detector and the parser. Each statement's expected outcome is recorded, so the report can say exactly what a change moved.
 - **The audit** compares what went in with what came out, and it can be run on a real file. It found two silent losses that the corpus couldn't, because their shapes weren't in it. It reads the file where it lies and writes nothing.
 - **The Library of Congress examples** are the 7 866 statements in LC's MARC holdings documentation, kept as a second, separate corpus. They're the only statements in the project written outside the collection the tool was built on. Four convert cleanly, one converts with a warning, and two are in the US Newspaper Program's own notation and are held rather than misread.
+- **Another library's catalogue** is a third corpus: 42 statements from a real catalogue elsewhere, picked for how messy they are. Some follow Z39.71, some write their dates without parentheses, some are 863 subfield values written out as text with no captions, and a few aren't holdings at all ("undefined"). As of 0.30.0, 24 convert cleanly, 3 convert with a warning, and 15 are held. None is misread, and none drifts on the round trip.
 - **The round trip** checks the circle with the library system. Holdings are exported from Alma, converted here and loaded back, and Alma regenerates every 866 from the new 853/863s. Exported and converted again, those 866s must give the same 863s; any difference is a bug. Alma can't be run from here, so the tool imitates the 866 Alma writes. The imitation was built from 48 866s that Alma generated in the test export, and it reproduces all 48 exactly. Run on a new Alma export, the check also compares the imitation with Alma's real 866s, which is how to confirm the forms those 48 didn't show: seasons, days, and date-only ranges with months.
 - **What the round trip can't close:** a level with no caption. An 866 generated from `(*)` is bare numbers, and nothing says what they count, so the parser refuses them. Five corpus statements are like this: four in the local year-first format, and "8,13,15,17,19,20-(1982-1994)". A caption confirmed on the pattern closes the loop.
 - **An 853 caption can differ, and that's expected.** A statement that names a level with no value, like the `no. 9` at one end of `v. 1 (1973)-v. 11 no. 9 (Sep 1983)`, keeps that level in its 853, and the first conversion already says the value was left out. A regenerated 866 can't name a level no 863 fills.
