@@ -15,6 +15,13 @@ more than one release; numbering resumed with 0.6.1. Reasoning behind the
 parser and converter decisions, including the defects a real corpus exposed and
 what was done about each, is in [CORPUS-FINDINGS.md](CORPUS-FINDINGS.md).
 
+## 0.29.0 — 2026-09-25
+
+A range inside one end of the holdings ("nos. 1-3" at the start) is recorded by its first and last part, and the record says so.
+
+- **MARC Serials Toolkit** — "v. 6 nos. 1-3-v. 14 nos. 10-12 (Mar 1978-Oct-Dec 1986)" used to write $b 1-3-10-12, which cannot be read, and lost the end year and the months. It now writes $a 6-14 $b 1-12 $i 1978-1986 $j 03-12: a compressed 863 records the first part held and the last, and a hyphen means "through". The record is marked to check, and its note says what to do if "1-3" was one combined issue rather than a range: write it with a slash in the 866 (Edit), and it is kept whole, as $b 1/3-10/12.
+- **MARC Serials Toolkit** — Dates with a range at one end, such as "(May 1992-Mar-Jun 1995)", now keep both years and the months. Before, only the first year was written.
+
 ## 0.28.0 — 2026-09-25
 
 Holdings that Alma writes back from this tool's 853/863s now convert to the same 853/863s again, and a check proves it.

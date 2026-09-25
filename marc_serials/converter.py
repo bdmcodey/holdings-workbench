@@ -1096,6 +1096,47 @@ _ENUM_SUBFIELDS = "abcdefgh"
 _CHRON_SUBFIELDS = "ijklm"
 
 
+def _note_inner_range(warnings: Optional[List[str]], label: tuple,
+                      start: str, end: str, written: str,
+                      flags: Optional[set] = None, paired: bool = False) -> None:
+    """
+    Say that a range inside a boundary was read as "through", and how to undo it.
+
+    Flagged, because the one reading the notation cannot settle is the
+    cataloguer's: "nos. 1-3" is issues 1 through 3 by Z39.71, and the run
+    starts at no. 1 -- unless it is one combined issue that should have been
+    written "1/3", in which case the start is "1/3" and the 863 should say so.
+    """
+    if flags is not None:
+        flags.add("inner_range")
+    if warnings is None:
+        return
+    _, word = label
+    if paired:
+        note = (
+            f"The {word} reads '{start}': one end of the range is a range of "
+            f"its own. A compressed 863 records only the first and last part "
+            f"held, so {written} was written. If that end is one combined part "
+            f"rather than a range, edit the 866 to write it with a slash "
+            f"instead of a hyphen and it will be kept whole."
+        )
+        if note not in warnings:
+            warnings.append(note)
+        return
+    ranged = [v for v in (start, end) if "-" in v.rstrip("-")] or [start]
+    both = len(ranged) > 1
+    note = (
+        f"{' and '.join(repr(v) for v in ranged)} ({word}) "
+        f"{'are ranges' if both else 'is a range'} inside one end of the "
+        f"holdings. A compressed 863 records only the first and last part "
+        f"held, so {written} was written. If {'either' if both else 'it'} is "
+        f"one combined part rather than a range, edit the 866 to write it "
+        f"with a slash instead of a hyphen and it will be kept whole."
+    )
+    if note not in warnings:
+        warnings.append(note)
+
+
 def _note_uncodeable(warnings: Optional[List[str]], label: tuple,
                      value: str, flags: Optional[set] = None) -> None:
     """
@@ -1218,7 +1259,18 @@ def _hierarchy_values(
                 else:
                     value = f"{s_val}-" if oe else s_val
         elif s_val is not None and e_val is not None:
-            if s_val != e_val:
+            if s_val != e_val and ("-" in s_val or "-" in e_val):
+                # A range inside a boundary: "v. 6 nos. 1-3 - v. 14 nos. 10-12".
+                # A compressed 863 holds one pair per subfield -- the first part
+                # held and the last -- so the run is no. 1 to no. 12, and
+                # "1-3-10-12" was a value no reader can pair. The hyphen means
+                # "through" (a combined issue is written with a slash), so the
+                # outer ends are the reading; the record says so, in case one
+                # was a combined issue written with the wrong mark.
+                value = f"{s_val.split('-')[0]}-{e_val.split('-')[-1]}"
+                _note_inner_range(warnings, label_for(key), s_val, e_val,
+                                  value, flags)
+            elif s_val != e_val:
                 value = f"{s_val}-{e_val}"
             elif ranged_above and "-" not in s_val:
                 value = f"{s_val}-{s_val}"
@@ -1241,6 +1293,16 @@ def _hierarchy_values(
             # record cannot carry it, so it is left out and named.
             _note_uncodeable(warnings, label_for(key), value, flags)
             value = None
+
+        if value and value.rstrip("-").count("-") > 1:
+            # Still two ranges in one value: one date group carried a range of
+            # its own at an end, as "(Mar 1978-Oct-Dec 1986)" does for its last
+            # months. No reader can pair "03-10-12"; the outer ends are the run.
+            parts = value.rstrip("-").split("-")
+            outer = f"{parts[0]}-{parts[-1]}" + ("-" if value.endswith("-") else "")
+            _note_inner_range(warnings, label_for(key), value, "", outer, flags,
+                              paired=True)
+            value = outer
 
         if value:
             out[key] = value

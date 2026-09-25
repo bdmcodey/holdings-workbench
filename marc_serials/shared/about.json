@@ -1,6 +1,6 @@
 {
   "name": "MARC Serials Toolkit",
-  "version": "0.28.0",
+  "version": "0.29.0",
   "released": "2026-09-22",
   "status": "Proof of concept — under active development. Check your output before loading it into the catalog.",
   "description": "One tool for MARC serials holdings. Upload a MARC file, find the patterns in its 866 statements, confirm what each part of a pattern means, and convert to structured 853 caption/pattern and 863 enumeration/chronology fields. Statements no pattern matches are converted by the standard parser.",
@@ -9,6 +9,21 @@
   "contact": "Matthew Codey, codey@usc.edu",
   "_comment": "Written for cataloging staff, not developers. Say what changed about the output or the screen, not how the code changed. Newest version first.",
   "changelog": [
+    {
+      "version": "0.29.0",
+      "date": "2026-09-25",
+      "summary": "A range inside one end of the holdings (\"nos. 1-3\" at the start) is recorded by its first and last part, and the record says so.",
+      "changes": [
+        {
+          "tool": "MARC Serials Toolkit",
+          "text": "\"v. 6 nos. 1-3-v. 14 nos. 10-12 (Mar 1978-Oct-Dec 1986)\" used to write $b 1-3-10-12, which cannot be read, and lost the end year and the months. It now writes $a 6-14 $b 1-12 $i 1978-1986 $j 03-12: a compressed 863 records the first part held and the last, and a hyphen means \"through\". The record is marked to check, and its note says what to do if \"1-3\" was one combined issue rather than a range: write it with a slash in the 866 (Edit), and it is kept whole, as $b 1/3-10/12."
+        },
+        {
+          "tool": "MARC Serials Toolkit",
+          "text": "Dates with a range at one end, such as \"(May 1992-Mar-Jun 1995)\", now keep both years and the months. Before, only the first year was written."
+        }
+      ]
+    },
     {
       "version": "0.28.0",
       "date": "2026-09-25",

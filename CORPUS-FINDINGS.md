@@ -2655,6 +2655,38 @@ statement that names a level with no value -- the "no. 9" at one end of
 "v. 1 (1973)-v. 11 no. 9 (Sep 1983)" -- keeps the level in its 853 and says the
 value was left out; a regenerated 866 cannot name a level no 863 fills.
 
+## A range inside one end of the holdings · **0.29.0**
+
+*25 September 2026.* Reported by the cataloguer, and the one statement the
+round trip left drifting:
+
+```
+866 0  $a v. 6 nos. 1-3-v. 14 nos. 10-12 (Mar 1978-Oct-Dec 1986)
+before : 863 40 $a 6-14 $b 1-3-10-12 $i 1978
+after  : 863 40 $a 6-14 $b 1-12 $i 1978-1986 $j 03-12        (to check)
+```
+
+Two faults. `$b 1-3-10-12` joined each end's own range with a third hyphen,
+which no reader can pair. And the chronology was split at its first hyphen,
+so the end became "Oct-Dec 1986", which no single boundary reads, and the end
+year and every month were lost.
+
+The standard settles the first. A compressed 863 holds the first part held and
+the last, one hyphen to a subfield -- LC's example is `$a7$b3-9$i1979$j03-12`
+-- and Z39.71 writes a combined part with a slash, a range with a hyphen. So a
+range at an end is read as "through", and the 863 takes the outer ends. The
+record is marked to check and its note says how to write a combined issue
+instead (a slash, in the 866), since a mistyped combined issue is the one
+reading the notation cannot settle. The dates are now split at the hyphen with
+a whole date on each side, and either side may carry a range of its own.
+
+Measured on the real 1,057-statement export: 2 863s had two hyphens in one
+subfield before; none now, on it or on either corpus. 7 statements carry the
+new note, and three of them gain chronology they were losing -- "(May
+1992-Mar-Jun 1995)" now writes `$i 1992-1995 $j 05-06`, where it wrote `$i 1992`.
+The round trip on the real export: 938 the same, 106 the same 863s with an 853
+losing a caption, 11 not converted, **0 drift**. Main corpus unchanged.
+
 ## Requested, not yet started
 
 Raised 1 September 2026 alongside D15–D18, recorded here so they are not lost.

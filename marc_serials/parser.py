@@ -1213,8 +1213,28 @@ def _parse_chron(raw: str,
 
     if "-" in raw:
         left, right = (p.strip() for p in raw.split("-", 1))
-        l_year, l_month, l_day = _parse_chron_single(left, warnings)
-        r_year, r_month, r_day = _parse_chron_single(right, warnings)
+        # More than one hyphen: one end carries a range of its own, "Mar
+        # 1978-Oct-Dec 1986". The first hyphen made the end "Oct-Dec 1986",
+        # which no single boundary reads, and the end year and every month
+        # went (the cataloguer's report, 0.29.0). The dividing hyphen is the
+        # one with a whole date -- a year in it -- on each side.
+        # The end's own range comes back paired ("10-12"), and the converter
+        # reduces the run to its outer ends and says so.
+        start_read = end_read = None
+        if raw.count("-") > 1:
+            for hyphen in re.finditer("-", raw):
+                l_part = raw[:hyphen.start()].strip()
+                r_part = raw[hyphen.end():].strip()
+                start = _parse_chron(l_part) if "-" in l_part \
+                    else _parse_chron_single(l_part)
+                inner = _parse_chron(r_part) if "-" in r_part \
+                    else _parse_chron_single(r_part)
+                if all(side[0] and side[0] != text and "-" not in side[0]
+                       for side, text in ((start, l_part), (inner, r_part))):
+                    left, start_read, end_read = l_part, start, inner
+                    break
+        l_year, l_month, l_day = start_read or _parse_chron_single(left, warnings)
+        r_year, r_month, r_day = end_read or _parse_chron_single(right, warnings)
 
         # Year: share the right-hand year if the left boundary omits it.
         # Equal years collapse: the year is the most significant chronology
