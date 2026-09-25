@@ -506,8 +506,12 @@ def _parse_enum_levels(text: str) -> Tuple[List[EnumLevel], int]:
         # swallowed as another level.
         if levels and not m.group("cap"):
             break
+        # "1 - 55" is the range 1-55. The spaces are how it was typed, not part
+        # of the value, and written into $a they made "$a 1 - 55" -- which the
+        # round trip read back as "1-55" and reported as drift.
+        value = re.sub(r"\s*([-/])\s*", r"\1", m.group("num").strip())
         levels.append(EnumLevel(caption=normalise_caption(m.group("cap")),
-                                value=m.group("num").strip()))
+                                value=value))
         pos = offset + m.end()
 
     return levels, pos
@@ -544,6 +548,18 @@ def normalise_year(raw: Optional[str]) -> Optional[str]:
 
 # Simpler pattern for year-only holdings (e.g. "1990" or "1990-1994")
 _YEAR_ONLY_RE = re.compile(rf"^\s*({_YEAR_TOKEN})\s*$")
+
+# Z39.71 chronology standing alone, with no enumeration before it and no
+# parentheses round it: "1990:Jan.", "1994:Winter/Spring", "2014:Nov. 7". It is
+# what an ILS generates for a serial whose 853 has chronology captions only,
+# and it went unread twice over: the year-first grammar claimed anything that
+# opened "year:", and the enumeration grammar wants its chronology in
+# parentheses. See D31.
+_BARE_CHRON = (rf"{_YEAR_TOKEN}\s*:\s*[A-Za-z][A-Za-z./]*"
+               rf"(?:\s*[:\s]\s*\d{{1,2}})?")
+_BARE_CHRON_RE = re.compile(rf"^\s*{_BARE_CHRON}\s*$")
+_BARE_CHRON_RANGE_RE = re.compile(
+    rf"^\s*(?:{_BARE_CHRON}|{_YEAR_TOKEN})\s*(-)\s*(?:{_BARE_CHRON}|{_YEAR_TOKEN})\s*$")
 
 # Matches the start of a new range: a volume-level caption at the beginning
 # e.g. "v.", "vol.", "volume" – but NOT "no.", "n.", "pt." etc.
@@ -986,7 +1002,14 @@ def _split_ranges(text: str) -> List[str]:
             preceded_by_close = before.endswith(")")
             followed_by_vol = bool(_VOL_START_RE.match(after))
             followed_by_year = bool(_YEAR_START_RE.match(after))
-            if not (preceded_by_close or followed_by_vol or followed_by_year):
+            # A mark with nothing after it closes the statement: the break
+            # after its last run, which is how an ILS writes a gap after
+            # "1986-1988" or "v.37-v.52" as surely as after "v.45(1988)".
+            # Until the round trip checked it, only the last was read, and
+            # "1986-1988," was refused whole.
+            at_end = not after
+            if not (preceded_by_close or followed_by_vol or followed_by_year
+                    or at_end):
                 continue
             if _is_designation_prefix(text[segment_start:i], after):
                 continue
@@ -1091,6 +1114,14 @@ def _parse_chron_single(raw: str,
     if m and chron_unit_code(m.group(1)) is not None:
         return (normalise_year(m.group(3)), _chron_unit_value(m.group(1)),
                 m.group(2).lstrip("0") or "0")
+
+    # YYYY:Mon. D -- Z39.71's year-first form with a day, as an ILS writes it
+    # when it generates an 866 from an 863 carrying $k ("2014:Nov. 7", or
+    # "2014:Nov.:7").
+    m = re.match(rf"^({_YEAR_TOKEN})\s*:\s*([A-Za-z.]+)\s*[:\s]\s*(\d{{1,2}})$", raw)
+    if m and chron_unit_code(m.group(2)) is not None:
+        return (normalise_year(m.group(1)), _chron_unit_value(m.group(2)),
+                m.group(3).lstrip("0") or "0")
 
     # YYYY:Mon. or YYYY Season (year first)
     m = re.match(rf"({_YEAR_TOKEN})\s*[:\s]\s*([A-Za-z./]+(?:\s+[A-Za-z./]+)?)$", raw)
@@ -1202,6 +1233,18 @@ def _parse_chron(raw: str,
         day = _pair_or_drop(l_day, r_day, raw, "day", warnings,
                             demonstrated, "day")
 
+        # Equal ends collapse where nothing above them ranges -- D15's own
+        # rule. "Jan 1956-Jan 1957" keeps "01-01", because the year ranges and
+        # a lone "01" would pair with only one end of it; "Oct 7-Oct 21, 1993"
+        # is October at both ends of one year, and "$j 10" says so. Writing
+        # "10-10" was not wrong, but an 866 generated from it reads back as
+        # "10", and the round trip reported the difference as drift.
+        year_ranges = bool(l_year and r_year and l_year != r_year)
+        if not year_ranges and l_month and l_month == r_month:
+            month = l_month
+            if l_day and l_day == r_day:
+                day = l_day
+
         if year or month or day:
             return year, month, day
         return raw, None, None  # unparseable: preserve raw so nothing is lost
@@ -1276,6 +1319,11 @@ def _parse_unit(text: str,
     m = _YEAR_ONLY_RE.match(text)
     if m:
         return EnumChron(year=normalise_year(m.group(1)))
+
+    if _BARE_CHRON_RE.match(text):
+        year, month, day = _parse_chron_single(text, warnings)
+        if year and (month or day):
+            return EnumChron(year=year, month=month, day=day)
 
     levels, pos = _parse_enum_levels(text)
 
@@ -1396,6 +1444,13 @@ def _smart_split_range(text: str) -> List[str]:
     if not candidate_positions:
         return [text]
 
+    # Two bare Z39.71 chronologies, "1990:Jan.-1994:Dec.": the hyphen between
+    # them is the only one that can divide the statement.
+    bare = _BARE_CHRON_RANGE_RE.match(text)
+    if bare and (_BARE_CHRON_RE.match(text[:bare.start(1)])
+                 or _BARE_CHRON_RE.match(text[bare.end(1):])):
+        return [text[:bare.start(1)].strip(), text[bare.end(1):].strip()]
+
     # Prefer the split that produces two non-trivial units.
     # Heuristic: prefer positions where the character before is ")" or digit
     # and after is alpha (start of caption) or "(" or digit.
@@ -1474,7 +1529,12 @@ _BLOCK_ITEM_RE = re.compile(
 _BLOCK_BODY_SPLIT_RE = re.compile(r",(?![^\[]*\])")
 
 # A statement is in block format when it opens with "YEAR:" or "?:"
-_BLOCK_SNIFF_RE = re.compile(r"^\s*[NM]?\s*(?:\d{4}|\?)\s*:", re.IGNORECASE)
+# The year-first grammar opens "year:" and then a volume or a parenthesised
+# body -- "1993: (1 [Feb])", "1949: 1 (1-6 [Apr-Sep])". A word after the colon
+# is Z39.71's own chronology, "1990:Jan.-1994:Dec.", which this used to claim
+# and convert to nothing (D31).
+_BLOCK_SNIFF_RE = re.compile(r"^\s*[NM]?\s*(?:\d{4}|\?)\s*:(?!\s*[A-Za-z])",
+                             re.IGNORECASE)
 
 # Curly-brace cataloguer notes: "{Memorial Issue}", "{2nd printing}"
 _BRACE_NOTE_RE = re.compile(r"\{([^}]*)\}?")

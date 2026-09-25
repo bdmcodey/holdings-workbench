@@ -100,6 +100,15 @@ jobs:
           python scripts/corpus_report.py
           python scripts/corpus_report.py --corpus data/lc_holdings_examples.txt
 
+      - name: Round trip with the ILS
+        # Printed for the record. What may drift is pinned by
+        # tests/test_round_trip.py, which is the gate; the corpus has five
+        # known statements whose levels have no caption, so this script's own
+        # exit status would always be 1 here.
+        run: |
+          python scripts/round_trip.py data/textual_holdings_corpus.txt || true
+          python scripts/round_trip.py data/lc_holdings_examples.txt
+
       - name: Tag drift
         # A notice, not a gate. corpus_report.py --drift exits 1 when a
         # statement no longer converts the way its recorded tag says it does,

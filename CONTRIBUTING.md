@@ -24,6 +24,7 @@ python -m pytest                          # the suite
 python scripts/corpus_report.py           # what the real corpus converts to
 python scripts/corpus_report.py --drift   # only outcomes that have changed
 python scripts/audit_conversion.py FILE   # what went in against what came out
+python scripts/round_trip.py FILE         # convert, regenerate the 866 as the ILS would, convert again
 ```
 
 ---
