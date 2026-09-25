@@ -15,6 +15,13 @@ more than one release; numbering resumed with 0.6.1. Reasoning behind the
 parser and converter decisions, including the defects a real corpus exposed and
 what was done about each, is in [CORPUS-FINDINGS.md](CORPUS-FINDINGS.md).
 
+## 0.26.0 — 2026-09-25
+
+Each pattern shows its expression, with a Copy button, and can show you the records it touches.
+
+- **MARC Serials Toolkit** — Every pattern card now shows its expression under the heading, two lines at a time; click it to see all of it. "Copy" puts it on the clipboard exactly as it stands, including any change you have made in the box under "Expression and example statements". "Copy all expressions" at the top of the list copies every pattern at once, one per line, with its heading and number of statements, ready to paste into a spreadsheet.
+- **MARC Serials Toolkit** — Each card can now show its records in the list of records below. "Show the records with this shape" lists every record holding a statement of that shape. For a confirmed pattern, "Show the records it converts" lists the records it actually converts, which can be fewer (a larger pattern may claim some first) or more (its expression may also match a similar shape). When the two differ, both are offered. The list is then filtered by a chip naming the pattern; press × beside it to go back to all records. Uploading a new file clears it.
+
 ## 0.25.2 — 2026-09-24
 
 A month written with a full stop ("Jan.") no longer makes a pattern of its own, and an uncertain year like "2016?" no longer says it was not converted when it was.
