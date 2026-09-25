@@ -73,6 +73,7 @@ marc-serials-toolkit/
 │   ├── corpus_report.py       Runs the corpus through the engines
 │   ├── round_trip.py          Converts, regenerates the 866 as the ILS would, converts again
 │   └── build_changelog.py     Writes CHANGELOG.md from shared/about.json
+├── docs/HOW-IT-WORKS.md  How the tool works, written for librarians
 ├── docs/marc/          The LC holdings documentation this is written against
 ├── CONTRIBUTING.md     The conventions this code follows, and why
 ├── CHANGELOG.md        Every released version (generated; see the script above)

@@ -118,6 +118,12 @@ data-loss fix applied to one copy of a function and not the other — so when yo
 find yourself writing the same fact twice, generate one from the other or pin
 them together with a test.
 
+The same goes for [`docs/HOW-IT-WORKS.md`](docs/HOW-IT-WORKS.md), the guide
+for librarians. It says which version it describes, and
+`tests/test_how_it_works.py` fails until that is the current version: when you
+release, check what the guide says against what changed, update its numbers in
+"How the tool is checked", and move the version up.
+
 ## 5. Write the changelog for cataloguers
 
 `about.json` says it in its own comment: *say what changed about the output or
