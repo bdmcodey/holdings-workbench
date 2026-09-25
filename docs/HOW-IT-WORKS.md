@@ -1,6 +1,6 @@
 # How the Holdings Workbench Works
 
-*Written for librarians and cataloguers. Describes version 0.30.2.*
+*Written for librarians and cataloguers. Describes version 0.30.3.*
 
 The Holdings Workbench turns the free-text holdings in MARC 866 fields into structured 853 caption/pattern and 863 enumeration/chronology fields, and asks a cataloguer to confirm anything it cannot be sure of. This guide explains how, for librarians rather than programmers.
 
@@ -309,6 +309,10 @@ Each can be folded to one line with Hide. That setting is remembered in your bro
 
 This filter gathers every record with something held or to check that you haven't marked Skip. Skipping a record means you are handling it yourself, so it leaves the list. Its warnings are still shown when you open it, and it still appears in the log.
 
+Inside a record, the two kinds of warning look different. A warning that needs a decision from you is orange and begins "To check:", and the reason a statement was held is orange too. A warning that is only recorded for the log is yellow. So on a record marked "1 to check", the orange box shows which statement it means.
+
+A held statement shows every reason it was held. The first is often the general "No recognisable holdings ranges found", and the next says where reading stopped, as in "could not account for '// 1982//'". That is the part to fix with Edit. Stray characters like `//` aren't given rules of their own: a messy catalogue can have any number of them, and a rule for each one risks misreading something else.
+
 ## Your decisions, and the session log
 
 Everything you decide is kept for the session and applied every time the file is converted or previewed, so the preview, the conversion and the download always agree. Uploading a new file starts over. Download the log first if you want to keep a record.
@@ -364,9 +368,9 @@ The log is built from the same summary as the conversion, so it describes exactl
 
 Four checks run before any change is released, and each answers a different question.
 
-| Check | Question it answers | Result as of 0.30.2 |
+| Check | Question it answers | Result as of 0.30.3 |
 | --- | --- | --- |
-| Automated tests | Does every behaviour described here still hold? | 862 passed, 8 skipped |
+| Automated tests | Does every behaviour described here still hold? | 869 passed, 8 skipped |
 | Corpus report | What do 117 real 866 statements convert to, and has any outcome changed? | 90 clean (77%), 22 converted with a warning, 5 with no fields, 0 with values lost |
 | Conversion audit | Did any number in a statement reach no field and no warning? | 0 unaccounted for: the corpus, the LC examples, the other library's catalogue, and all 1,057 statements of the 372-record test export |
 | Round trip | Convert, write the 866 as Alma would, convert again: do the same 863s come back? | Test export: 938 identical, 106 identical apart from an 853 caption, 11 not converted, **0 drift** |

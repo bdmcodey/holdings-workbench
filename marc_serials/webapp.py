@@ -546,6 +546,7 @@ def _previews_from(rc, rejections=(), existing_853s=(), sources=(),
             "conformed": c.conformed,
             "needs_review": c.needs_review,
             "flagged": c.flagged,
+            "attention": c.attention,
             "link": link,
             "existing": bool(c.conformed and display),
             "source": source,
@@ -1107,6 +1108,7 @@ def api_pattern_preview():
             "field_853": conversion.field_853.display() if conversion.field_853 else None,
             "fields_863": [f.display() for f in conversion.fields_863],
             "warnings": conversion.warnings,
+            "attention": conversion.attention,
             "needs_review": conversion.needs_review,
         }
 

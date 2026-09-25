@@ -15,6 +15,13 @@ more than one release; numbering resumed with 0.6.1. Reasoning behind the
 parser and converter decisions, including the defects a real corpus exposed and
 what was done about each, is in [CORPUS-FINDINGS.md](CORPUS-FINDINGS.md).
 
+## 0.30.3 — 2026-09-25
+
+A warning that needs a decision is now orange and headed "To check:", so it stands apart from warnings that are only for the log.
+
+- **MARC Serials Toolkit** — On a record with more than one statement, a warning that makes a statement "to check" looked the same as a warning that was only recorded for the log, so you could not tell which statement the "to check" pill meant. Warnings that need a decision are now orange, with a thicker left edge, and begin "To check:". The reason a statement was held is orange too. Warnings that only go into the log stay yellow. The "held" and "to check" pills on each record are orange to match. Nothing about the conversion changes.
+- **MARC Serials Toolkit** — A held statement now shows every reason it was held, not only the first. The first is often the general "No recognisable holdings ranges found"; the one after it says where reading stopped, such as "could not account for '// 1982//'", which is the part to clean up with Edit.
+
 ## 0.30.2 — 2026-09-25
 
 An 866 that holds the values of an 863 written out as text is now named as such, instead of "No recognisable holdings ranges found".

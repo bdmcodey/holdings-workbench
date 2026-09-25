@@ -408,6 +408,7 @@
     .pc-body[hidden] { display: none; }
     .pill.confirmed-pill { border-color: var(--ok); background: var(--ok-soft); }
     .pill.decide { border-color: var(--warn); background: var(--warn-soft); }
+    .pill.attention { border-color: var(--attention); background: var(--attention-soft); }
 
     /* The expression, readable without opening the card. Two lines until it is
        clicked; Copy takes the whole of it either way. */
@@ -2005,8 +2006,8 @@ function paintStatusPills(slot, entry) {
     }
     const bits = [];
     if (entry.converted) bits.push(`<span class="pill has-866">${entry.converted} converted</span>`);
-    if (entry.held) bits.push(`<span class="pill decide">${entry.held} held</span>`);
-    if (entry.flagged) bits.push(`<span class="pill decide">${entry.flagged} to check</span>`);
+    if (entry.held) bits.push(`<span class="pill attention">${entry.held} held</span>`);
+    if (entry.flagged) bits.push(`<span class="pill attention">${entry.flagged} to check</span>`);
     if ((entry.record_notes || []).length) bits.push('<span class="pill decide">853 to check</span>');
     if ((entry.edited || []).length) bits.push('<span class="pill">866 edited</span>');
     // No marker for the encoding level. Recording at level 3 against a file
@@ -3287,6 +3288,31 @@ async function runPreview(card) {
  * pattern share an 853 and run 1.1, 1.2, and a different pattern starts 2.1.
  * Showing the example alone always read "1.1" whatever it would really get.
  */
+/**
+ * One warning on a converted statement. A warning that is why the statement
+ * is "to check" asks for a decision, and is orange and says so; any other is
+ * said for the log, and stays yellow. One record can carry both, on different
+ * statements, and in one colour they could not be told apart.
+ */
+/**
+ * Why a statement was held: every reason, not the first. The first is often
+ * the generic "No recognisable holdings ranges found", and the one after it
+ * says where reading stopped -- "could not account for '// 1982//'" -- which
+ * is what a cataloguer cleaning up the 866 needs to see.
+ */
+function heldReasonHtml(pv) {
+  const reasons = pv.warnings || [];
+  if (!reasons.length) return 'Not converted.';
+  return reasons.map(w => `<div>${escHtml(w)}</div>`).join('');
+}
+
+function warningHtml(pv, w, extra = 'small') {
+  if ((pv.attention || []).includes(w)) {
+    return `<div class="alert alert-attention ${extra}"><strong>To check:</strong> ${escHtml(w)}</div>`;
+  }
+  return `<div class="alert alert-warn ${extra}">${escHtml(w)}</div>`;
+}
+
 function renderRecordPreview(data) {
   const groups = new Map();
   const review = [];
@@ -3346,7 +3372,7 @@ function renderRecordPreview(data) {
           </div>
           <div>
             <div class="pair-col-label">Reason</div>
-            <div class="alert alert-warn">${escHtml(pv.warnings[0] || 'Not converted.')}</div>
+            <div class="alert alert-attention">${heldReasonHtml(pv)}</div>
           </div>
         </div>`).join('')}
     </div>` : '';
@@ -3387,7 +3413,7 @@ function renderPreviewPair(pv) {
       <div class="pair-col-label">${label}</div>
       ${lines || '<div class="alert alert-warn">Nothing was converted from this statement.</div>'}
       ${(fields.warnings || []).map(
-        w => `<div class="alert alert-warn mt-1">${escHtml(w)}</div>`).join('')}
+        w => warningHtml(fields, w, 'mt-1')).join('')}
     </div>`;
   };
 
@@ -3891,7 +3917,7 @@ async function renderRecordDetail(idx) {
             ${pv.fields_863.map(f => fieldHtml(f, 'f863')).join('')}
             ${(pv.warnings || []).length ? `
               <div class="mt-1">
-                ${pv.warnings.map(w => `<div class="alert alert-warn small">${escHtml(w)}</div>`).join('')}
+                ${pv.warnings.map(w => warningHtml(pv, w)).join('')}
               </div>` : ''}
           </div>
         </div>`).join('')}
@@ -3915,7 +3941,7 @@ async function renderRecordDetail(idx) {
           </div>
           <div>
             <div class="pair-col-label">Reason</div>
-            <div class="alert alert-warn">${escHtml(pv.warnings[0] || 'Not converted.')}</div>
+            <div class="alert alert-attention">${heldReasonHtml(pv)}</div>
           </div>
         </div>`).join('')}
     </div>` : '';
