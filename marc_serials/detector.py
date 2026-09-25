@@ -435,6 +435,15 @@ def _compact_label(stripped: list[Token], range_sep_idx: Optional[int]) -> str:
     while i < len(stripped):
         tok = stripped[i]
         if i == range_sep_idx:
+            # Years on both sides, after numbering: the dates of the whole
+            # holding, written without parentheses ("v.3-36 1963-1995"). Its
+            # hyphen joins two years, as it would inside them, and is shown
+            # that way; the long dash is for a start and an end unit.
+            if (stripped[i - 1].kind == YEAR and stripped[i + 1].kind == YEAR
+                    and any(t.kind in _CAP_SHORT for t in stripped[:i])):
+                parts.append("-")
+                i += 1
+                continue
             parts.append(" \u2014 ")       # em-dash
             last_cap = None               # captions do not cross the separator
             i += 1
@@ -466,7 +475,18 @@ def _compact_label(stripped: list[Token], range_sep_idx: Optional[int]) -> str:
             # and two different clusters could show the identical label.
             parts.append("\u2039text\u203a")
         i += 1
-    return "".join(parts)
+    # Two items side by side were separated by a space in the statement, and
+    # keep one: "VOL ISS YEAR", not "VOLISSYEAR".
+    label = ""
+    for part in parts:
+        if label and _is_word(label[-1]) and _is_word(part[0]):
+            label += " "
+        label += part
+    return label
+
+
+def _is_word(ch: str) -> bool:
+    return ch.isalpha() or ch in "#\u2039\u203a"
 
 
 # ── Core regex builder ────────────────────────────────────────────────────────

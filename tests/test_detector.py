@@ -92,7 +92,7 @@ def test_a_month_with_and_without_its_full_stop_is_one_shape():
     """
     groups = detect_patterns(["v.1(Jan. 1990)", "v.2(Jan 1991)"])
     assert len(groups) == 1
-    assert groups[0].human_label == "VOL(CHRONYEAR)"
+    assert groups[0].human_label == "VOL(CHRON YEAR)"
     assert groups[0].match_rate == 1.0
 
 
@@ -272,7 +272,7 @@ def test_a_combined_designation_is_one_captured_value():
     group = detect_patterns(["v. 34 no. 8/9-v. 35 no. 23/24 (1996-1997)"])[0]
     assert group.named_groups == ["start_vol", "start_iss", "end_vol", "end_iss",
                                   "start_year", "end_year"]
-    assert group.human_label == "VOLISS — VOLISS(YEAR-YEAR)"
+    assert group.human_label == "VOL ISS — VOL ISS(YEAR-YEAR)"
 
 
 def test_a_range_spanning_one_unit_keeps_both_its_endpoints():
@@ -470,3 +470,25 @@ def test_the_declined_cluster_still_reports_itself():
     assert group.count == 1
     assert group.examples
     assert group.human_label
+
+
+def test_the_label_keeps_the_spaces_the_statement_had():
+    """
+    Items the statement separated by a space are separated in the label:
+    "v. 9 no. 1 (Nov 1902)" is "VOL ISS(CHRON YEAR)". Run together, the label
+    read "VOLISS(CHRONYEAR)", which is not how anyone writes it.
+    """
+    [group] = detect_patterns(["v. 9 no. 1 (Nov 1902)"])
+    assert group.human_label == "VOL ISS(CHRON YEAR)"
+
+
+def test_dates_without_parentheses_are_labelled_as_dates():
+    """
+    "v.3-36 1963-1995": the hyphen between the years joins two dates of the
+    one holding, as it would inside parentheses. The long dash is for a start
+    unit and an end unit, and was misplaced here (0.30.0).
+    """
+    [group] = detect_patterns(["v.3-36 1963-1995"])
+    assert group.human_label == "VOL-VOL YEAR-YEAR"
+    [group] = detect_patterns(["1974-1981"])
+    assert group.human_label == "YEAR — YEAR"

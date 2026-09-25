@@ -66,7 +66,8 @@ marc-serials-toolkit/
 │   ├── example_holdings.mrc   Small SYNTHETIC sample for demos/tests
 │   ├── messy_holdings.mrc     SYNTHETIC awkward cases, for the test suite
 │   ├── textual_holdings_corpus.txt  117 real 866 $a statements (text, not MARC)
-│   └── lc_holdings_examples.txt     the 866 $a examples from LC's MARC pages
+│   ├── lc_holdings_examples.txt     the 866 $a examples from LC's MARC pages
+│   └── outside_catalog_examples.txt 42 statements from another library's catalogue
 ├── scripts/
 │   ├── create_example_mrc.py  Regenerates the synthetic sample
 │   ├── create_messy_mrc.py    Regenerates the awkward-case fixture

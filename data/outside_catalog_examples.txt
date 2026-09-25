@@ -1,0 +1,83 @@
+# Another library's catalogue (866 $a text only)
+# ==============================================
+#
+# 42 summary holdings statements transcribed from the public catalogue of a
+# library other than the one the tool was built for, chosen by the maintainer
+# for how messy they are. Like data/lc_holdings_examples.txt, they are kept
+# apart from the main corpus so that how the parser does on statements it was
+# not shaped around can be read on its own. The two files are different
+# measures: LC's examples show the standard, these show a real catalogue that
+# does not always follow it.
+#
+# Statement text only: no titles, no record numbers, no identifiers of any
+# kind. Several are plainly not holdings statements ("undefined", "2016 ed.")
+# and are kept because refusing them is part of what is measured. A group
+# written as 863 subfield values rather than as a statement ("2.1 54-62 1-1
+# 1998-2006 21-21 g": $8, $a, $b, $i, $j, $w) looks like encoded holdings that
+# were never turned back into display text.
+#
+# Same format and tags as data/textual_holdings_corpus.txt -- see its header;
+# the Dn ids are defined in CORPUS-FINDINGS.md. Read with:
+#
+#     python scripts/corpus_report.py --corpus data/outside_catalog_examples.txt
+#
+
+
+[section: Z39.71 display form]
+# Written the way an ILS generates an 866 from 853/863s.
+v.46:no.1/2-no.46:no.3/4(2011:spring/summer-2011:fall/winter)  # warn:D38
+v.47:no.1-v.47:no.3(2012:spring-2012:fall)
+v.1/2-53 (1961/1962-2014/2015)                                  # fail:D36
+v.1-28 (1985/1986-2012/2013)
+v.1-v.18(1980-1997)
+v.19:no.1-v.26:no.6(1998:Jan./Feb.-2005:Nov./Dec.)
+1988-1989
+v.19-42 (1981-1998),
+v.45-66 (2000-2012)
+.407:no.28,693-v.424:no.29,729(1996:Apr. 1-2000:May 31)         # fail:D37
+v.1-7 (1980/1981-1987/1988)
+v.8:no.1 (1988:fall)
+v.12-v.28(1960-1977)
+v.1-22 (1979/1980-2003)
+v.56-v.64(1952-1960)
+v.1-5 (2011-2015)
+v.258-v.277(1960-1977)
+v.279-v.298:no.5(1979-1998)                                     # warn:D2
+v.298:no.6-v.311:no.10(1998:June-2011:Dec.)
+v.1(1991)-v.28(2018)
+v.35(2025)-
+
+
+[section: dates without parentheses]
+# The chronology follows the enumeration after a space, as older (AACR2-era)
+# summary statements write it. Read since 0.30.0 as if it were in parentheses
+# (D32). The "//" of a closed run is not read, and is held.
+v.3-36 1963-1995
+v.21-26 1997-2002.
+v.40 no.4-6 2003.
+no. 33-34 1993-1995
+v.38-53 1982-1997
+v.1-10 1985/86-1995
+v.6 no.2 1990
+v.1-8 no.3 1987-August 1994                                     # warn:D2
+v.1// 1982//                                                    # fail:D34
+v. 1// 1948-1949//                                              # fail:D34
+
+
+[section: 863 values written as text]
+# Subfield values in 863 order, with no captions: the 853 that said what each
+# counts is not part of the text.
+2.1 1995-2000 35-45                                             # fail:D33
+3.1 46-62 2001-2010 .                                           # fail:D33
+2.1 54-62 1-1 1998-2006 21-21 g                                 # fail:D33
+2.2 62-64 3-2 2006-2008 23-22                                   # fail:D33
+2.3 64-69 4 2008-2013 24 .                                      # fail:D33
+2.1 11-29 1-2 1996-2014 -21 .                                   # fail:D33
+1.1 9-12 1-4 2006-2009 Ceased with v.12 no.4 (2009)             # fail:D33
+1.1 8-17 4-4 1994-2003 11-11 .                                  # fail:D33
+
+
+[section: not holdings statements]
+undefined                                                       # fail:D35
+2016 ed.                                                        # fail:D35
+11 v.1-34 in 1v.                                                # fail:D35

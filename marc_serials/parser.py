@@ -1419,6 +1419,51 @@ def _parse_unit(text: str,
     return ec if (ec.has_enum() or ec.has_chron() or ec.demonstrated) else None
 
 
+# Chronology written after the enumeration without parentheses, as older
+# summary statements have it: "v.3-36 1963-1995", "v.40 no.4-6 2003.",
+# "v.1-8 no.3 1987-August 1994". It means what "v.3-36 (1963-1995)" means, and
+# is read as that. The two halves are told apart by what each can hold: the
+# enumeration opens with a caption and ends on a value; the dates open with a
+# four-digit year, or a month or season before one, and run to the end with no
+# caption in them. A statement that already has parentheses is left alone, and
+# anything these do not describe -- "v.1// 1982//", "2016 ed." -- is refused
+# as before.
+_UNBRACKETED_CHRON_RE = re.compile(
+    rf"""^(?P<enum>(?:{_CAPTION_ALT})(?![a-z]).*?\d[a-zA-Z]?)
+         \s+
+         (?P<chron>(?:[A-Za-z]+\.?(?:/[A-Za-z]+\.?)*\s+)?\d{{4}}(?!\d)[A-Za-z0-9\s./:-]*?)
+         \s*\.?\s*$""",
+    re.IGNORECASE | re.VERBOSE,
+)
+_CAPTION_IN_CHRON_RE = re.compile(rf"(?<![A-Za-z])(?:{_CAPTION_ALT})\s*\.?\s*\d",
+                                  re.IGNORECASE)
+
+
+def _bracket_trailing_chron(raw: str) -> str:
+    """ "v.3-36 1963-1995" -> "v.3-36 (1963-1995)"; anything else unchanged."""
+    if "(" in raw or ")" in raw:
+        return raw
+    m = _UNBRACKETED_CHRON_RE.match(raw.strip())
+    if not m:
+        return raw
+    chron = m.group("chron").strip()
+    # Every word in it has to be a month or a season: "v.1 2000 copies" is
+    # not a date.
+    if (_CAPTION_IN_CHRON_RE.search(chron)
+            or any(chron_unit_code(w) is None
+                   for w in re.findall(r"[A-Za-z]+", chron))):
+        return raw
+    # An open end stays outside the parentheses, where it is read as one:
+    # "v.35 2025-" is "v.35 (2025)-", not a year with a dangling hyphen.
+    # Only after a single volume, though: "v.1-3 1990-" does not say whether
+    # the run of volumes or the holding is what is open, and is refused.
+    if chron.endswith("-"):
+        if "-" in m.group("enum"):
+            return raw
+        return f"{m.group('enum')} ({chron[:-1].rstrip()})-"
+    return f"{m.group('enum')} ({chron})"
+
+
 def _parse_one_range(raw: str,
                      warnings: Optional[List[str]] = None,
                      ) -> HoldingsRange:
@@ -1429,6 +1474,7 @@ def _parse_one_range(raw: str,
     """
     raw = raw.strip()
     hr = HoldingsRange(raw=raw)
+    raw = _bracket_trailing_chron(raw)
 
     # Check for open-ended (ends with bare "-")
     open_ended = bool(re.search(r"-\s*$", raw))

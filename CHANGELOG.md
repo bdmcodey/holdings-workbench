@@ -15,6 +15,13 @@ more than one release; numbering resumed with 0.6.1. Reasoning behind the
 parser and converter decisions, including the defects a real corpus exposed and
 what was done about each, is in [CORPUS-FINDINGS.md](CORPUS-FINDINGS.md).
 
+## 0.30.0 — 2026-09-25
+
+Dates written after the numbering without parentheses ("v.3-36 1963-1995") are now read.
+
+- **MARC Serials Toolkit** — A statement that gives its dates after the volumes without parentheses, as older summary statements often do ("v.3-36 1963-1995", "v.40 no.4-6 2003.", "v.12 no.3 Mar. 1990"), used to convert to nothing and was held. It now converts to the same 853 and 863 as the statement with its dates in parentheses. The dates must come last and contain only years, months and seasons, so "v.1 2000 copies" is still held. So is "v.1-3 1990-", which does not say whether the run of volumes is open or the holding is. Statements already converting are unchanged: none of the 117 in the test collection or the 1,055 in the test export is written this way.
+- **MARC Serials Toolkit** — Pattern headings keep the spaces the statements had: "VOLISS(CHRONYEAR)" is now "VOL ISS(CHRON YEAR)". Most headings in a file will look slightly different; what each pattern matches and converts is unchanged, and patterns you have already confirmed still apply. Dates written after the numbering without parentheses are headed with an ordinary hyphen ("VOL-VOL YEAR-YEAR"), not the long dash that divides the start of a holding from its end.
+
 ## 0.29.1 — 2026-09-25
 
 A year written before a volume ("1990: v.1") is read as its date, not as a level above the volume.

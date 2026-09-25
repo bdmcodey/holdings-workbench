@@ -93,7 +93,8 @@ def test_the_reported_statement_now_closes_the_loop():
 
 
 def test_no_subfield_anywhere_holds_two_ranges():
-    for path in ("textual_holdings_corpus.txt", "lc_holdings_examples.txt"):
+    for path in ("textual_holdings_corpus.txt", "lc_holdings_examples.txt",
+                 "outside_catalog_examples.txt"):
         for entry in load_corpus(REPO_ROOT / "data" / path):
             for f in convert_holdings(parse_866(entry.statement)).fields_863:
                 for sf in f.subfields:

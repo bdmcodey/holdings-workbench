@@ -2687,6 +2687,69 @@ new note, and three of them gain chronology they were losing -- "(May
 The round trip on the real export: 938 the same, 106 the same 863s with an 853
 losing a caption, 11 not converted, **0 drift**. Main corpus unchanged.
 
+## Another library's catalogue · **0.30.0**
+
+*25 September 2026.* The next step the LC section asked for: 42 statements
+from the public catalogue of another library, picked by the cataloguer for
+how messy they are, in `data/outside_catalog_examples.txt`. Reported apart
+from the main corpus and LC's, in CI beside them, with
+`tests/test_outside_examples.py` pinning the tags.
+
+Measured before any change: 17 clean, 2 warned, 23 no fields, 0 lost; on the
+round trip 18 same, 1 caption only, 23 not converted, 0 drift. Not one was
+misread. Everything that did not convert was held and named. The 23 fall
+into groups:
+
+**D32 — dates after the numbering, no parentheses · 8 statements · read in
+0.30.0.** `v.3-36 1963-1995`, `v.40 no.4-6 2003.`, `v.1-8 no.3 1987-August
+1994`. The older summary form. Each gave the right fields once its dates were
+put in parentheses by hand, so the fix reads it as that: the numbering opens
+with a caption and ends on a value, and the dates open with a year (or a
+month or season before one) and run to the end, holding nothing but years,
+months and seasons. Seven now convert cleanly; `v.1-8 no.3 1987-August 1994`
+converts and says what it left out, as `v.1-8 no.3 (1987-August 1994)`
+always has (D2). Still held: `v.1 2000 copies` (not a date),
+`v.1-3 1990-` (is the run of volumes open, or the holding?). The rule
+rewrites no segment of the 117 corpus statements or the 1,055 in the real
+export, so nothing already converting moved: the main corpus and LC report no
+drift, the real export's round trip is unchanged (938 / 106 / 11 / 0), and
+the audit finds nothing unaccounted for on any of the four.
+
+**D33 — 863 subfield values written as text · 8 statements · held.**
+`2.1 54-62 1-1 1998-2006 21-21 g` is `$8 2.1 $a 54-62 $b 1-1 $i 1998-2006
+$j 21-21 $w g` with the codes gone, which looks like encoded holdings that
+were never turned back into display text. The values could be recovered, but
+not what they count: that was in an 853 that is not in the text. Held; a
+message naming the form would help the cataloguer more than "No recognisable
+holdings ranges found".
+
+**D34 — "//" closing a run · 2 statements · held.** `v.1// 1982//`.
+
+**D35 — not holdings statements · 3 statements · held, correctly.**
+`undefined`, `2016 ed.`, `11 v.1-34 in 1v.`
+
+**D36 — a combined first volume opening a range · 1 · held.**
+`v.1/2-53 (1961/1962-2014/2015)`.
+
+**D37 — issue numbers with a thousands comma · 1 · held.**
+`.407:no.28,693-v.424:no.29,729(...)`, which has also lost its first `v`. A
+comma otherwise means a gap, so this is not one to guess at.
+
+**D38 — a range closing at the wrong level, as written · 1 · warned.**
+`v.46:no.1/2-no.46:no.3/4(...)`: `no.46` where `v.46` is meant. The level
+is left out and named.
+
+After 0.30.0: 24 clean, 3 warned, 15 no fields, 0 lost; round trip 25 same,
+2 caption only, 15 not converted, 0 drift.
+
+**Found on the way, open.** Two older forms with an open end are wrong, and
+neither is new. `v.35 (2025-)`, with the hyphen inside the parentheses, writes
+`$a 35 $i 2025` and says nothing: the open end is dropped silently. And
+`v.1-3 (1990)-` writes `$a 1-3-`, one value with two hyphens. Neither is in
+any corpus or the real export. The new reading keeps clear of both: it writes
+`v.35 2025-` as `v.35 (2025)-`, which is read correctly, and holds
+`v.1-3 1990-`.
+
 ## Requested, not yet started
 
 Raised 1 September 2026 alongside D15–D18, recorded here so they are not lost.
