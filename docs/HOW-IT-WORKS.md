@@ -1,6 +1,6 @@
 # How the Holdings Workbench Works
 
-*Written for librarians and cataloguers. Describes version 0.30.0.*
+*Written for librarians and cataloguers. Describes version 0.30.1.*
 
 The Holdings Workbench turns the free-text holdings in MARC 866 fields into structured 853 caption/pattern and 863 enumeration/chronology fields, and asks a cataloguer to confirm anything it cannot be sure of. This guide explains how, for librarians rather than programmers.
 
@@ -212,7 +212,7 @@ flowchart TD
 4. **Reading each part.** A part is read as one of three things, tried in this order:
    - A **list of runs**, like `v. 19 nos. 1, 3, 5, 7-12 (Jan, Mar, May, Jul-Dec 1915)`. This becomes four 863s, one for each run, with the months matched to their issues.
    - A **run of years only**, like `(1986-1988, 1993-1994)`. This becomes one 863 for each run.
-   - A **single range**, like `v.1:no.1(1990:Jan.)-v.5:no.4(1994:Dec.)`. A hyphen at the end means the holdings are still open (currently received).
+   - A **single range**, like `v.1:no.1(1990:Jan.)-v.5:no.4(1994:Dec.)`. A hyphen at the end means the holdings are still open (currently received). Written inside the parentheses, as in `v.35 (2025-)`, it means the same. A run left open, like `v.1-3 (1990)-`, is held, because it doesn't say whether the volumes or the holding are what's still open.
 5. **The last resort.** If nothing could be read, a lone year like `2016?` is kept, with a warning that the question mark isn't encoded. A lone number like `?: 16` is held for review, because nothing says whether it's a volume, an issue or a year.
 
 ### Reading a range
@@ -364,9 +364,9 @@ The log is built from the same summary as the conversion, so it describes exactl
 
 Four checks run before any change is released, and each answers a different question.
 
-| Check | Question it answers | Result as of 0.30.0 |
+| Check | Question it answers | Result as of 0.30.1 |
 | --- | --- | --- |
-| Automated tests | Does every behaviour described here still hold? | 843 passed, 8 skipped |
+| Automated tests | Does every behaviour described here still hold? | 854 passed, 8 skipped |
 | Corpus report | What do 117 real 866 statements convert to, and has any outcome changed? | 90 clean (77%), 22 converted with a warning, 5 with no fields, 0 with values lost |
 | Conversion audit | Did any number in a statement reach no field and no warning? | 0 unaccounted for: the corpus, the LC examples, the other library's catalogue, and all 1,057 statements of the 372-record test export |
 | Round trip | Convert, write the 866 as Alma would, convert again: do the same 863s come back? | Test export: 938 identical, 106 identical apart from an 853 caption, 11 not converted, **0 drift** |

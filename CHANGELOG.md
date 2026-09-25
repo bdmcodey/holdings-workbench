@@ -15,6 +15,12 @@ more than one release; numbering resumed with 0.6.1. Reasoning behind the
 parser and converter decisions, including the defects a real corpus exposed and
 what was done about each, is in [CORPUS-FINDINGS.md](CORPUS-FINDINGS.md).
 
+## 0.30.1 — 2026-09-25
+
+An open end written inside the parentheses ("v.35 (2025-)") is kept, instead of being dropped without a warning.
+
+- **MARC Serials Toolkit** — "v.35 (2025-)" used to convert to $a 35 $i 2025, a closed holding for a title still being received, and nothing said the open end had gone. It now converts to $a 35- $i 2025-, the same as "v.35(2025)-". A statement that gives a run and then leaves it open, such as "v.1-3 (1990-)", "v.1-3 (1990)-" or "v.1 (1990-1992)-", is now held with a note, because it does not say which part is still being received. Before, the first dropped the open end and the other two wrote a value an ILS would not accept ($a 1-3-). None of the statements in the test collections or the test export is written these ways, so nothing that already converted changes.
+
 ## 0.30.0 — 2026-09-25
 
 Dates written after the numbering without parentheses ("v.3-36 1963-1995") are now read.
