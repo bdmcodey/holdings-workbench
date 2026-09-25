@@ -2604,6 +2604,57 @@ Of the 124 the real export would hold, nearly all are ranges where one end
 gives a month or a level and the other does not ("Only one end of ... gives a
 month or season") -- genuine partial readings, which is what strict is for.
 
+## Round the loop with the ILS · **0.28.0**
+
+*25 September 2026.* The cataloguer's test for the whole tool: holdings are
+exported from Alma, converted here and loaded back; Alma regenerates every 866
+from the new 853/863s. Exported and converted again, those 866s must give the
+same 863s. Anything else is drift, and a bug.
+
+Alma cannot be run from here, so `marc_serials/display.py` imitates the 866 it
+generates, and `scripts/round_trip.py` runs statements round the loop. The
+imitation was written against the 48 866s in the real export that Alma built
+from hand-entered 863s, linked back to them by `$8`, and reproduces all 48.
+Run against an export that holds such pairs, the script checks the imitation
+again -- the way to calibrate the forms that sample did not show (seasons, a
+day, chronology-only ranges with months), each written here by Z39.71's
+pattern and not yet seen from Alma.
+
+**What the loop found**, first run over the real 1,057-statement export (1,055
+distinct):
+
+| | statements | fixed |
+|---|---|---|
+| `2003:Aug.-2004:Dec.` -- Z39.71 chronology, read by neither grammar (D31) | 42 | read |
+| an 863 holding only `$8`, written, and counted as converted | 9 | held |
+| `1986-1988,` -- a gap after bare years, refused whole | 2 | read |
+| `$a 1 - 55` -- the spaces of "v. 1 - 55" kept in the value | 1 | normalised |
+| `$j 10-10` for `(Oct 7-Oct 21, 1993)`, where the year does not range | 1 | `$j 10`, D15's own rule |
+
+The empty 863 was the serious one: "(Feb, Jun, Aug 1998)" put its whole
+chronology in the year slot, the year subfield refused it, and "863 41 $8 1.1"
+was written with nothing else in it -- so "Remove each 866" deleted the only
+copy of the holdings. A statement with nothing writable is now held.
+
+**D31, fixed.** The year-first grammar is now chosen only when the colon after
+the year is followed by a volume or a parenthesised body, never a word; and
+the enumeration grammar reads bare Z39.71 chronology (`1990:Jan.`,
+`1994:Winter/Spring`, `2014:Nov. 7`) as a unit and as the two ends of a range.
+
+**After.** Real export: 935 the same both times; 108 the same 863s with an
+853 that loses a caption; 11 not converted the first time; 1 drift -- the
+`$b 1-3-10-12` the cataloguer reported, a decision of its own. Corpus: 90,
+17, 5, and 5 drift, every one a level with no caption (`(*)`): year-first
+statements and `8,13,15,...`. Their regenerated 866 is bare numbers and
+nothing says what those count, so the parser refuses them as it should; a
+caption confirmed on the pattern closes the loop. `tests/test_round_trip.py`
+pins exactly that. LC examples: no drift.
+
+"The same 863s, the 853 loses a caption" is expected rather than drift: a
+statement that names a level with no value -- the "no. 9" at one end of
+"v. 1 (1973)-v. 11 no. 9 (Sep 1983)" -- keeps the level in its 853 and says the
+value was left out; a regenerated 866 cannot name a level no 863 fills.
+
 ## Requested, not yet started
 
 Raised 1 September 2026 alongside D15–D18, recorded here so they are not lost.

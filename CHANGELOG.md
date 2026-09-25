@@ -15,6 +15,15 @@ more than one release; numbering resumed with 0.6.1. Reasoning behind the
 parser and converter decisions, including the defects a real corpus exposed and
 what was done about each, is in [CORPUS-FINDINGS.md](CORPUS-FINDINGS.md).
 
+## 0.28.0 — 2026-09-25
+
+Holdings that Alma writes back from this tool's 853/863s now convert to the same 853/863s again, and a check proves it.
+
+- **MARC Serials Toolkit** — Statements written the way Alma and Z39.71 write dates on their own -- "1990:Jan.-1994:Dec.", "2000:Spring/Summer", "2014:Nov. 7" -- now convert. They used to convert to nothing: they were mistaken for the year-first format ("1993: (1 [Feb])"), which the tool still reads as before. 42 statements in the test collection's export are of this kind once Alma has regenerated them.
+- **MARC Serials Toolkit** — A statement like "(Feb, Jun, Aug 1998)" used to produce an 863 with nothing in it but its link number, and counted as converted, so "Remove each 866" would delete the 866 that held the holdings. It is now held for review, and the 866 stays.
+- **MARC Serials Toolkit** — Smaller fixes found the same way: bare years ending in a comma ("1986-1988,") are read, with the gap; "v. 1 - 55" writes $a 1-55 without the spaces; and a range within one month of one year ("Oct 7-Oct 21, 1993") writes $j 10 rather than $j 10-10.
+- **MARC Serials Toolkit** — For whoever maintains the tool: scripts/round_trip.py converts statements, writes the 866 Alma would generate from the result, and converts that again, reporting any difference. Run on an Alma export, it also checks its imitation of Alma against the 866s Alma itself generated.
+
 ## 0.27.0 — 2026-09-25
 
 A strict setting for the standard parser: convert a statement only if all of it can be read.

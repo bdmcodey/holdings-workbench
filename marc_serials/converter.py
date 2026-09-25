@@ -1384,6 +1384,45 @@ def _build_863_for_range(
 # Public API
 # ---------------------------------------------------------------------------
 
+# The subfields that carry holdings. An 863 with none of them is a $8 and
+# nothing else: not valid MARC, and not holdings.
+_VALUE_SUBFIELDS = frozenset("abcdefghijklm")
+
+
+def _with_values(fields_863: List["FieldData"], warnings: List[str]) -> List["FieldData"]:
+    """
+    Drop any 863 left with no value in it.
+
+    A run whose every value was refused -- "(Feb, Jun, Aug 1998)" reaches here
+    with its whole chronology in the year slot, and the year subfield takes
+    codes, not wording -- used to be written anyway, as "863 41 $8 1.1". The
+    statement then counted as converted, so "Remove each 866" deleted the only
+    place its holdings were. Found by the round trip (0.28.0): 9 statements of
+    a real 1,057-statement export.
+    """
+    kept = [f for f in fields_863
+            if any(sf.code in _VALUE_SUBFIELDS for sf in f.subfields)]
+    if len(kept) < len(fields_863):
+        note = ("Nothing that could be written was left for "
+                f"{'one run' if len(fields_863) - len(kept) == 1 else 'some runs'} "
+                "of this statement, so no 863 was written for "
+                f"{'it' if len(fields_863) - len(kept) == 1 else 'them'}.")
+        if note not in warnings:
+            warnings.append(note)
+    return kept
+
+
+def _held_empty(linking_number, warnings: List[str]) -> "ConversionResult":
+    """Nothing writable at all: held for review, like any statement not read."""
+    return ConversionResult(
+        field_853=None,
+        fields_863=[],
+        linking_number=linking_number,
+        warnings=warnings,
+        needs_review=True,
+    )
+
+
 def convert_holdings(
     parse_result: ParseResult,
     linking_number: int = 1,
@@ -1479,12 +1518,14 @@ def convert_holdings(
         # The 863s belong to the existing 853, so they must carry *its* $8 —
         # not this statement's position in the record.
         link = _existing_link(existing_853) or linking_number
-        fields_863 = [
-            _build_863_for_range(hr, link, seq, levels, smap=declared,
-                                 chron_as_text=chron_as_text, warnings=warnings,
-                                 flags=flags, holdings_level=holdings_level)
-            for seq, hr in enumerate(parse_result.ranges, start=1)
-        ]
+        fields_863 = _with_values(
+            [_build_863_for_range(hr, link, seq, levels, smap=declared,
+                                  chron_as_text=chron_as_text, warnings=warnings,
+                                  flags=flags, holdings_level=holdings_level)
+             for seq, hr in enumerate(parse_result.ranges, start=1)],
+            warnings)
+        if not fields_863:
+            return _held_empty(linking_number, warnings)
         return ConversionResult(
             field_853=None,           # the existing one governs; do not add another
             fields_863=fields_863,
@@ -1529,6 +1570,9 @@ def convert_holdings(
                                     chron_as_text=chron_as_text, warnings=warnings,
                                     flags=flags)
         fields_863.append(f863)
+    fields_863 = _with_values(fields_863, warnings)
+    if not fields_863:
+        return _held_empty(linking_number, warnings)
 
     return ConversionResult(
         field_853=field_853,

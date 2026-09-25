@@ -52,6 +52,7 @@ marc-serials-toolkit/
 │   ├── shared/             stylesheet and version/changelog
 │   ├── parser.py           866 text            → ParseResult
 │   ├── converter.py        ParseResult         → MARC 853 / 863 fields
+│   ├── display.py          853 / 863           → the 866 an ILS generates
 │   ├── detector.py         many 866 statements → clusters, each with a regex
 │   ├── bridge.py           a confirmed pattern → the parser's ParseResult
 │   ├── library.py          the patterns a cataloguer has confirmed
@@ -70,6 +71,7 @@ marc-serials-toolkit/
 │   ├── create_example_mrc.py  Regenerates the synthetic sample
 │   ├── create_messy_mrc.py    Regenerates the awkward-case fixture
 │   ├── corpus_report.py       Runs the corpus through the engines
+│   ├── round_trip.py          Converts, regenerates the 866 as the ILS would, converts again
 │   └── build_changelog.py     Writes CHANGELOG.md from shared/about.json
 ├── docs/marc/          The LC holdings documentation this is written against
 ├── CONTRIBUTING.md     The conventions this code follows, and why
