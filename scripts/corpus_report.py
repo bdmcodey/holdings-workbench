@@ -513,6 +513,13 @@ DEFECTS = {
     "D29": "an issue spanning two years (2003:Dec./2004:Jan.) left out, warned",
     "D30": "US Newspaper Program notation ($2usnp), a different scheme (by design)",
     "D31": "Z39.71 year:month chronology taken by the year-first reader",
+    "D32": "chronology written after the enumeration without parentheses",
+    "D33": "863 subfield values written as text, with no captions (held)",
+    "D34": "'//' marking a closed run",
+    "D35": "not a holdings statement (held)",
+    "D36": "a combined first volume opening a range (v.1/2-53)",
+    "D37": "issue numbers with a thousands comma (no.28,693)",
+    "D38": "a range closing at the wrong level, as written (warned)",
 }
 
 
