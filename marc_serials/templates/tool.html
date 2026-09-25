@@ -409,6 +409,27 @@
     .pill.confirmed-pill { border-color: var(--ok); background: var(--ok-soft); }
     .pill.decide { border-color: var(--warn); background: var(--warn-soft); }
 
+    /* The expression, readable without opening the card. Two lines until it is
+       clicked; Copy takes the whole of it either way. */
+    .pc-expr-row {
+      display: flex; align-items: flex-start; gap: var(--sp-2);
+      padding: var(--sp-2) var(--sp-3);
+      border-top: 2px solid var(--border-soft);
+    }
+    .pc-expr {
+      flex: 1; min-width: 0;
+      font-family: var(--font-mono); font-size: var(--fs-xs); line-height: 1.6;
+      color: var(--text-muted); word-break: break-all; cursor: pointer;
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .pc-expr.open { display: block; color: var(--text); }
+    .pc-records {
+      display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-2);
+      padding: 0 var(--sp-3) var(--sp-2);
+    }
+    .pc-records:empty { display: none; }
+
     .regex-box {
       width: 100%;
       font-family: var(--font-mono);
@@ -906,6 +927,11 @@ v.6(1995)-"></textarea>
                   title="Records with something to note about their Leader, or about the level you are recording at"
                   >Leader &amp; level</button>
           <button type="button" class="chip" data-filter="skipped">Skipped</button>
+          <!-- Set from a pattern card's "Show ... records"; named after it. -->
+          <button type="button" class="chip" data-filter="one-pattern"
+                  id="chip-one-pattern" hidden></button>
+          <button type="button" class="btn btn-ghost btn-sm" id="btn-clear-pattern-filter"
+                  aria-label="Stop showing only this pattern's records" hidden>&times;</button>
         </div>
         <div class="review-meta">
           <span id="review-count" class="small dim"></span>
@@ -1080,6 +1106,8 @@ let convertedRecords = new Set();
 // file rather than for whichever page happens to be loaded.
 let recordIndex    = new Map();
 let reviewFilter   = 'all';
+// Set by a pattern card: {id, mode: 'converted' | 'shape', indexes}.
+let patternFilter  = null;
 let reviewOffset   = 0;
 let reviewSearch   = '';    // what the Find box is narrowing the list to
 
@@ -1449,6 +1477,8 @@ async function uploadMarcFile(file) {
     reviewSearch = '';
     document.getElementById('review-search').value = '';
     document.getElementById('btn-search-clear').hidden = true;
+    // And unfiltered by pattern: the records it named were the last file's.
+    clearPatternFilter(false);
     // Re-read the library from the server rather than trusting what this page
     // read when it loaded. The two used to be able to disagree -- the sidebar
     // showing a hundred confirmed patterns the server had already discarded,
@@ -1700,6 +1730,7 @@ async function loadReviewIndex() {
     const data = await postJson('api/review-index', conventionPayload());
     recordIndex = new Map(data.records.map(row => [row.index, row]));
     showLeaderNotices(data);
+    refreshPatternRecordCounts();
     box.hidden = true;
   } catch (err) {
     console.error(err);
@@ -2011,6 +2042,11 @@ function recordMatchesFilter(entry, index) {
     case 'parser':     return entry.sources.includes('parser');
     case 'unreviewed': return !reviewed.has(index);
     case 'skipped':    return skipRecords.has(index);
+    case 'one-pattern':
+      if (!patternFilter) return false;
+      return patternFilter.mode === 'converted'
+        ? (entry.sources || []).includes(patternFilter.id)
+        : patternFilter.indexes.has(index);
     default:           return true;
   }
 }
@@ -2145,6 +2181,192 @@ document.querySelectorAll('.filter-row .chip').forEach(chip =>
     recordIndex.clear();
     reloadReview();
   }));
+
+// ── Expressions and the records a pattern runs on ────────────────────────────
+
+/**
+ * Put text on the clipboard, and say whether it got there.
+ *
+ * The Clipboard API wants a secure context, which http://localhost is -- but
+ * the tool can be reached by another name on a network, and there it is not.
+ * The older select-and-copy route works in both.
+ */
+async function copyText(text, statusEl) {
+  let ok = false;
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+      ok = true;
+    }
+  } catch (_) { /* fall through to the older route */ }
+  if (!ok) {
+    const area = document.createElement('textarea');
+    area.value = text;
+    area.setAttribute('readonly', '');
+    area.style.position = 'fixed';
+    area.style.opacity = '0';
+    document.body.appendChild(area);
+    area.select();
+    try { ok = document.execCommand('copy'); } catch (_) { ok = false; }
+    area.remove();
+  }
+  if (statusEl) {
+    statusEl.textContent = ok ? 'Copied.' : 'Could not copy -- select the text and copy it by hand.';
+    setTimeout(() => { statusEl.textContent = ''; }, 2500);
+  }
+  return ok;
+}
+
+/**
+ * The expression a pattern stands for right now: what is in its box if the
+ * card has one (edits included), else the library's copy, else the detector's.
+ */
+function currentRegex(group, card) {
+  const box = card && card.querySelector('.regex-box');
+  if (box) return box.value;
+  const kept = library.find(p => p.id === patternIdFor(group));
+  return (kept && kept.regex) || group.regex || '';
+}
+
+/**
+ * The buttons that show a pattern's records in the list below.
+ *
+ * Two sets, and they are not the same thing. The records *with this shape* are
+ * what the card's statement count describes. The records a confirmed pattern
+ * *converts* can be fewer -- patterns are tried largest first and the first
+ * whole match wins, and a statement listing several runs goes to the parser
+ * even where it matches -- or more, because an expression can also match
+ * statements of a neighbouring shape. On a real 372-record file one pattern
+ * converted 8 of the 18 records with its shape, and another converted 31
+ * against 29. Where the two differ both are offered.
+ */
+function paintPatternRecords(card) {
+  const slot = card.querySelector('.pc-records');
+  if (!slot) return;
+  const group = card._group;
+  const shape = (group.records || []).length;
+  const kept = library.find(p => p.id === card._id);
+  const plural = n => `${n} record${n !== 1 ? 's' : ''}`;
+  const button = (mode, text, n) =>
+    `<button type="button" class="btn btn-ghost btn-sm pc-show-records"
+             data-mode="${mode}" ${n ? '' : 'disabled'}>${text}</button>`;
+
+  const bits = [];
+  if (kept && !kept.skip && recordIndex.size) {
+    const converted = recordsUsing(card._id).length;
+    bits.push(button('converted', `Show the ${plural(converted)} it converts`, converted));
+    if (converted !== shape) {
+      bits.push(button('shape', `Show the ${plural(shape)} with this shape`, shape));
+    }
+  } else if (shape) {
+    bits.push(button('shape', `Show the ${plural(shape)} with this shape`, shape));
+  }
+  slot.innerHTML = bits.join('');
+}
+
+function refreshPatternRecordCounts() {
+  document.querySelectorAll('.pattern-card').forEach(card => {
+    if (card._group) paintPatternRecords(card);
+  });
+}
+
+/** Narrow the record list to one pattern's records, and go there. */
+function showPatternRecords(card, mode) {
+  const group = card._group;
+  patternFilter = {
+    id: card._id,
+    mode,
+    indexes: new Set(group.records || []),
+  };
+  const chip = document.getElementById('chip-one-pattern');
+  chip.textContent = `${mode === 'converted' ? 'Converted by' : 'Has the shape'}: ${group.human_label}`;
+  chip.hidden = false;
+  document.getElementById('btn-clear-pattern-filter').hidden = false;
+  filterTo('one-pattern');
+  const bar = document.getElementById('review-bar');
+  if (bar) bar.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+/** Stop filtering by a pattern; `refilter` goes back to All. */
+function clearPatternFilter(refilter = true) {
+  const wasOn = reviewFilter === 'one-pattern';
+  patternFilter = null;
+  document.getElementById('chip-one-pattern').hidden = true;
+  document.getElementById('btn-clear-pattern-filter').hidden = true;
+  if (wasOn) {
+    if (refilter) {
+      filterTo('all');
+    } else {
+      reviewFilter = 'all';
+      document.querySelectorAll('.filter-row .chip').forEach(c =>
+        c.classList.toggle('active', c.dataset.filter === 'all'));
+    }
+  }
+}
+
+document.getElementById('btn-clear-pattern-filter')
+  .addEventListener('click', () => clearPatternFilter(true));
+
+document.addEventListener('click', e => {
+  const copy = e.target.closest('.pc-copy');
+  if (copy) {
+    const card = copy.closest('.pattern-card');
+    copyText(currentRegex(card._group, card), null).then(ok => {
+      copy.textContent = ok ? 'Copied' : 'Could not copy';
+      setTimeout(() => { copy.textContent = 'Copy'; }, 2000);
+      if (!ok) {
+        // Leave it ready to copy by hand: whole, and selected.
+        const expr = card.querySelector('.pc-expr');
+        expr.classList.add('open');
+        expr.setAttribute('aria-expanded', 'true');
+        const range = document.createRange();
+        range.selectNodeContents(expr);
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+      }
+    });
+    return;
+  }
+  const expr = e.target.closest('.pc-expr');
+  if (expr) {
+    const open = expr.classList.toggle('open');
+    expr.setAttribute('aria-expanded', String(open));
+    return;
+  }
+  const show = e.target.closest('.pc-show-records');
+  if (show) {
+    showPatternRecords(show.closest('.pattern-card'), show.dataset.mode);
+    return;
+  }
+  if (e.target.closest('#btn-copy-all-regex')) {
+    // One line per pattern, tab-separated so it pastes into a spreadsheet as
+    // three columns. Patterns declined as too complex have no expression.
+    const cards = new Map([...document.querySelectorAll('.pattern-card')]
+      .filter(c => c._group).map(c => [patternIdFor(c._group), c]));
+    const lines = detected
+      .filter(g => !g.too_complex && (g.regex || '').length)
+      .map(g => [g.human_label, g.count,
+                 currentRegex(g, cards.get(patternIdFor(g)))].join('\t'));
+    copyText(lines.join('\n'), document.getElementById('copy-all-status'));
+  }
+});
+
+document.addEventListener('keydown', e => {
+  const expr = e.target.closest && e.target.closest('.pc-expr');
+  if (expr && (e.key === 'Enter' || e.key === ' ')) {
+    e.preventDefault();
+    expr.click();
+  }
+});
+
+// The line above the card follows the box below it, so what Copy takes is
+// what the card shows.
+document.addEventListener('input', e => {
+  if (!e.target.classList.contains('regex-box')) return;
+  const expr = e.target.closest('.pattern-card').querySelector('.pc-expr');
+  if (expr) expr.textContent = e.target.value;
+});
 
 /**
  * Open the pattern that read this statement, wherever it is on the screen.
@@ -2471,7 +2693,11 @@ function renderPatterns(data) {
   summary.className = 'card';
   summary.innerHTML = `
     <div class="card-title">${data.total_patterns} pattern${data.total_patterns !== 1 ? 's' : ''}
-      <span class="tag">${data.total_statements} statements</span></div>
+      <span class="tag">${data.total_statements} statements</span>
+      <button type="button" class="btn btn-ghost btn-sm" id="btn-copy-all-regex"
+              title="Copy every expression, one per line: heading, statements, expression"
+              >Copy all expressions</button>
+      <span class="small dim" id="copy-all-status" role="status"></span></div>
     <p class="small dim">${
       undecided
         ? `Patterns that could be read on their own are already confirmed${
@@ -2666,7 +2892,11 @@ function buildPatternCard(group, idx) {
           || `These statements are ${group.token_count} parts long, which is past the point where a single expression can describe them usefully.`)}
           They will be converted by the standard parser.</p>
         ${buildExamplesHtml(group.examples)}
-      </div>`;
+      </div>
+      <div class="pc-records small"></div>`;
+    card._group = group;
+    card._id = id;
+    paintPatternRecords(card);
     return card;
   }
 
@@ -2686,6 +2916,13 @@ function buildPatternCard(group, idx) {
         needs a decision</span>
       <button type="button" class="btn btn-secondary btn-sm pc-toggle">Review</button>
     </div>
+    <div class="pc-expr-row">
+      <code class="pc-expr" role="button" tabindex="0" aria-expanded="false"
+            title="Click to show the whole expression">${escHtml(group.regex)}</code>
+      <button type="button" class="btn btn-ghost btn-sm pc-copy"
+              title="Copy this expression, including any edits made below">Copy</button>
+    </div>
+    <div class="pc-records small"></div>
     <div class="pc-body" hidden>
       ${decidesNote(group, skipped)}
       <div class="example-bar">
@@ -2753,6 +2990,7 @@ function buildPatternCard(group, idx) {
   card._roles = roles;
   showExample(card);
   wireCard(card);
+  paintPatternRecords(card);
   return card;
 }
 

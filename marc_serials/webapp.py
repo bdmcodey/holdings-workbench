@@ -599,12 +599,20 @@ def _statement_origins(do_split: bool) -> dict:
             pieces = split_statement(text) if do_split else [text]
             for piece in pieces:
                 key = piece.strip()[:MAX_STATEMENT_CHARS]
-                if key and key not in origins:
+                if not key:
+                    continue
+                if key not in origins:
                     origins[key] = {
                         "record_index": record["index"],
                         "field_index": field_index,
                         "source_866": text,
+                        "records": [],
                     }
+                # Every record, not only the first: "show the records with this
+                # shape" has to find all of them.
+                seen = origins[key]["records"]
+                if not seen or seen[-1] != record["index"]:
+                    seen.append(record["index"])
     return origins
 
 
@@ -658,9 +666,17 @@ def _annotate_group(group_dict: dict, origins: Optional[dict] = None) -> dict:
     group_dict["example_values"] = _example_values(
         group_dict.get("regex") or "", shown, roles
     )
+    def _origin(text):
+        return origins.get((text or "").strip()[:MAX_STATEMENT_CHARS])
+
     group_dict["example_sources"] = [
-        origins.get((e or "").strip()[:MAX_STATEMENT_CHARS]) for e in shown
+        {k: v for k, v in o.items() if k != "records"} if o else None
+        for o in map(_origin, shown)
     ]
+    # Every record holding a statement of this shape, in file order -- all of
+    # the cluster's statements, not only the examples shown.
+    group_dict["records"] = sorted({i for o in map(_origin, examples) if o
+                                    for i in o.get("records", ())})
     group_dict["examples_shown"] = len(shown)
     group_dict["decides"] = _what_confirming_decides(examples)
     # A pattern only wants a decision if one is outstanding *and* the answer
