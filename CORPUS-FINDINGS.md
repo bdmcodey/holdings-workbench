@@ -2553,6 +2553,57 @@ nothing was converted, and the note is taken out and reported first. Neither
 shape is in the corpus or the real export; the audit and corpus report are
 unchanged.
 
+## Outside the collection: the Library of Congress examples · **0.27.0**
+
+*25 September 2026.* Asked by the cataloguer, with the project's purpose in
+mind: the parser was shaped on one library's holdings, so how would it do on
+someone else's? The only statements in the repository written elsewhere are
+the LC examples in `docs/marc/`, and every 866 `$a` among them is now in
+`data/lc_holdings_examples.txt`, reported apart from the main corpus
+(`corpus_report.py --corpus ...`, and in CI beside it). 867 and 868 examples
+are left out, as those fields are out of scope.
+
+Seven statements: four convert cleanly, one converts and names what it left
+out, two convert to nothing. None loses a value silently, and the audit finds
+nothing unaccounted for. Seven is a start, not a measure; the next step is
+statements from other libraries.
+
+**D29 — an issue spanning two years · 1 statement · warned.**
+`no.56(2003:Dec./2004:Jan.)` reads the issue, then refuses
+`2003:Dec./2004:Jan.` for the year subfield and says so. MARC can code it (a
+year range with a month pair); the parser does not read that form yet.
+
+**D30 — US Newspaper Program notation · 2 statements · by design.** Both
+carry `$2usnp`: a different notation scheme, declared in the field.
+`[1844:7:10]...` and `m,s=[1955:8:11-...]` convert to nothing and are held,
+which is the right outcome for a scheme the tool does not claim to read.
+
+**D31 — Z39.71 chronology taken by the year-first reader · open.** Not in the
+LC set, but found while looking at it: the year-first grammar
+(`1993: (1 [Feb])`) is chosen for any statement that opens with a year and a
+colon, and Z39.71 writes chronology-only holdings exactly that way --
+`1990:Jan.-1994:Dec.`. Every such statement converts to nothing, with "Looks
+like a year-first holdings statement". The year-first grammar is local
+practice: it reads 5 of the 117 main-corpus statements and none of the 1,057
+in the real 372-record export.
+
+**The strict setting.** Beside "Use the standard parser for holdings no
+confirmed pattern matches", strict writes a parser reading only when
+converting it leaves nothing to say -- no warning from the parser or the
+converter. A statement read in part is held (nothing written, 866 kept,
+"Not converted" in the log with the reasons). Statements a confirmed pattern
+matches are unaffected. Off by default.
+
+| | default: converted (with a warning) | strict: converted, held |
+|---|---|---|
+| main corpus, 117 | 112 (22) | 90, 27 |
+| LC examples, 7 | 5 (1) | 4, 3 |
+| real export, 1,057 | 1,055 (124) | 931, 126 |
+
+Of the 124 the real export would hold, nearly all are ranges where one end
+gives a month or a level and the other does not ("Only one end of ... gives a
+month or season") -- genuine partial readings, which is what strict is for.
+
 ## Requested, not yet started
 
 Raised 1 September 2026 alongside D15–D18, recorded here so they are not lost.

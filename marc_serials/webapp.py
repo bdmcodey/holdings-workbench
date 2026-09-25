@@ -105,7 +105,8 @@ from marc_serials.budget import (BACKTRACKING_PROBES, MatchFailed, MatchTimeout,
 import marc_serials.library as plib
 from marc_serials.bridge import (CAPTION_CHOICES, ENCODABLE_KINDS, KIND_IGNORE,
                             KIND_LABELS, KIND_UNRESOLVED,
-                            PARSER_SOURCE, SKIPPED_SOURCE, UNMATCHED_SOURCE,
+                            PARSER_SOURCE, SKIPPED_SOURCE, STRICT_FALLBACK,
+                            UNMATCHED_SOURCE,
                             apply_patterns, build_parse_result, infer_roles,
                             split_statement)
 
@@ -212,12 +213,25 @@ def _save_library(patterns) -> None:
 # importing its app.py would execute a second Flask application at import time.
 # ---------------------------------------------------------------------------
 
-def _parser_fallback(data: dict) -> bool:
-    """Whether an unmatched statement falls to the standard parser. Default yes."""
-    value = data.get("parser_fallback", True)
+def _flag(data: dict, key: str, default: bool) -> bool:
+    value = data.get(key, default)
     if isinstance(value, str):
         return value.strip().lower() not in ("", "0", "false", "no")
     return bool(value)
+
+
+def _parser_fallback(data: dict):
+    """
+    What becomes of a statement no confirmed pattern matches.
+
+    False: nothing is written. True: the standard parser reads it (the
+    default). STRICT_FALLBACK: the parser reads it, and it is written only if
+    read in full -- for a collection the parser was not built around, where a
+    partial reading is a guess the cataloguer did not ask for.
+    """
+    if not _flag(data, "parser_fallback", True):
+        return False
+    return STRICT_FALLBACK if _flag(data, "parser_strict", False) else True
 
 
 def _keep_separate(data: dict) -> set:

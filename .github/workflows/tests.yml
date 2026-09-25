@@ -96,7 +96,9 @@ jobs:
       - name: What the corpus converts to
         # Printed whether or not anything moved, so the numbers are in the log
         # of every run rather than only in the report of a change.
-        run: python scripts/corpus_report.py
+        run: |
+          python scripts/corpus_report.py
+          python scripts/corpus_report.py --corpus data/lc_holdings_examples.txt
 
       - name: Tag drift
         # A notice, not a gate. corpus_report.py --drift exits 1 when a
@@ -117,7 +119,15 @@ jobs:
           set +e
           out=$(python scripts/corpus_report.py --drift 2>&1)
           status=$?
+          # The Library of Congress examples, reported apart: statements from
+          # outside the collection the tool was built on.
+          lc=$(python scripts/corpus_report.py --drift \
+                 --corpus data/lc_holdings_examples.txt 2>&1)
+          lc_status=$?
           set -e
+
+          out="$out"$'\n\n'"Library of Congress examples:"$'\n'"$lc"
+          if [ "$lc_status" -ne 0 ]; then status=$lc_status; fi
 
           printf '%s\n' "$out"
 
@@ -127,7 +137,7 @@ jobs:
               echo
               echo "Statements no longer convert the way their recorded tag says."
               echo "If the change is the improvement, update the tags in"
-              echo '`data/textual_holdings_corpus.txt` in the same commit.'
+              echo '`data/textual_holdings_corpus.txt` (or `data/lc_holdings_examples.txt`) in the same commit.'
               echo
               echo '```'
               printf '%s\n' "$out"

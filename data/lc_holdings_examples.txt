@@ -1,0 +1,39 @@
+# Library of Congress holdings examples (866 $a text only)
+# =========================================================
+#
+# Every 866 $a in the MARC 21 Format for Holdings Data pages under docs/marc/,
+# the only holdings statements in this repository written by anyone other than
+# the library the tool was built for. They are here to measure how the parser
+# does on statements it was not shaped around -- the question the tool has to
+# answer before it is useful anywhere else. Seven statements is a start, not a
+# measure; more outside statements belong in this file, not in the main corpus,
+# so the two can be read apart.
+#
+# 867 (supplements) and 868 (indexes) examples are left out, as 867/868 are out
+# of scope on purpose. Taken from the LC pages as published, which are US
+# government works; the page each came from is its section.
+#
+# Same format and tags as data/textual_holdings_corpus.txt -- see its header.
+# Read with:
+#
+#     python scripts/corpus_report.py --corpus data/lc_holdings_examples.txt
+#
+
+
+[section: hd866868 -- 866-868 Textual Holdings]
+# Source: https://www.loc.gov/marc/holdings/hd866868.html
+v. 1-4 (1941-1943), v. 6-86 (1945-1987)
+1974-1981  # [x2] also on hd863865
+v. 37-52
+v. 36-49 (1961-1974)
+# Both carry $2usnp: US Newspaper Program notation, a different scheme from
+# Z39.71, declared as such in the field. The first is joined from four lines of
+# the source page as extracted; where a line broke inside a value it is joined
+# without a space.
+[1844:7:10][1850:2:16][1861:3:9, 4:13, 16-17, 5:14, 25, 7:27, 9:6, 16, 18-19, 24][1862:4:8, 30, 5:3-1866:7:6, 27][1869:3:1-1873:10:31] [1881:9:20][1885:8:8] [1891:7:6][1892:10:31][1894:1:27] [1901:3:18][1905:10:21][1911:4:1, 5:23, 11:29] [1912:1:6, 6:19] [1913:3:29, 4:5][1914:9:26][1915:4:24][1919:3:29,0:18]  # known:D30
+m,s=[1955:8:11-1956:11:22][1960:10:20-1984:2:2]  # known:D30
+
+
+[section: hd863865 -- 863-865 Enumeration and Chronology]
+# Source: https://www.loc.gov/marc/holdings/hd863865.html
+no.56(2003:Dec./2004:Jan.)  # warn:D29

@@ -875,6 +875,20 @@ v.6(1995)-"></textarea>
         Turned off, only your confirmed patterns convert anything. A statement
         none of them matches is left exactly as it is, 866 and all.
       </div>
+      <div class="check-row" style="margin-left: 2.25rem;">
+        <input type="checkbox" id="opt-parser-strict" />
+        <label for="opt-parser-strict">
+          Only where it reads the whole statement (strict)
+        </label>
+      </div>
+      <div class="small dim" style="margin: calc(-1 * var(--sp-2)) 0 var(--sp-3) 4.5rem;">
+        The standard parser follows MARC 21 and Z39.71 conventions. Where a
+        statement goes beyond them, it normally converts what it can and says
+        what it left out. With this on, such a statement is held instead:
+        nothing is written, its 866 stays, and the log says why. Useful for a
+        collection whose holdings were not written the way the parser expects.
+        Statements your confirmed patterns match are not affected.
+      </div>
 
       <div class="check-row">
         <input type="checkbox" id="batch-clear853863" />
@@ -1289,6 +1303,7 @@ function conventionPayload() {
                  document.getElementById('batch-ind2').value],
     chronology: document.getElementById('batch-chronology').value,
     parser_fallback: document.getElementById('opt-parser-fallback').checked,
+    parser_strict: document.getElementById('opt-parser-strict').checked,
     keep_separate: [...keepSeparate],
     skip_records: [...skipRecords],
     frequency: document.getElementById('batch-freq').value,
@@ -1362,14 +1377,24 @@ document.getElementById('batch-holdings-level').addEventListener('change', () =>
   if (allRecords.length) refreshReview();
 });
 
-document.getElementById('opt-parser-fallback').addEventListener('change', () => {
-  // Every preview on screen was computed under the old setting.
-  document.querySelectorAll('.pattern-card').forEach(card => {
-    if (!card.querySelector('.pc-body')?.hidden) refreshPreview(card);
-  });
-  if (allRecords.length) refreshReview();
-  revealSteps();
-});
+function syncStrict() {
+  // Strict qualifies the parser; with the parser off there is nothing for it
+  // to qualify.
+  const strict = document.getElementById('opt-parser-strict');
+  strict.disabled = !document.getElementById('opt-parser-fallback').checked;
+}
+
+['opt-parser-fallback', 'opt-parser-strict'].forEach(id =>
+  document.getElementById(id).addEventListener('change', () => {
+    syncStrict();
+    // Every preview on screen was computed under the old setting.
+    document.querySelectorAll('.pattern-card').forEach(card => {
+      if (!card.querySelector('.pc-body')?.hidden) refreshPreview(card);
+    });
+    if (allRecords.length) refreshReview();
+    revealSteps();
+  }));
+syncStrict();
 
 (function () {
   const sel = document.getElementById('batch-convention');
@@ -1402,8 +1427,10 @@ function revealSteps() {
     const fallback = document.getElementById('opt-parser-fallback').checked;
     summary.textContent = `${allRecords.length} record${allRecords.length !== 1 ? 's' : ''} · `
       + (n ? `${n} pattern${n !== 1 ? 's' : ''} confirmed` : 'no patterns confirmed')
-      + (fallback ? ' · standard parser for the rest'
-                  : ' · nothing else will be converted');
+      + (!fallback ? ' · nothing else will be converted'
+         : document.getElementById('opt-parser-strict').checked
+           ? ' · standard parser for the rest, where it reads the whole statement'
+           : ' · standard parser for the rest');
   }
 }
 

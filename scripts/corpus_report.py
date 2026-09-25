@@ -510,11 +510,15 @@ DEFECTS = {
     "D18": "863 second indicator says uncompressed for a compressed field",
     "D19": "a year split across the turn of one is unreadable",
     "D20": "detector: a generated regex exceeds the testable-length cap",
+    "D29": "an issue spanning two years (2003:Dec./2004:Jan.) left out, warned",
+    "D30": "US Newspaper Program notation ($2usnp), a different scheme (by design)",
+    "D31": "Z39.71 year:month chronology taken by the year-first reader",
 }
 
 
-def report(detail: bool = False, drift_only: bool = False) -> int:
-    entries = load_corpus()
+def report(detail: bool = False, drift_only: bool = False,
+           corpus: Path = CORPUS) -> int:
+    entries = load_corpus(corpus)
     statements = [e.statement for e in entries]
     outcomes = [Outcome(e) for e in entries]
 
@@ -550,7 +554,11 @@ def report(detail: bool = False, drift_only: bool = False) -> int:
     print("=" * 78)
     print("Textual holdings corpus report")
     print("=" * 78)
-    print(f"corpus              {CORPUS.relative_to(REPO_ROOT)}")
+    try:
+        shown = corpus.resolve().relative_to(REPO_ROOT)
+    except ValueError:
+        shown = corpus
+    print(f"corpus              {shown}")
     print(f"statements          {len(entries)} unique "
           f"({sum(e.occurrences for e in entries)} lines before de-duplication)")
     print(f"sections            {len(set(e.section for e in entries))}")
@@ -716,8 +724,13 @@ def main() -> int:
                     help="list every affected statement, not just the counts")
     ap.add_argument("--drift", action="store_true",
                     help="print only the tags that no longer hold; exit 1 if any do not")
+    # A second corpus is read the same way and reported apart: statements from
+    # outside the collection the tool was built on answer a different question
+    # from the ones inside it, and pooling them would hide which is which.
+    ap.add_argument("--corpus", type=Path, default=CORPUS,
+                    help="read this corpus file instead (default: %(default)s)")
     args = ap.parse_args()
-    return report(detail=args.detail, drift_only=args.drift)
+    return report(detail=args.detail, drift_only=args.drift, corpus=args.corpus)
 
 
 if __name__ == "__main__":
