@@ -698,6 +698,12 @@ PARSER_SOURCE = "parser"
 # No pattern matched and the parser was switched off: nothing was written.
 UNMATCHED_SOURCE = "unmatched"
 
+# The standard parser reads what no pattern matches, and writes only what it
+# reads in full. Passed where `fallback` is, as a third value beside True and
+# False; it is truthy, so everything that asks only "is there a fallback?"
+# still hears yes.
+STRICT_FALLBACK = "strict"
+
 # A pattern matched, and the cataloguer has told it not to convert. Different
 # from UNMATCHED in the one way that matters to them: this statement was
 # recognised and deliberately left alone, rather than falling through unread.
@@ -765,6 +771,10 @@ def apply_patterns(text: str, patterns: Sequence,
 
     if fallback:
         result = parse_866(text)
+        if fallback == STRICT_FALLBACK:
+            held = _held_unless_read_in_full(text, result)
+            if held is not None:
+                return held, PARSER_SOURCE
         if passed_over:
             result.warnings.append(
                 f"'{passed_over}' matches this statement, but the statement "
@@ -779,6 +789,36 @@ def apply_patterns(text: str, patterns: Sequence,
         "No confirmed pattern matched this statement, and the standard parser "
         "was not applied. It has been left as it is."
     ), UNMATCHED_SOURCE
+
+
+def _held_unless_read_in_full(text: str, result: ParseResult) -> Optional[ParseResult]:
+    """
+    Under the strict setting, hold a statement the parser did not read whole.
+
+    "Whole" means converting it leaves nothing to say: no value left out, no
+    wording unaccounted for, no note set aside. The parser's warnings are
+    already the list of those things, and the converter adds its own -- a year
+    like "2003:Dec./2004:Jan." is read, then refused by the subfield -- so both
+    are asked, under the standard convention.
+
+    A statement nothing was read from is held already, and is left to say so
+    in its own words. Returns None when the reading stands.
+    """
+    if not result.ranges:
+        return None
+    from marc_serials.converter import convert_holdings
+    reasons = list(dict.fromkeys(convert_holdings(result).warnings))
+    if not reasons:
+        return None
+    held = ParseResult(raw=text)
+    held.success = False
+    held.needs_review = True
+    held.warnings = [
+        "Held by the strict setting: the standard parser could not account "
+        "for all of this statement, so nothing was written from it and its "
+        "866 stays as it is. What it could not account for:"
+    ] + reasons
+    return held
 
 
 def _untouched(text: str, why: str) -> ParseResult:

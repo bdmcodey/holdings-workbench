@@ -15,6 +15,13 @@ more than one release; numbering resumed with 0.6.1. Reasoning behind the
 parser and converter decisions, including the defects a real corpus exposed and
 what was done about each, is in [CORPUS-FINDINGS.md](CORPUS-FINDINGS.md).
 
+## 0.27.0 — 2026-09-25
+
+A strict setting for the standard parser: convert a statement only if all of it can be read.
+
+- **MARC Serials Toolkit** — Under "Use the standard parser for holdings no confirmed pattern matches" there is a new option: "Only where it reads the whole statement (strict)". Normally, when a statement goes beyond what the parser expects, it converts what it can and says what it left out. With strict on, that statement is held instead: nothing is written, its 866 stays, and the log lists it as "Not converted" with the reasons. It is off unless you turn it on. Statements your confirmed patterns match are not affected. On the test collection's 1,057 statements it holds 126 instead of 2, nearly all of them ranges where one end gives a month and the other does not.
+- **MARC Serials Toolkit** — The Library of Congress's own 866 examples, from its MARC holdings documentation, are now kept as a separate set of test statements. They show how the tool does on holdings written outside the collection it was built on: of 7, 4 convert cleanly, 1 converts and says what it left out, and 2 are in the US Newspaper Program's notation and are held rather than misread.
+
 ## 0.26.0 — 2026-09-25
 
 Each pattern shows its expression, with a Copy button, and can show you the records it touches.
