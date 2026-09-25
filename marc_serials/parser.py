@@ -558,6 +558,14 @@ _YEAR_ONLY_RE = re.compile(rf"^\s*({_YEAR_TOKEN})\s*$")
 _BARE_CHRON = (rf"{_YEAR_TOKEN}\s*:\s*[A-Za-z][A-Za-z./]*"
                rf"(?:\s*[:\s]\s*\d{{1,2}})?")
 _BARE_CHRON_RE = re.compile(rf"^\s*{_BARE_CHRON}\s*$")
+
+# A year written before a volume: "1990: v.1". The year is the date the volume
+# belongs to, not a level above it -- a volume is the first level of
+# enumeration, and "$a 1990 $b 1" put "v." second, under a level captioned
+# "(*)". A year before an issue ("2004 no. 3") is left as it was: journals
+# really do number by year, and that reading is the cataloguer's to confirm.
+_YEAR_BEFORE_VOLUME_RE = re.compile(
+    rf"^\s*({_YEAR_TOKEN})\s*[:\s]\s*(?=v(?:ol(?:ume)?)?\b\.?\s*\d)", re.IGNORECASE)
 _BARE_CHRON_RANGE_RE = re.compile(
     rf"^\s*(?:{_BARE_CHRON}|{_YEAR_TOKEN})\s*(-)\s*(?:{_BARE_CHRON}|{_YEAR_TOKEN})\s*$")
 
@@ -1345,6 +1353,24 @@ def _parse_unit(text: str,
         if year and (month or day):
             return EnumChron(year=year, month=month, day=day)
 
+    lead = _YEAR_BEFORE_VOLUME_RE.match(text)
+    if lead:
+        rest = _parse_unit(text[lead.end():], warnings)
+        if rest is None:
+            return None
+        if rest.year:
+            # A second year after the volume: two dates for one unit, which
+            # is not a reading to guess between. Refused whole, and said.
+            if warnings is not None:
+                note = (f"'{text}' gives the year twice, before and after the "
+                        "volume — nothing was converted from this statement "
+                        "rather than guess which is meant.")
+                if note not in warnings:
+                    warnings.append(note)
+            return None
+        rest.year = normalise_year(lead.group(1))
+        return rest
+
     levels, pos = _parse_enum_levels(text)
 
     rest = text[pos:].lstrip()
@@ -1463,6 +1489,13 @@ def _smart_split_range(text: str) -> List[str]:
 
     if not candidate_positions:
         return [text]
+
+    # "1990: v.1-1992: v.3": a hyphen followed by a year and then a volume
+    # opens the second unit, as surely as one followed by the volume itself.
+    for pos in candidate_positions:
+        if _YEAR_BEFORE_VOLUME_RE.match(text[pos + 1:]) \
+                and _YEAR_BEFORE_VOLUME_RE.match(text):
+            return [text[:pos].strip(), text[pos + 1:].strip()]
 
     # Two bare Z39.71 chronologies, "1990:Jan.-1994:Dec.": the hyphen between
     # them is the only one that can divide the statement.

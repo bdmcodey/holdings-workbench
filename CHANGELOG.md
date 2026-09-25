@@ -15,6 +15,12 @@ more than one release; numbering resumed with 0.6.1. Reasoning behind the
 parser and converter decisions, including the defects a real corpus exposed and
 what was done about each, is in [CORPUS-FINDINGS.md](CORPUS-FINDINGS.md).
 
+## 0.29.1 — 2026-09-25
+
+A year written before a volume ("1990: v.1") is read as its date, not as a level above the volume.
+
+- **MARC Serials Toolkit** — "1990: v.1" used to convert to $a 1990 $b 1, treating the year as a level of numbering above the volume, and the 853 then called the volume the second level. It now converts to $a 1 $i 1990, and "1990: v.1-1992: v.3" to $a 1-3 $i 1990-1992. A year before an issue number ("2004 no. 3") is read as before, since some journals do number by year. A statement giving two different years for one volume, such as "1990: v.1 (1991)", is held rather than guessed at. None of the test collection's statements are written this way, so nothing already converting changes.
+
 ## 0.29.0 — 2026-09-25
 
 A range inside one end of the holdings ("nos. 1-3" at the start) is recorded by its first and last part, and the record says so.

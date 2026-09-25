@@ -1141,3 +1141,41 @@ def test_two_digits_that_could_be_a_month_are_said_rather_than_guessed():
     """
     r = parse_866("(1990-12)")
     assert any("1990-12" in w for w in r.warnings), r.warnings
+
+
+# ---------------------------------------------------------------------------
+# A year written before a volume (0.29.1)
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("text, expected", [
+    ("1990: v.1", ("1", "1990")),
+    ("1990 v.1", ("1", "1990")),
+    ("1990: v.1 no.2", ("1", "1990")),
+])
+def test_a_year_before_a_volume_is_its_date(text, expected):
+    """
+    "1990: v.1" came out "$a 1990 $b 1" -- the year as a level above the
+    volume, and "v." pushed down to the second level under a "(*)". A volume
+    is the first level of enumeration; the year is when it was published.
+    """
+    start = parse_866(text).ranges[0].start
+    assert (start.value_at(0), start.year) == expected
+    assert start.enum[0].caption == "v."
+
+
+def test_a_range_of_them_divides_at_the_second_year():
+    hr = parse_866("1990: v.1-1992: v.3").ranges[0]
+    assert (hr.start.value_at(0), hr.start.year) == ("1", "1990")
+    assert (hr.end.value_at(0), hr.end.year) == ("3", "1992")
+
+
+def test_a_year_before_an_issue_is_left_as_it_was():
+    """Journals number by year ("2004 no. 3"); that reading is not changed here."""
+    start = parse_866("2004 no. 3").ranges[0].start
+    assert start.value_at(0) == "2004" and start.year is None
+
+
+def test_two_years_for_one_volume_are_not_guessed_between():
+    r = parse_866("1990: v.1 (1991)")
+    assert r.ranges == []
+    assert any("gives the year twice" in w for w in r.warnings)
