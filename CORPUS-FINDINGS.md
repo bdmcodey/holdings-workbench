@@ -2742,13 +2742,21 @@ is left out and named.
 After 0.30.0: 24 clean, 3 warned, 15 no fields, 0 lost; round trip 25 same,
 2 caption only, 15 not converted, 0 drift.
 
-**Found on the way, open.** Two older forms with an open end are wrong, and
-neither is new. `v.35 (2025-)`, with the hyphen inside the parentheses, writes
-`$a 35 $i 2025` and says nothing: the open end is dropped silently. And
-`v.1-3 (1990)-` writes `$a 1-3-`, one value with two hyphens. Neither is in
-any corpus or the real export. The new reading keeps clear of both: it writes
-`v.35 2025-` as `v.35 (2025)-`, which is read correctly, and holds
-`v.1-3 1990-`.
+**Found on the way, fixed in 0.30.1.** Two older forms with an open end were
+wrong. `v.35 (2025-)`, with the hyphen inside the parentheses, wrote
+`$a 35 $i 2025` and said nothing: the open end was dropped silently, because
+the date reader had nothing after the hyphen. And `v.1-3 (1990)-` wrote
+`$a 1-3-`, one value with two hyphens (`v.1 (1990-1992)-` likewise wrote
+`$i 1990-1992-`). Neither form is in any corpus or the real export.
+
+Now an open end inside the parentheses of a one-unit statement is moved out
+and read as one: `v.35 (2025-)` gives `$a 35- $i 2025-`, as `v.35(2025)-`
+does. A run left open (`v.1-3 (1990-)`, `v.1-3 (1990)-`, `v.1 (1990-1992)-`)
+is held with a note: a compressed 863 can only write it as `1-3-`, and the
+statement does not say whether the volumes run on or the holding does. An
+open end inside the end unit, `v.1(1990)-v.5(1994-)`, has nowhere to go and
+is held too. Measured on all 1,137 statements in the three corpora and the
+real export: none converts differently.
 
 ## Requested, not yet started
 

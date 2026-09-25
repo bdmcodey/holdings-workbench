@@ -1376,6 +1376,18 @@ def _parse_unit(text: str,
     rest = text[pos:].lstrip()
     consumed = len(text) - len(rest)
     chron = _CHRON_BLOCK_RE.match(rest)
+    if chron and chron.group("chron_raw").rstrip().endswith("-"):
+        # An open end inside the dates of a unit that is not the whole
+        # statement, "v.1(1990)-v.5(1994-)". _parse_one_range moves it out
+        # where there is only one unit; here it has nowhere to go, and the
+        # date reader would drop it without a word.
+        if warnings is not None:
+            note = (f"'{text}' leaves its dates open inside the parentheses, "
+                    "where an open end cannot be recorded — nothing was "
+                    "converted from this statement rather than drop it.")
+            if note not in warnings:
+                warnings.append(note)
+        return None
     if chron:
         consumed += chron.end()
 
@@ -1476,6 +1488,18 @@ def _parse_one_range(raw: str,
     hr = HoldingsRange(raw=raw)
     raw = _bracket_trailing_chron(raw)
 
+    # The open end written inside the parentheses, "v.35 (2025-)", is the
+    # same holding as "v.35(2025)-". Read inside, the hyphen had nothing after
+    # it and was dropped without a word: "$a 35 $i 2025", a closed holding.
+    # Moved out when the statement is one unit; with an end unit after it,
+    # "v.1(1990)-v.5(1994-)", there is no reading to move it to, and the
+    # unit parser refuses it.
+    inside = re.search(r"-\s*\)\s*$", raw)
+    if inside:
+        moved = raw[:inside.start()].rstrip() + ")"
+        if len(_smart_split_range(moved)) == 1:
+            raw = moved + "-"
+
     # Check for open-ended (ends with bare "-")
     open_ended = bool(re.search(r"-\s*$", raw))
     if open_ended:
@@ -1497,6 +1521,19 @@ def _parse_one_range(raw: str,
 
     if len(parts) == 1:
         start = _parse_unit(parts[0], warnings)
+        if start and open_ended and _has_inner_range(start):
+            # "v.1-3 (1990)-", "v.1 (1990-1992)-": a run already, then open.
+            # A compressed 863 has one hyphen per subfield, so the open end
+            # could only be written as "$a 1-3-" -- and the statement does not
+            # say whether the volumes run on from 3 or the holding from 1990.
+            if warnings is not None:
+                note = (f"'{hr.raw}' gives a run and then leaves it open, so "
+                        "which part is still being received cannot be told "
+                        "from the statement — nothing was converted from this "
+                        "statement rather than guess.")
+                if note not in warnings:
+                    warnings.append(note)
+            return hr
         hr.start = start or EnumChron()
     elif len(parts) >= 2:
         start = _parse_unit(parts[0], warnings)
@@ -1515,6 +1552,12 @@ def _parse_one_range(raw: str,
 
     hr.align_boundaries()
     return hr
+
+
+def _has_inner_range(unit: "EnumChron") -> bool:
+    """Whether any value in one boundary is already a run: "1-3", "1990-1992"."""
+    values = [lvl.value for lvl in unit.enum] + [unit.year, unit.month, unit.day]
+    return any(v and "-" in v for v in values)
 
 
 def _smart_split_range(text: str) -> List[str]:
