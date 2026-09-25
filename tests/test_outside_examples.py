@@ -88,3 +88,30 @@ def test_what_is_not_plainly_numbering_then_dates_is_still_held(statement):
     got, warnings = _fields(statement)
     assert got == []
     assert warnings
+
+
+# ── 863 values written as text (D33, 0.30.2) ─────────────────────────────────
+
+@pytest.mark.parametrize("statement", [
+    "2.1 54-62 1-1 1998-2006 21-21 g",
+    "2.3 64-69 4 2008-2013 24 .",
+    "2.1 11-29 1-2 1996-2014 -21 .",
+    "1.1 9-12 1-4 2006-2009 Ceased with v.12 no.4 (2009)",
+])
+def test_863_values_written_as_text_are_named_as_such(statement):
+    """
+    Held, as before, but told for what they are. The generic "No recognisable
+    holdings ranges found" and "Read '2' but could not account for '.1
+    54-62 ...'" both pointed at the wrong thing.
+    """
+    got, warnings = _fields(statement)
+    assert got == []
+    assert len(warnings) == 1
+    assert "values of an 863 written out as text" in warnings[0]
+    assert "could not account for" not in " ".join(warnings)
+
+
+@pytest.mark.parametrize("statement", ["2016?", "?: 16", "undefined", "2.1 v.3"])
+def test_other_refusals_keep_their_own_messages(statement):
+    _, warnings = _fields(statement)
+    assert not any("863 written out as text" in w for w in warnings)

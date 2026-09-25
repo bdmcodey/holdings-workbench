@@ -2719,9 +2719,13 @@ the audit finds nothing unaccounted for on any of the four.
 `2.1 54-62 1-1 1998-2006 21-21 g` is `$8 2.1 $a 54-62 $b 1-1 $i 1998-2006
 $j 21-21 $w g` with the codes gone, which looks like encoded holdings that
 were never turned back into display text. The values could be recovered, but
-not what they count: that was in an 853 that is not in the text. Held; a
-message naming the form would help the cataloguer more than "No recognisable
-holdings ranges found".
+not what they count: that was in an 853 that is not in the text. Held. Since 0.30.2 the
+record says what the text looks like -- the values of an 863, starting with its
+link number -- and what to do, instead of "No recognisable holdings ranges
+found" beside "Read '2' but could not account for '.1 54-62 ...'". A link
+number, then at least two values, a break code or a full stop, perhaps a note
+after. Of the 1,137 statements in the three corpora and the real export,
+exactly these 8 get the message, and nothing converts differently.
 
 **D34 — "//" closing a run · 2 statements · held.** `v.1// 1982//`.
 

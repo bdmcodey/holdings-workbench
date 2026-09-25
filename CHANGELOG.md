@@ -15,6 +15,12 @@ more than one release; numbering resumed with 0.6.1. Reasoning behind the
 parser and converter decisions, including the defects a real corpus exposed and
 what was done about each, is in [CORPUS-FINDINGS.md](CORPUS-FINDINGS.md).
 
+## 0.30.2 — 2026-09-25
+
+An 866 that holds the values of an 863 written out as text is now named as such, instead of "No recognisable holdings ranges found".
+
+- **MARC Serials Toolkit** — Some catalogues have 866s like "2.1 54-62 1-1 1998-2006 21-21 g": the values of an 863 ($8 2.1 $a 54-62 $b 1-1 $i 1998-2006 $j 21-21 $w g) with the subfield codes gone. These are still not converted, because what each number counts was in an 853 that is not part of the text. But the record now says what the text looks like and what to do (rewrite it as a statement with Edit, or enter the 853 and 863 by hand), instead of "No recognisable holdings ranges found" and a note pointing at the wrong place. Nothing else changes.
+
 ## 0.30.1 — 2026-09-25
 
 An open end written inside the parentheses ("v.35 (2025-)") is kept, instead of being dropped without a warning.

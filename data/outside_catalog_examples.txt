@@ -66,7 +66,7 @@ v. 1// 1948-1949//                                              # fail:D34
 
 [section: 863 values written as text]
 # Subfield values in 863 order, with no captions: the 853 that said what each
-# counts is not part of the text.
+# counts is not part of the text. Held, and since 0.30.2 named as such.
 2.1 1995-2000 35-45                                             # fail:D33
 3.1 46-62 2001-2010 .                                           # fail:D33
 2.1 54-62 1-1 1998-2006 21-21 g                                 # fail:D33
