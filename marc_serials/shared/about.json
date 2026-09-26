@@ -1,6 +1,6 @@
 {
   "name": "MARC Serials Toolkit",
-  "version": "0.30.2",
+  "version": "0.30.3",
   "released": "2026-09-25",
   "status": "Proof of concept — under active development. Check your output before loading it into the catalog.",
   "description": "One tool for MARC serials holdings. Upload a MARC file, find the patterns in its 866 statements, confirm what each part of a pattern means, and convert to structured 853 caption/pattern and 863 enumeration/chronology fields. Statements no pattern matches are converted by the standard parser.",
@@ -9,6 +9,21 @@
   "contact": "Matthew Codey, codey@usc.edu",
   "_comment": "Written for cataloging staff, not developers. Say what changed about the output or the screen, not how the code changed. Newest version first.",
   "changelog": [
+    {
+      "version": "0.30.3",
+      "date": "2026-09-25",
+      "summary": "A warning that needs a decision is now orange and headed \"To check:\", so it stands apart from warnings that are only for the log.",
+      "changes": [
+        {
+          "tool": "MARC Serials Toolkit",
+          "text": "On a record with more than one statement, a warning that makes a statement \"to check\" looked the same as a warning that was only recorded for the log, so you could not tell which statement the \"to check\" pill meant. Warnings that need a decision are now orange, with a thicker left edge, and begin \"To check:\". The reason a statement was held is orange too. Warnings that only go into the log stay yellow. The \"held\" and \"to check\" pills on each record are orange to match. Nothing about the conversion changes."
+        },
+        {
+          "tool": "MARC Serials Toolkit",
+          "text": "A held statement now shows every reason it was held, not only the first. The first is often the general \"No recognisable holdings ranges found\"; the one after it says where reading stopped, such as \"could not account for '// 1982//'\", which is the part to clean up with Edit."
+        }
+      ]
+    },
     {
       "version": "0.30.2",
       "date": "2026-09-25",

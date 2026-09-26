@@ -38,6 +38,11 @@
   --ok-soft:     #e4f4ea;
   --warn:        #7a5200;
   --warn-soft:   #fbf0d8;
+  /* Needs a decision: held, or written but "to check". Orange, apart from the
+     yellow of a warning that is only said for the log -- one record can carry
+     both, and they have to be told apart at a glance. */
+  --attention:      #b03f00;
+  --attention-soft: #fde2cc;
   --danger:      #a4262c;
   --danger-soft: #fbe9e9;
   --focus:       #0b57d0;
@@ -84,6 +89,8 @@
   --ok-soft:     #16271d;
   --warn:        #f2b93c;
   --warn-soft:   #2a2313;
+  --attention:      #ff8a3d;
+  --attention-soft: #3a1f0c;
   --danger:      #ff9a94;
   --danger-soft: #2d1b1b;
   --focus:       #8ab8ff;
@@ -106,6 +113,8 @@
     --ok-soft:     #16271d;
     --warn:        #f2b93c;
     --warn-soft:   #2a2313;
+    --attention:      #ff8a3d;
+    --attention-soft: #3a1f0c;
     --danger:      #ff9a94;
     --danger-soft: #2d1b1b;
     --focus:       #8ab8ff;
@@ -316,6 +325,9 @@ input[type="checkbox"] {
 .alert-ok   { background: var(--ok-soft);     border-color: var(--ok);     color: var(--text); }
 .alert-warn { background: var(--warn-soft);   border-color: var(--warn);   color: var(--text); }
 .alert-err  { background: var(--danger-soft); border-color: var(--danger); color: var(--text); }
+.alert-attention { background: var(--attention-soft); border-color: var(--attention);
+                   border-left-width: 6px; color: var(--text); }
+.alert-attention > div + div { margin-top: var(--sp-2); }
 .alert-info { background: var(--surface-2);   border-color: var(--border); color: var(--text); }
 
 /* ── Pills ───────────────────────────────────────────────────────────────── */

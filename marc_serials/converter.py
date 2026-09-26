@@ -655,6 +655,11 @@ class ConversionResult:
     # here the record exists and may well be right, but the tool cannot vouch
     # for it, and silence would be read as vouching.
     flagged: bool = False
+    # Which of the warnings are why it is flagged: the ones that ask for a
+    # decision. The rest are said for the log and ask nothing. The screen tells
+    # the two apart, because one record can carry both, on different
+    # statements, and they read alike.
+    attention: List[str] = field(default_factory=list)
 
     def all_fields(self) -> List[FieldData]:
         return ([self.field_853] if self.field_853 else []) + self.fields_863
@@ -668,6 +673,7 @@ class ConversionResult:
             "conformed": self.conformed,
             "needs_review": self.needs_review,
             "flagged": self.flagged,
+            "attention": self.attention,
         }
 
 
@@ -945,7 +951,8 @@ PLAUSIBLE_ENUM_DEPTH = 3
 
 
 def _check_enumeration_depth(levels: Dict[str, Any],
-                             warnings: Optional[List[str]] = None) -> bool:
+                             warnings: Optional[List[str]] = None,
+                             flags: Optional[set] = None) -> bool:
     """
     Flag a record claiming more enumeration levels than a serial plausibly has.
 
@@ -975,6 +982,8 @@ def _check_enumeration_depth(levels: Dict[str, Any],
         )
         if note not in warnings:
             warnings.append(note)
+        if flags is not None:
+            flags.add(note)
     return True
 
 
@@ -1122,6 +1131,8 @@ def _note_inner_range(warnings: Optional[List[str]], label: tuple,
         )
         if note not in warnings:
             warnings.append(note)
+        if flags is not None:
+            flags.add(note)
         return
     ranged = [v for v in (start, end) if "-" in v.rstrip("-")] or [start]
     both = len(ranged) > 1
@@ -1135,6 +1146,8 @@ def _note_inner_range(warnings: Optional[List[str]], label: tuple,
     )
     if note not in warnings:
         warnings.append(note)
+    if flags is not None:
+        flags.add(note)
 
 
 def _note_uncodeable(warnings: Optional[List[str]], label: tuple,
@@ -1161,6 +1174,8 @@ def _note_uncodeable(warnings: Optional[List[str]], label: tuple,
     )
     if note not in warnings:
         warnings.append(note)
+    if flags is not None:
+        flags.add(note)
 
 
 def _hierarchy_values(
@@ -1541,6 +1556,8 @@ def convert_holdings(
     # nothing here can tell a gap note from holdings; a cataloguer has to look.
     if parse_result.skipped_segments:
         flags.add("skipped_segment")
+        # The parser's own line for each passed-over part is what asks.
+        flags.update(w for w in warnings if w.startswith("Could not parse segment"))
 
     levels = parse_result.caption_union()
 
@@ -1594,7 +1611,8 @@ def convert_holdings(
             linking_number=link,
             warnings=warnings,
             conformed=True,
-            flagged=_check_enumeration_depth(levels, warnings) or bool(flags),
+            flagged=_check_enumeration_depth(levels, warnings, flags) or bool(flags),
+            attention=[w for w in warnings if w in flags],
         )
 
     if declared:
@@ -1641,7 +1659,8 @@ def convert_holdings(
         fields_863=fields_863,
         linking_number=linking_number,
         warnings=warnings,
-        flagged=_check_enumeration_depth(levels, warnings) or bool(flags),
+        flagged=_check_enumeration_depth(levels, warnings, flags) or bool(flags),
+        attention=[w for w in warnings if w in flags],
     )
 
 
