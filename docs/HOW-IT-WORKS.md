@@ -1,6 +1,6 @@
 # How the Holdings Workbench Works
 
-*Written for librarians and cataloguers. Describes version 0.31.0.*
+*Written for librarians and cataloguers. Describes version 0.31.1.*
 
 The Holdings Workbench turns the free-text holdings in MARC 866 fields into structured 853 caption/pattern and 863 enumeration/chronology fields, and asks a cataloguer to confirm anything it cannot be sure of. This guide explains how, for librarians rather than programmers.
 
@@ -187,7 +187,7 @@ Confirmed patterns form a library for the session:
 - **Skip:** a pattern can be marked "skip" to claim a shape you will handle by hand. Its statements are left exactly as they are.
 - **Export and Import:** the library can be saved as a file and loaded again next week, or on another collection. Every pattern is checked as it is loaded, and anything rejected is listed with the reason.
 - **Test expression:** each card's rule can be tried against statements before you trust it. Hand-edited rules are allowed.
-- **Copy:** each card shows its expression under the heading, with a Copy button. "Copy all expressions" copies every pattern at once, one per line: heading, number of statements, expression. It pastes into a spreadsheet as three columns.
+- **Copy:** each card shows its expression under the heading, with a Copy button. "Copy all expressions" copies every pattern at once, one per line: heading, number of statements, expression. It pastes into a spreadsheet as three columns. When you paste statements rather than upload a file, there is no Convert step, so the patterns stay open after Find patterns with every expression in view. With a file, the step folds to one line when nothing needs deciding. Holdings come from one or the other, never both: uploading a file clears the text box, and "Use these statements" sets a loaded file aside.
 - **Show its records:** each card can filter the record list to "the records with this shape", and, once confirmed, to "the records it converts". The two can differ: a larger pattern may claim some statements first, and an expression may also match a similar shape. A confirmed pattern that converts nothing is a sign a larger one covers all its statements.
 
 ## The standard parser: reading one statement
@@ -376,9 +376,9 @@ The log is built from the same summary as the conversion, so it describes exactl
 
 Four checks run before any change is released, and each answers a different question.
 
-| Check | Question it answers | Result as of 0.31.0 |
+| Check | Question it answers | Result as of 0.31.1 |
 | --- | --- | --- |
-| Automated tests | Does every behaviour described here still hold? | 897 passed, 8 skipped |
+| Automated tests | Does every behaviour described here still hold? | 899 passed, 8 skipped |
 | Corpus report | What do 117 real 866 statements convert to, and has any outcome changed? | 90 clean (77%), 22 converted with a warning, 5 with no fields, 0 with values lost |
 | Conversion audit | Did any number in a statement reach no field and no warning? | 0 unaccounted for: the corpus, the LC examples, the other library's catalogue, and all 1,057 statements of the 372-record test export |
 | Round trip | Convert, write the 866 as Alma would, convert again: do the same 863s come back? | Test export: 938 identical, 106 identical apart from an 853 caption, 11 not converted, **0 drift** |

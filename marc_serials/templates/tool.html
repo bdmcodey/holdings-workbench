@@ -658,6 +658,11 @@ v.6(1995)-"></textarea>
           Pasted statements are enough to work out patterns. Converting a file
           needs the file itself.
         </div>
+        <div class="alert alert-info small mt-1" id="paste-hint" hidden>
+          A file is loaded. <strong>Use these statements</strong> switches to
+          these statements and sets the file aside; uploading a file again
+          switches back.
+        </div>
         <div class="btn-row">
           <button type="button" class="btn btn-secondary btn-sm" id="btn-use-text">
             Use these statements
@@ -1097,6 +1102,11 @@ const ALLOWED_SUBFIELDS = 'abcdefghijklm';
 let allRecords  = [];    // record summaries from the uploaded file
 let allStatements = [];  // every 866 $a in that file, in order
 let detected    = [];    // the last detection run's groups
+// Where the statements come from: an uploaded file, or the text box. One or
+// the other, never both -- patterns found from pasted text while Convert
+// worked on a file were two sources on one screen, and nothing said which
+// was which. The last one chosen wins.
+let sourceMode  = null;  // "file" or "paste"
 let library     = [];    // confirmed patterns, mirroring the server's copy
 let lastSplit   = true;  // how the last detection ran; patterns inherit it
 // Patterns the cataloguer has taken out of the library. Auto-confirmation must
@@ -1486,8 +1496,16 @@ async function uploadMarcFile(file) {
       dropZone.innerHTML = `<span class="icon">❌</span>${escHtml(data.error)}`;
       return;
     }
+    // Switching back from pasted statements: their patterns go with them.
+    if (sourceMode === 'paste') {
+      detected = [];
+      document.getElementById('patterns-area').innerHTML = '';
+    }
     allRecords    = data.records;
     allStatements = data.statements;
+    sourceMode    = 'file';
+    document.getElementById('stmt-input').value = '';
+    document.getElementById('paste-hint').hidden = true;
     renderRecordList(data.records);
     showIdentifierNotice(data);
     recordPreviews.clear();
@@ -2552,8 +2570,7 @@ function pastedStatements() {
 
 /** The statements pattern detection runs over: the file, or what was pasted. */
 function statementsForDetection() {
-  const pasted = pastedStatements();
-  const source = pasted.length ? pasted : allStatements;
+  const source = sourceMode === 'paste' ? pastedStatements() : allStatements;
   if (!document.getElementById('opt-dedup').checked) return source;
   return [...new Set(source)];
 }
@@ -2568,10 +2585,43 @@ document.getElementById('btn-use-text').addEventListener('click', () => {
       'Type or paste some holdings statements first.', 'warn');
     return;
   }
+  if (sourceMode === 'file') setFileAside();
+  sourceMode = 'paste';
+  document.getElementById('paste-hint').hidden = true;
   const n = pastedStatements().length;
   showSourceSummary(`${n} pasted statement${n !== 1 ? 's' : ''}`);
   revealSteps();
   document.getElementById('step-patterns').scrollIntoView({ behavior: 'smooth', block: 'start' });
+});
+
+/**
+ * Switch from a file to pasted statements: the file's records, the review of
+ * them and the patterns found from them all go from the page, and Convert with
+ * them. Uploading again brings a file back.
+ */
+function setFileAside() {
+  allRecords = [];
+  allStatements = [];
+  renderRecordList([]);
+  recordPreviews.clear();
+  reviewed.clear();
+  keepSeparate.clear();
+  skipRecords.clear();
+  convertedRecords.clear();
+  recordIndex.clear();
+  clearPatternFilter(false);
+  fileInput.value = '';
+  document.getElementById('btn-download').style.display = 'none';
+  document.getElementById('btn-download-log').style.display = 'none';
+  detected = [];
+  document.getElementById('patterns-area').innerHTML = '';
+}
+
+// Typing into the box while a file is loaded changes nothing until the switch
+// is asked for, so say how to ask.
+document.getElementById('stmt-input').addEventListener('input', e => {
+  document.getElementById('paste-hint').hidden =
+    !(sourceMode === 'file' && e.target.value.trim());
 });
 
 document.getElementById('btn-detect').addEventListener('click', runDetect);
@@ -2600,10 +2650,17 @@ async function runDetect() {
     // rather than wherever the last run had got to.
     patternOffset = 0;
     await autoConfirm(data.groups);
+    // Pasted statements have no Convert step: the patterns are all there is
+    // to see, and someone trying out a statement wants its pattern and its
+    // expression. So a run from the text box shows them open, folds and all.
+    const fromPaste = sourceMode === 'paste';
+    if (fromPaste) {
+      patternFolds.confirmed = patternFolds.readable = patternFolds.complex = true;
+    }
     renderPatterns(data);
-    // Nothing here asks anything, so fold it and put Convert in view. If
-    // something does need deciding, that is the work -- stay open on it.
-    setPatternsCollapsed(!partitionGroups(data.groups).open.length);
+    // From a file: nothing here asks anything, so fold it and put Convert in
+    // view. If something does need deciding, that is the work -- stay open.
+    setPatternsCollapsed(!fromPaste && !partitionGroups(data.groups).open.length);
   } catch (err) {
     showAlert(errBox, err.message, 'err');
   } finally {
