@@ -15,6 +15,12 @@ more than one release; numbering resumed with 0.6.1. Reasoning behind the
 parser and converter decisions, including the defects a real corpus exposed and
 what was done about each, is in [CORPUS-FINDINGS.md](CORPUS-FINDINGS.md).
 
+## 0.30.6 — 2026-09-30
+
+A list of single dates written as prose ("Jun. 17, 1880; Oct. 4, 1883") is held whole instead of recording only the last year.
+
+- **MARC Serials Toolkit** — "Jun. 17, 1880; Oct. 4, 1883; Jun. 1887; Dec. 16, 1887" used to convert to a single 863, $i 1887, with the rest skipped: the comma in "Dec. 16, 1887" was taken for a gap between two holdings. The comma of a date is no longer read as a gap, and a statement made only of dates written this way is now held, with a note saying it is a list of single dates and that each would need its own 863, entered by hand. A lone "Jun. 17, 1880", which recorded just $i 1880, is held the same way. Nothing else in the test collections or the test export changes.
+
 ## 0.30.5 — 2026-09-30
 
 A statement ending with a full stop ("v.89,pt.1(1969)-v.96,pt.3(Dec.1972).") now converts instead of being held for the full stop.

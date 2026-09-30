@@ -2803,10 +2803,16 @@ Open, each held or warned rather than misread:
   year is left out and named, but `$j 04` is written from the start alone,
   which is worth a second look.
 - **D47 — quarters as words** (1): `(1907:1st quarter)`. Chronology left out, warned.
-- **D48 — a list of single dates with days** (1):
-  `Jun. 17, 1880; Oct. 4, 1883; Jun. 1887; Dec. 16, 1887` writes `$i 1887`
-  and skips the rest (flagged "to check"). Nothing is silent, but it is a
-  part written from a whole, which the parser otherwise refuses to do.
+- **D48 — single dates written as prose** (1), **held and named in 0.30.6**:
+  `Jun. 17, 1880; Oct. 4, 1883; Jun. 1887; Dec. 16, 1887` wrote `$i 1887` and
+  skipped the rest (flagged): the comma of `Dec. 16, 1887` was cut as a gap,
+  and the year after it read as a holding of its own. A part written from a
+  whole, which the parser otherwise refuses to do. A comma after a month and
+  a day, with a year after it, is no longer a cut, and a statement made only of
+  such dates is held with a note saying what it is. Of 1,158 statements,
+  only this one changed. The same list in Z39.71's own form
+  (`1880:June 17; 1883:Oct. 4`) is not read either: a semicolon is cut only
+  before a bare year or a volume. Open.
 
 After 0.30.4, the 21: 7 clean, 4 warned, 10 no fields, 0 lost; the whole file of
 63: 31 clean, 7 warned, 25 no fields, 0 lost; round trip 0 drift.

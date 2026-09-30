@@ -962,6 +962,15 @@ def _parse_distributed_list(text: str,
     return ranges
 
 
+_MONTH_DAY_END_RE = re.compile(r"(?:^|[\s(\[;,])([A-Za-z]+\.?)\s*(\d{1,2})$")
+
+
+def _ends_with_month_day(text: str) -> bool:
+    """Whether text ends with a month and a day: "Oct. 4", "Jun 17"."""
+    m = _MONTH_DAY_END_RE.search(text)
+    return bool(m) and chron_unit_code(m.group(1)) is not None
+
+
 def _split_ranges(text: str) -> List[str]:
     """
     Split a holdings string into individual range strings.
@@ -1020,6 +1029,12 @@ def _split_ranges(text: str) -> List[str]:
                     or at_end):
                 continue
             if _is_designation_prefix(text[segment_start:i], after):
+                continue
+            # The comma of a date, "Dec. 16, 1887": a month and a day before
+            # it, the year after. Cut there, "1887" was read as a holding of
+            # its own and the rest of the statement skipped, so a list of
+            # four dates wrote "$i 1887" -- a part written from a whole.
+            if ch == "," and followed_by_year and _ends_with_month_day(before):
                 continue
             candidates.append(i)
             segment_start = i + 1
@@ -2060,6 +2075,22 @@ def _looks_like_863_values(text: str) -> bool:
     return bool(m) and len(re.findall(r"\d+", text[m.end("link"):])) >= 2
 
 
+# A date written the way prose writes it, "Jun. 17, 1880" or "Jun. 1887",
+# alone or in a list: "Jun. 17, 1880; Oct. 4, 1883; Jun. 1887; Dec. 16, 1887"
+# (D48). Each is a single issue, not a run, and the statement is held whole.
+_PROSE_DATE_RE = re.compile(r"^([A-Za-z]+\.?)\s*(?:(\d{1,2})\s*,?\s*)?(\d{4})$")
+
+
+def _prose_dates(text: str) -> List[str]:
+    """The dates, when every part of text is one; otherwise []."""
+    parts = [p.strip() for p in re.split(r";|,(?!\s*\d{4})", text) if p.strip()]
+    for part in parts:
+        m = _PROSE_DATE_RE.match(part)
+        if not m or chron_unit_code(m.group(1)) is None:
+            return []
+    return parts
+
+
 def _parse_degenerate(text: str) -> ParseResult:
     """
     Last resort for single-value statements that neither grammar accepts:
@@ -2105,6 +2136,18 @@ def _parse_degenerate(text: str) -> ParseResult:
             "statement. What each number counts was in an 853 that is not "
             "part of the text, so nothing was converted. Rewrite the 866 as a "
             "statement (Edit), or enter the 853 and 863 by hand."
+        )
+        return result
+    dates = _prose_dates(text)
+    if dates:
+        what = (f"a list of {len(dates)} single dates" if len(dates) > 1
+                else "a single date")
+        result.warnings.append(
+            f"This is {what} written as prose, not a run of holdings. A date "
+            "is one issue and could be its own 863 ($i year, $j month, $k "
+            "day), but the parser does not read dates written this way, so "
+            "nothing was converted rather than record part of it. Enter the "
+            "863s by hand."
         )
         return result
     result.warnings.append(
