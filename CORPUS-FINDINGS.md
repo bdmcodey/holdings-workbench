@@ -2762,6 +2762,50 @@ open end inside the end unit, `v.1(1990)-v.5(1994-)`, has nowhere to go and
 is held too. Measured on all 1,137 statements in the three corpora and the
 real export: none converts differently.
 
+## Other collections · **0.30.4**
+
+*30 September 2026.* 21 more outside statements, gathered by the cataloguer
+from several catalogues, added as a section of
+`data/outside_catalog_examples.txt` (now 63). Not all of them are defects when
+they do not convert: some follow other conventions, and are here to show how
+holdings appear elsewhere and that the tool stops without misreading.
+
+Measured before any change, the 21: 7 clean, 3 warned, 10 no fields, **1 lost
+silently**; round trip 0 drift.
+
+**D40 — a month run into its year · fixed.**
+`v.23,no.1(Sept.1932)-v.33,no.10(June 1943);...` wrote `$a 23-33 $b 1-10
+$j 06`: `Sept.1932` has no space after the full stop, the date reader took it
+for a year it could not be, both years were dropped, and the end's month was
+written as the month of the whole run. The one silent loss, and a misreading,
+so fixed on arrival: an abbreviation's full stop may stand for the space. The
+first run now reads `$i 1932-1943 $j 09-06`. Of all 1,158 statements in the
+three corpora and the real export, only this one converts differently.
+
+Open, each held or warned rather than misread:
+
+- **D39 — a full stop ending the statement** (4): `v.89,pt.1(1969)-v.96,pt.3(Dec.1972).`
+  is refused for the full stop alone, and in the D40 statement the second run
+  is skipped for it (flagged). The ISBD habit of ending with a full stop.
+- **D41 — dates in angle brackets** (3): `(<1884:6:28><1890:5:9><1907:4:11>)`.
+  Another notation; held.
+- **D42 — a note after the holdings** (2): `(Incomplete)`, `in film; Cancelled.`
+- **D43 — a series prefix** (1): `n.s. v.1, ... ; 3d. ser. v.1, ...`
+- **D44 — a supplied designation in square brackets** (1): `[Vol. 1, issue 1] June 5-11, 2000-...`
+- **D45 — a caption run into the value before it** (1): `v.27no.2` reads as
+  the value `27n`; refused whole.
+- **D29 again** (1): `(Dec. 1920/Mar. 1921)`, one issue spanning two years. The
+  year is left out and named, but `$j 04` is written from the start alone,
+  which is worth a second look.
+- **D47 — quarters as words** (1): `(1907:1st quarter)`. Chronology left out, warned.
+- **D48 — a list of single dates with days** (1):
+  `Jun. 17, 1880; Oct. 4, 1883; Jun. 1887; Dec. 16, 1887` writes `$i 1887`
+  and skips the rest (flagged "to check"). Nothing is silent, but it is a
+  part written from a whole, which the parser otherwise refuses to do.
+
+After 0.30.4, the 21: 7 clean, 4 warned, 10 no fields, 0 lost; the whole file of
+63: 31 clean, 7 warned, 25 no fields, 0 lost; round trip 0 drift.
+
 ## Requested, not yet started
 
 Raised 1 September 2026 alongside D15–D18, recorded here so they are not lost.

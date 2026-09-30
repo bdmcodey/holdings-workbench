@@ -27,7 +27,7 @@ OUTSIDE = REPO_ROOT / "data" / "outside_catalog_examples.txt"
 
 def test_every_tag_still_describes_what_happens():
     entries = load_corpus(OUTSIDE)
-    assert len(entries) == 42
+    assert len(entries) == 63
     for entry in entries:
         observed = Outcome(entry).status
         expected = entry.status or "ok"
@@ -115,3 +115,24 @@ def test_863_values_written_as_text_are_named_as_such(statement):
 def test_other_refusals_keep_their_own_messages(statement):
     _, warnings = _fields(statement)
     assert not any("863 written out as text" in w for w in warnings)
+
+
+# ── A month run into its year (D40, 0.30.4) ──────────────────────────────────
+
+@pytest.mark.parametrize("statement, fields", [
+    ("v.23,no.1(Sept.1932)-v.33,no.10(June 1943)",
+     ["$a 23-33 $b 1-10 $i 1932-1943 $j 09-06"]),
+    ("v.3,no.1(Jan.1918)-v.8,no.3(May 1923)",
+     ["$a 3-8 $b 1-3 $i 1918-1923 $j 01-05"]),
+    ("v.89,pt.1(1969)-v.96,pt.3(Dec.1972)",
+     ["$a 89-96 $b 1-3 $i 1969-1972"]),
+])
+def test_a_month_written_against_its_year_is_read(statement, fields):
+    """
+    "Sept.1932" was taken for a year it could not be, and dropped, and the
+    end's month was written as the month of the whole run: "$j 06" for
+    Sept. 1932 to June 1943, with no year at all.
+    """
+    got, _ = _fields(statement)
+    assert got == fields
+    assert _fields(statement.replace(".1", ". 1"))[0] == got
