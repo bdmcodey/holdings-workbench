@@ -1,6 +1,6 @@
 # How the Holdings Workbench Works
 
-*Written for librarians and cataloguers. Describes version 0.30.6.*
+*Written for librarians and cataloguers. Describes version 0.31.0.*
 
 The Holdings Workbench turns the free-text holdings in MARC 866 fields into structured 853 caption/pattern and 863 enumeration/chronology fields, and asks a cataloguer to confirm anything it cannot be sure of. This guide explains how, for librarians rather than programmers.
 
@@ -289,6 +289,14 @@ The rule the whole tool is built around: every value in an 866 is either written
 
 "To check" and "held" are different. A statement to check has been converted, and the warning tells you what to look at. A held statement hasn't been converted at all, and its 866 is left in place.
 
+### The notation an 866 declares
+
+An 866's second indicator says what notation its text is written in: 0 non-standard, 1 Z39.71 (or its international equivalent, ISO 10324), 2 the older Z39.42, and 7 a notation named in `$2`, such as `usnp` for the US Newspaper Program. The tool reads Z39.71, and it reads every statement the same way whatever the 866 declares, so a wrong indicator or `$2` never costs a statement that reads well. It does say something, in yellow and in the log, in three cases:
+
+- The 866 declares a notation other than Z39.71 in `$2`.
+- The 866 declares `usnp`, but the text doesn't look like it.
+- The text looks like US Newspaper Program notation, with dates as `[year:month:day]`, but the 866 doesn't declare it.
+
 ### Records the tool leaves alone
 
 - **A record with its own 863s** is kept exactly as it is (`has 863s · kept`), unless you tick "Clear existing 853 / 863 first". In the 372-record test export, 13 records had hand-entered 853s and 863s. Before this rule, 38 of their 863s were overwritten.
@@ -368,9 +376,9 @@ The log is built from the same summary as the conversion, so it describes exactl
 
 Four checks run before any change is released, and each answers a different question.
 
-| Check | Question it answers | Result as of 0.30.6 |
+| Check | Question it answers | Result as of 0.31.0 |
 | --- | --- | --- |
-| Automated tests | Does every behaviour described here still hold? | 886 passed, 8 skipped |
+| Automated tests | Does every behaviour described here still hold? | 897 passed, 8 skipped |
 | Corpus report | What do 117 real 866 statements convert to, and has any outcome changed? | 90 clean (77%), 22 converted with a warning, 5 with no fields, 0 with values lost |
 | Conversion audit | Did any number in a statement reach no field and no warning? | 0 unaccounted for: the corpus, the LC examples, the other library's catalogue, and all 1,057 statements of the 372-record test export |
 | Round trip | Convert, write the 866 as Alma would, convert again: do the same 863s come back? | Test export: 938 identical, 106 identical apart from an 853 caption, 11 not converted, **0 drift** |
