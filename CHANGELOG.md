@@ -15,6 +15,12 @@ more than one release; numbering resumed with 0.6.1. Reasoning behind the
 parser and converter decisions, including the defects a real corpus exposed and
 what was done about each, is in [CORPUS-FINDINGS.md](CORPUS-FINDINGS.md).
 
+## 0.31.1 — 2026-09-30
+
+Patterns found from pasted statements are shown open, with their expressions, instead of folded away.
+
+- **MARC Serials Toolkit** — When you paste statements into step 1 instead of uploading a file, there is no Convert step, so the patterns are the only result to look at. After Find patterns they now stay open, with every group unfolded and each pattern's regular expression and Copy button in view. With an uploaded file nothing changes: when no pattern needs a decision, the step still folds to one line so Convert is in view.
+
 ## 0.31.0 — 2026-09-30
 
 Each 866's declared notation (its second indicator and $2) is now noted where it matters, without changing what is converted.

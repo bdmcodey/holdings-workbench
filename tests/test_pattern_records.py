@@ -91,3 +91,15 @@ def test_the_pattern_filter_reads_the_right_set_for_each_mode():
     assert matcher, "the one-pattern filter has moved or been renamed"
     assert "patternFilter.mode === 'converted'" in matcher.group(0)
     assert "entry.sources" in matcher.group(0)
+
+
+def test_a_run_from_pasted_statements_shows_its_patterns_open():
+    """
+    Pasted statements have no Convert step, so the patterns are all there is to
+    see: a run from the text box leaves step 2 and its folds open. A run from a
+    file still folds when nothing asks a decision, to put Convert in view.
+    """
+    run = re.search(r"async function runDetect.*?\n}\n", _page(), re.S).group(0)
+    assert "const fromPaste = pastedStatements().length > 0;" in run
+    assert "patternFolds.confirmed = patternFolds.readable" in run
+    assert "setPatternsCollapsed(!fromPaste && !partitionGroups" in run

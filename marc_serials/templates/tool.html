@@ -2600,10 +2600,17 @@ async function runDetect() {
     // rather than wherever the last run had got to.
     patternOffset = 0;
     await autoConfirm(data.groups);
+    // Pasted statements have no Convert step: the patterns are all there is
+    // to see, and someone trying out a statement wants its pattern and its
+    // expression. So a run from the text box shows them open, folds and all.
+    const fromPaste = pastedStatements().length > 0;
+    if (fromPaste) {
+      patternFolds.confirmed = patternFolds.readable = patternFolds.complex = true;
+    }
     renderPatterns(data);
-    // Nothing here asks anything, so fold it and put Convert in view. If
-    // something does need deciding, that is the work -- stay open on it.
-    setPatternsCollapsed(!partitionGroups(data.groups).open.length);
+    // From a file: nothing here asks anything, so fold it and put Convert in
+    // view. If something does need deciding, that is the work -- stay open.
+    setPatternsCollapsed(!fromPaste && !partitionGroups(data.groups).open.length);
   } catch (err) {
     showAlert(errBox, err.message, 'err');
   } finally {
