@@ -1136,8 +1136,11 @@ def _parse_chron_single(raw: str,
     if m:
         return normalise_year(m.group(1)), _chron_unit_value(m.group(2)), None
 
-    # Mon. YYYY or Season YYYY (chron before year)
-    m = re.match(rf"([A-Za-z./]+(?:\s+[A-Za-z./]+)?)\s*[:\s]\s*({_YEAR_TOKEN})$", raw)
+    # Mon. YYYY or Season YYYY (chron before year). An abbreviation's full
+    # stop may take the place of the space: "Sept.1932", "Jan.1918", as some
+    # catalogues write it. Without that, "Sept.1932" was taken for a year it
+    # could not be, and in a range the other end's month was written alone.
+    m = re.match(rf"([A-Za-z./]+(?:\s+[A-Za-z./]+)?)(?:\s*[:\s]\s*|(?<=\.))({_YEAR_TOKEN})$", raw)
     if m:
         return normalise_year(m.group(2)), _chron_unit_value(m.group(1)), None
 

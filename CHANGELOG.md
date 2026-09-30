@@ -15,6 +15,12 @@ more than one release; numbering resumed with 0.6.1. Reasoning behind the
 parser and converter decisions, including the defects a real corpus exposed and
 what was done about each, is in [CORPUS-FINDINGS.md](CORPUS-FINDINGS.md).
 
+## 0.30.4 — 2026-09-30
+
+A month written straight against its year ("Sept.1932") is read; before, the year was lost and a month could be recorded wrongly.
+
+- **MARC Serials Toolkit** — Some catalogues leave out the space after an abbreviated month: "v.23,no.1(Sept.1932)-v.33,no.10(June 1943)". The date was not recognised, so both years were left out, and the end's month was written as if it were the month of the whole run ($j 06). It now converts to $a 23-33 $b 1-10 $i 1932-1943 $j 09-06, the same as with the space. Of all the statements in the test collections and the test export, this is the only one that converts differently.
+
 ## 0.30.3 — 2026-09-25
 
 A warning that needs a decision is now orange and headed "To check:", so it stands apart from warnings that are only for the log.

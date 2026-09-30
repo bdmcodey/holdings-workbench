@@ -520,6 +520,15 @@ DEFECTS = {
     "D36": "a combined first volume opening a range (v.1/2-53)",
     "D37": "issue numbers with a thousands comma (no.28,693)",
     "D38": "a range closing at the wrong level, as written (warned)",
+    "D39": "a full stop ending the statement",
+    "D40": "a month run into its year with no space (Sept.1932), fixed 0.30.4",
+    "D41": "dates in angle brackets (<1884:6:28>), another notation",
+    "D42": "a note after the holdings ((Incomplete), in film; Cancelled.)",
+    "D43": "a series prefix before the volume (n.s., 3d. ser.)",
+    "D44": "a supplied designation in square brackets ([Vol. 1, issue 1])",
+    "D45": "a caption run into the value before it (v.27no.2)",
+    "D47": "quarters written as words (1st quarter)",
+    "D48": "a list of single dates with days",
 }
 
 

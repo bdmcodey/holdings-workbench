@@ -1,13 +1,16 @@
-# Another library's catalogue (866 $a text only)
+# Other libraries' catalogues (866 $a text only)
 # ==============================================
 #
-# 42 summary holdings statements transcribed from the public catalogue of a
-# library other than the one the tool was built for, chosen by the maintainer
-# for how messy they are. Like data/lc_holdings_examples.txt, they are kept
+# 63 summary holdings statements from libraries other than the one the tool
+# was built for, chosen by the maintainer for how messy they are: 42 from one
+# public catalogue, then 21 gathered from other collections (the last
+# section). Like data/lc_holdings_examples.txt, they are kept
 # apart from the main corpus so that how the parser does on statements it was
 # not shaped around can be read on its own. The two files are different
 # measures: LC's examples show the standard, these show a real catalogue that
-# does not always follow it.
+# does not always follow it. Not every statement here is a defect when it does
+# not convert: some follow other notations, and are here to show where the
+# tool stops, and that it stops without misreading.
 #
 # Statement text only: no titles, no record numbers, no identifiers of any
 # kind. Several are plainly not holdings statements ("undefined", "2016 ed.")
@@ -81,3 +84,31 @@ v. 1// 1948-1949//                                              # fail:D34
 undefined                                                       # fail:D35
 2016 ed.                                                        # fail:D35
 11 v.1-34 in 1v.                                                # fail:D35
+
+
+[section: other collections]
+# 21 statements gathered from several other catalogues (0.30.4). Some follow
+# other conventions -- dates in angle brackets, a supplied designation in
+# square brackets, series prefixes -- and are kept to show how holdings appear
+# elsewhere, not as a list of things the tool must read.
+[Vol. 1, issue 1] June 5-11, 2000-v. 3, issue no. 40 (Oct. 7-13, 2002)  # fail:D44
+(<1884:6:28><1890:5:9><1907:4:11>)                              # fail:D41
+vol.1:no.1(1900:Oct.)-vol.21:no.12(1921:Sept.),
+1964:Jan.-1996:Mar.
+1888-1889, 1913-1919
+n.s. v.1, no. 1 (July 1843)-n.s. v. 12, no. 9 (Apr. 1866); 3d. ser. v.1 , no. 1 (July 1866)-3d. ser. v. 2, no. 5 (June 1867)  # fail:D43
+v.27no.2-v.53no.4,Feb.1954-Oct.1980 in film; Cancelled.         # fail:D45
+(<1981:1:7-12:30>)                                              # fail:D41
+(<1981:1:1-12:31>)                                              # fail:D41
+vol. 1, no. 1 (Apr. 1906)-vol. 15, no. 5/6 (Dec. 1920/Mar. 1921)  # warn:D29
+v.3,no.1(Jan.1918)-v.8,no.3(May 1923). (Incomplete)             # fail:D42
+v.11:no.2(1983:June)-v.30:no.2(2002:Summer)
+Jun. 17, 1880; Oct. 4, 1883; Jun. 1887; Dec. 16, 1887           # warn:D48
+v.1:no.1(1907:1st quarter)-v.29:no.4(1935:4th quarter)          # warn:D47
+v.23,no.1(Sept.1932)-v.33,no.10(June 1943);v.34,no.1(Sept.1943)-v.59(June 1969).  # warn:D39
+v.89,pt.1(1969)-v.96,pt.3(Dec.1972).                            # fail:D39
+vol.1:no.1(1962:July)-vol.39:no.2(2000:Spring),
+vol.40:no.1(2001:Winter)-vol.41:no.1(2002:Winter),
+vol.41:no.3(2002:Summer)-vol.47:no.4(2008:Fall);
+Vol. 3, no. 1 (fall 1969)-v. 16, no. 6 (June 1983).             # fail:D39
+v.5,no.17(Summer 1964)-v.8,no.30(Winter 1967/68).               # fail:D39
