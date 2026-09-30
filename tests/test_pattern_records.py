@@ -100,6 +100,25 @@ def test_a_run_from_pasted_statements_shows_its_patterns_open():
     file still folds when nothing asks a decision, to put Convert in view.
     """
     run = re.search(r"async function runDetect.*?\n}\n", _page(), re.S).group(0)
-    assert "const fromPaste = pastedStatements().length > 0;" in run
+    assert "const fromPaste = sourceMode === 'paste';" in run
     assert "patternFolds.confirmed = patternFolds.readable" in run
     assert "setPatternsCollapsed(!fromPaste && !partitionGroups" in run
+
+
+def test_the_source_is_a_file_or_pasted_statements_never_both():
+    """
+    Asked for by the cataloguer: patterns found from pasted text while Convert
+    worked on a file were two sources on one screen. The last one chosen wins:
+    an upload clears the text box, and "Use these statements" sets the file
+    aside, Convert and the patterns found from it with it.
+    """
+    page = _page()
+    upload = re.search(r"async function uploadMarcFile.*?\n}\n", page, re.S).group(0)
+    assert "sourceMode    = 'file';" in upload
+    assert "document.getElementById('stmt-input').value = '';" in upload
+    use = re.search(r"getElementById\('btn-use-text'\)\.addEventListener.*?\n}\);", page, re.S).group(0)
+    assert "if (sourceMode === 'file') setFileAside();" in use
+    aside = re.search(r"function setFileAside\(\).*?\n}\n", page, re.S).group(0)
+    assert "allRecords = [];" in aside and "allStatements = [];" in aside
+    detect = re.search(r"function statementsForDetection\(\).*?\n}\n", page, re.S).group(0)
+    assert "sourceMode === 'paste' ? pastedStatements() : allStatements" in detect

@@ -17,9 +17,10 @@ what was done about each, is in [CORPUS-FINDINGS.md](CORPUS-FINDINGS.md).
 
 ## 0.31.1 — 2026-09-30
 
-Patterns found from pasted statements are shown open, with their expressions, instead of folded away.
+Holdings come from a file or from pasted statements, never both at once; patterns found from pasted statements are shown open.
 
 - **MARC Serials Toolkit** — When you paste statements into step 1 instead of uploading a file, there is no Convert step, so the patterns are the only result to look at. After Find patterns they now stay open, with every group unfolded and each pattern's regular expression and Copy button in view. With an uploaded file nothing changes: when no pattern needs a decision, the step still folds to one line so Convert is in view.
+- **MARC Serials Toolkit** — Step 1 is now either a file or pasted statements, not both. It used to be possible to upload a file and also paste statements: Find patterns then used the pasted ones while Convert worked on the file. Now the last one you choose wins. Uploading a file clears the text box. Clicking "Use these statements" sets a loaded file aside, and its records, Convert step and patterns go with it; uploading again brings a file back. If you type in the box while a file is loaded, a note says that "Use these statements" is how to switch.
 
 ## 0.31.0 — 2026-09-30
 
