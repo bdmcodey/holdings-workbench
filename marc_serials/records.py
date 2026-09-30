@@ -16,6 +16,7 @@ reasoning is how the reasoning stops being followed.
 from __future__ import annotations
 
 import io
+import re
 from typing import Optional
 
 from pymarc import MARCReader, MARCWriter, Subfield
@@ -211,6 +212,48 @@ def summarise_866(f) -> dict:
                    + (f" $z {subfield_z}" if subfield_z else "")
                    + (f" $x {subfield_x}" if subfield_x else ""),
     }
+
+
+# ── The notation an 866 declares ─────────────────────────────────────────────
+#
+# An 866's second indicator says what notation its $a is written in: 0
+# non-standard, 1 Z39.71 or ISO 10324, 2 the older Z39.42, 7 the one its $2
+# names ("usnp", the US Newspaper Program's). The tool reads Z39.71 and never
+# lets the declaration decide what it reads: a declaration and the text can
+# disagree, and a wrong indicator must not cost a statement that reads
+# perfectly well. So this only says something, for the log, where saying it
+# helps: a notation other than Z39.71 declared, or text that looks like the
+# Newspaper Program's without saying so.
+
+# The Newspaper Program's dates: year:month:day in square brackets,
+# "[1844:7:10]", "m,s=[1955:8:11-1956:11:22]".
+_USNP_LOOK_RE = re.compile(r"\[\s*\d{4}:\d{1,2}(?::\d{1,2})?")
+
+
+def notation_note(field) -> Optional[str]:
+    """A note on the notation this 866 declares, or None when there is none to make."""
+    text = field.get("a") or ""
+    source = (field.get("2") or "").strip()
+    looks_usnp = bool(_USNP_LOOK_RE.search(text))
+    declared_usnp = source.lower() == "usnp"
+
+    if looks_usnp and not declared_usnp:
+        return ("This statement looks like US Newspaper Program notation "
+                "(dates as [year:month:day]), but its 866 does not say so; "
+                "an 866 in that notation has second indicator 7 and $2 usnp. "
+                "The tool reads Z39.71, not that notation.")
+    if declared_usnp and not looks_usnp:
+        return ("This 866 declares US Newspaper Program notation ($2 usnp), "
+                "but the statement does not look like it, and was read as "
+                "Z39.71. Worth checking which is right.")
+    if declared_usnp:
+        return ("This 866 declares US Newspaper Program notation ($2 usnp). "
+                "The tool reads Z39.71, not that notation.")
+    if source:
+        return (f"This 866 declares its notation as '{source}' ($2). The tool "
+                "reads Z39.71 and read the statement that way; check the "
+                f"result against '{source}'.")
+    return None
 
 
 # The subfields a cataloguer may correct in the Workbench: the holdings

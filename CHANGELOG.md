@@ -15,6 +15,12 @@ more than one release; numbering resumed with 0.6.1. Reasoning behind the
 parser and converter decisions, including the defects a real corpus exposed and
 what was done about each, is in [CORPUS-FINDINGS.md](CORPUS-FINDINGS.md).
 
+## 0.31.0 — 2026-09-30
+
+Each 866's declared notation (its second indicator and $2) is now noted where it matters, without changing what is converted.
+
+- **MARC Serials Toolkit** — An 866's second indicator says what notation its text is written in, and indicator 7 names it in $2 ("usnp" for the US Newspaper Program). The tool reads Z39.71 and still reads every statement the same way whatever is declared, so a wrong indicator or $2 costs nothing. What is new is a note, shown on the statement in yellow and written to the log: when an 866 declares a notation other than Z39.71 in $2; when it declares usnp but the text does not look like it; and when the text looks like US Newspaper Program notation (dates as [year:month:day]) but the 866 does not declare it. None of the 1,057 866s in the test export gets a note.
+
 ## 0.30.6 — 2026-09-30
 
 A list of single dates written as prose ("Jun. 17, 1880; Oct. 4, 1883") is held whole instead of recording only the last year.

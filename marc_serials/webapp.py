@@ -82,6 +82,7 @@ from marc_serials.records import (
     encoding_level_differs,
     encoding_level_summary,
     existing_853_notes,
+    notation_note,
     existing_863_count,
     kept_existing_note,
     single_part_conflict,
@@ -463,6 +464,12 @@ def _review_row(record, index, *, patterns, fallback, conv_opts, captions,
         # Which 866 this is on the record, for its Edit button.
         preview["field_index"] = next(i for i, f in enumerate(all_866s)
                                       if f is field)
+        # Said, never acted on: the declared notation does not decide what is
+        # read, so a wrong indicator costs nothing. Not in "attention", so it
+        # asks no decision and stays yellow.
+        note = notation_note(field)
+        if note and note not in preview["warnings"]:
+            preview["warnings"].append(note)
     row["record_notes"] += rc.record_notes
 
     row["converted"] = sum(1 for p in previews if p["fields_863"])
@@ -1586,7 +1593,8 @@ def _apply_one_decision(record, decision: dict, patterns: list) -> tuple:
     The record has to be freshly read from the upload: a decision says what the
     record should end up as, not what to add to whatever is on it already.
 
-    Returns (result, previews, sources, statements).
+    Returns (result, previews, sources, statements, and the 866 each
+    statement came from, or None where it was edited on screen).
     """
     conversions_input = decision.get("conversions", [])
 
@@ -1629,7 +1637,7 @@ def _apply_one_decision(record, decision: dict, patterns: list) -> tuple:
         _remove_converted_866s(record, sources_866, rc)
 
     return (rc, _previews_from(rc, rejections, (), sources, patterns), sources,
-            texts)
+            texts, sources_866)
 
 
 def _rebuild_converted(decisions: dict, previews_for: Optional[int] = None):
@@ -1747,7 +1755,7 @@ def _rebuild_converted(decisions: dict, previews_for: Optional[int] = None):
             notes_853 = [] if clears else existing_853_notes(record)
 
             if decision is not None:
-                rc, record_previews, sources, texts = _apply_one_decision(
+                rc, record_previews, sources, texts, fields = _apply_one_decision(
                     record, decision, patterns)
                 if rec_idx == previews_for:
                     previews = record_previews
@@ -1763,7 +1771,7 @@ def _rebuild_converted(decisions: dict, previews_for: Optional[int] = None):
                     "own_decision": True,
                     "warnings": notes_853 + rc.warnings,
                     "record_notes": notes_853 + rc.record_notes,
-                    "statements": _statement_report(texts, rc),
+                    "statements": _statement_report(texts, rc, fields),
                 })
                 continue
 
@@ -1812,7 +1820,7 @@ def _rebuild_converted(decisions: dict, previews_for: Optional[int] = None):
                 "needs_review": rc.needs_review,
                 "warnings": notes_853 + rc.warnings,
                 "record_notes": notes_853 + rc.record_notes,
-                "statements": _statement_report(statements, rc),
+                "statements": _statement_report(statements, rc, sources_866),
             })
         except Exception as exc:
             app.logger.exception("Record %s could not be converted", rec_idx + 1)
@@ -1858,11 +1866,18 @@ def _rebuild_converted(decisions: dict, previews_for: Optional[int] = None):
     }
 
 
-def _statement_report(texts, rc) -> list:
+def _statement_report(texts, rc, fields=()) -> list:
     """Each statement a record was converted from, and what was said about it."""
-    return [{"text": text, "converted": bool(result.fields_863),
-             "warnings": list(result.warnings)}
-            for text, result in zip(texts, rc.results)]
+    report = [{"text": text, "converted": bool(result.fields_863),
+               "warnings": list(result.warnings)}
+              for text, result in zip(texts, rc.results)]
+    # The notation each 866 declares, as the review screen says it.
+    for entry, field in zip(report, fields):
+        # None for a statement edited on screen, which no field matches.
+        note = notation_note(field) if field is not None else None
+        if note and note not in entry["warnings"]:
+            entry["warnings"].append(note)
+    return report
 
 
 # The session log: what a cataloguer may need to find again in the ILS or

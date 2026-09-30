@@ -2817,6 +2817,26 @@ Open, each held or warned rather than misread:
 After 0.30.4, the 21: 7 clean, 4 warned, 10 no fields, 0 lost; the whole file of
 63: 31 clean, 7 warned, 25 no fields, 0 lost; round trip 0 drift.
 
+## The notation an 866 declares · **0.31.0**
+
+*30 September 2026.* Asked for by the cataloguer, after the outside statements
+showed notations other than Z39.71: could the tool recognise one, rather than
+try patterns on it? MARC already says: an 866's second indicator names the
+notation of its $a (0 non-standard, 1 Z39.71 or ISO 10324, 2 Z39.42, 7 named in
+$2). In the real export the 48 ILS-generated 866s are coded 1 and the 1,006
+hand-typed ones 0; none has $2.
+
+The condition: a declaration that disagrees with the text must break nothing.
+So the declaration decides nothing; every statement is read as before. A note
+is added to the statement's warnings, outside "attention" (yellow, log only),
+when $2 names a notation, when $2 is usnp and the text does not look like it,
+and when the text looks like the US Newspaper Program's -- `[year:month:day]`
+in square brackets -- without $2 usnp. That look matches exactly LC's two
+$2usnp statements among all 1,158 in the corpora and the real export, and the
+real export gets no note on any of its 1,057 866s. The angle-bracket dates of
+D41 (`<1884:6:28>`) are not treated as the Newspaper Program's: nothing here
+says whose they are.
+
 ## Requested, not yet started
 
 Raised 1 September 2026 alongside D15–D18, recorded here so they are not lost.
