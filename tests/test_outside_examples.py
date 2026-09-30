@@ -173,3 +173,29 @@ def test_other_full_stops_are_still_held(statement):
     got, warnings = _fields(statement)
     assert got == []
     assert warnings
+
+
+# ── Single dates written as prose (D48, 0.30.6) ──────────────────────────────
+
+@pytest.mark.parametrize("statement, count", [
+    ("Jun. 17, 1880; Oct. 4, 1883; Jun. 1887; Dec. 16, 1887", 4),
+    ("Jun. 17, 1880", 1),
+    ("Mar 1990, Apr 1991", 2),
+])
+def test_prose_dates_are_held_whole_and_named(statement, count):
+    """
+    The list wrote "$i 1887" and skipped the rest: the comma of "Dec. 16,
+    1887" was cut as a gap. Nothing is written from it now, and the note says
+    what it is.
+    """
+    got, warnings = _fields(statement)
+    assert got == []
+    what = f"a list of {count} single dates" if count > 1 else "a single date"
+    assert warnings == [warnings[0]] and what in warnings[0]
+
+
+def test_the_comma_of_a_date_is_not_a_gap_but_others_still_are():
+    from marc_serials.parser import _split_ranges
+    assert _split_ranges("Dec. 16, 1887") == ["Dec. 16, 1887"]
+    assert _split_ranges("v.1 (1990), 1992") == ["v.1 (1990)", "1992"]
+    assert _split_ranges("v. 4, 1990") == ["v. 4", "1990"]

@@ -528,7 +528,7 @@ DEFECTS = {
     "D44": "a supplied designation in square brackets ([Vol. 1, issue 1])",
     "D45": "a caption run into the value before it (v.27no.2)",
     "D47": "quarters written as words (1st quarter)",
-    "D48": "a list of single dates with days",
+    "D48": "single dates written as prose (held, named, 0.30.6)",
 }
 
 

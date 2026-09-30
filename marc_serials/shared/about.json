@@ -1,6 +1,6 @@
 {
   "name": "MARC Serials Toolkit",
-  "version": "0.30.5",
+  "version": "0.30.6",
   "released": "2026-09-30",
   "status": "Proof of concept — under active development. Check your output before loading it into the catalog.",
   "description": "One tool for MARC serials holdings. Upload a MARC file, find the patterns in its 866 statements, confirm what each part of a pattern means, and convert to structured 853 caption/pattern and 863 enumeration/chronology fields. Statements no pattern matches are converted by the standard parser.",
@@ -9,6 +9,17 @@
   "contact": "Matthew Codey, codey@usc.edu",
   "_comment": "Written for cataloging staff, not developers. Say what changed about the output or the screen, not how the code changed. Newest version first.",
   "changelog": [
+    {
+      "version": "0.30.6",
+      "date": "2026-09-30",
+      "summary": "A list of single dates written as prose (\"Jun. 17, 1880; Oct. 4, 1883\") is held whole instead of recording only the last year.",
+      "changes": [
+        {
+          "tool": "MARC Serials Toolkit",
+          "text": "\"Jun. 17, 1880; Oct. 4, 1883; Jun. 1887; Dec. 16, 1887\" used to convert to a single 863, $i 1887, with the rest skipped: the comma in \"Dec. 16, 1887\" was taken for a gap between two holdings. The comma of a date is no longer read as a gap, and a statement made only of dates written this way is now held, with a note saying it is a list of single dates and that each would need its own 863, entered by hand. A lone \"Jun. 17, 1880\", which recorded just $i 1880, is held the same way. Nothing else in the test collections or the test export changes."
+        }
+      ]
+    },
     {
       "version": "0.30.5",
       "date": "2026-09-30",
