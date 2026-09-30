@@ -105,10 +105,10 @@ v.3,no.1(Jan.1918)-v.8,no.3(May 1923). (Incomplete)             # fail:D42
 v.11:no.2(1983:June)-v.30:no.2(2002:Summer)
 Jun. 17, 1880; Oct. 4, 1883; Jun. 1887; Dec. 16, 1887           # warn:D48
 v.1:no.1(1907:1st quarter)-v.29:no.4(1935:4th quarter)          # warn:D47
-v.23,no.1(Sept.1932)-v.33,no.10(June 1943);v.34,no.1(Sept.1943)-v.59(June 1969).  # warn:D39
-v.89,pt.1(1969)-v.96,pt.3(Dec.1972).                            # fail:D39
+v.23,no.1(Sept.1932)-v.33,no.10(June 1943);v.34,no.1(Sept.1943)-v.59(June 1969).  # warn:D2
+v.89,pt.1(1969)-v.96,pt.3(Dec.1972).                            # warn:D16
 vol.1:no.1(1962:July)-vol.39:no.2(2000:Spring),
 vol.40:no.1(2001:Winter)-vol.41:no.1(2002:Winter),
 vol.41:no.3(2002:Summer)-vol.47:no.4(2008:Fall);
-Vol. 3, no. 1 (fall 1969)-v. 16, no. 6 (June 1983).             # fail:D39
-v.5,no.17(Summer 1964)-v.8,no.30(Winter 1967/68).               # fail:D39
+Vol. 3, no. 1 (fall 1969)-v. 16, no. 6 (June 1983).
+v.5,no.17(Summer 1964)-v.8,no.30(Winter 1967/68).

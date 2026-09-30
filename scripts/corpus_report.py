@@ -520,7 +520,7 @@ DEFECTS = {
     "D36": "a combined first volume opening a range (v.1/2-53)",
     "D37": "issue numbers with a thousands comma (no.28,693)",
     "D38": "a range closing at the wrong level, as written (warned)",
-    "D39": "a full stop ending the statement",
+    "D39": "a full stop ending the statement, fixed 0.30.5",
     "D40": "a month run into its year with no space (Sept.1932), fixed 0.30.4",
     "D41": "dates in angle brackets (<1884:6:28>), another notation",
     "D42": "a note after the holdings ((Incomplete), in film; Cancelled.)",

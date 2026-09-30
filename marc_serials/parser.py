@@ -2001,8 +2001,17 @@ def parse_866(text: str) -> ParseResult:
     return result
 
 
+# A full stop ending a statement, as ISBD-style summaries end theirs:
+# "v.89,pt.1(1969)-v.96,pt.3(Dec.1972)." It is punctuation, not holdings, and
+# the whole statement was refused for it ("could not account for '.'"). Only
+# one, and only after a closing parenthesis, a number or an open end: after a
+# letter it is an abbreviation's own ("no.", "Dec.") and stays.
+_FINAL_FULL_STOP_RE = re.compile(r"(?<=[)\d-])\s*\.\s*$")
+
+
 def _read_segment(seg: str, result: "ParseResult", notes: List[str]) -> None:
     """Read one segment of a statement into `result`, as parse_866 always has."""
+    seg = _FINAL_FULL_STOP_RE.sub("", seg)
     seg_notes: List[str] = []
 
     # A segment listing several discontinuous runs is several ranges, and

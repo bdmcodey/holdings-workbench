@@ -136,3 +136,40 @@ def test_a_month_written_against_its_year_is_read(statement, fields):
     got, _ = _fields(statement)
     assert got == fields
     assert _fields(statement.replace(".1", ". 1"))[0] == got
+
+
+# ── A full stop ending the statement (D39, 0.30.5) ───────────────────────────
+
+@pytest.mark.parametrize("statement, fields", [
+    ("Vol. 3, no. 1 (fall 1969)-v. 16, no. 6 (June 1983).",
+     ["$a 3-16 $b 1-6 $i 1969-1983 $j 23-06"]),
+    ("v.5,no.17(Summer 1964)-v.8,no.30(Winter 1967/68).",
+     ["$a 5-8 $b 17-30 $i 1964-1967/1968 $j 22-24"]),
+    ("v.1-5.", ["$a 1-5"]),
+    ("1990-1995.", ["$i 1990-1995"]),
+    ("v.1(1990)-.", ["$a 1- $i 1990-"]),
+    ("v.1-2, v.4.", ["$a 1-2 $w g", "$a 4"]),
+])
+def test_a_final_full_stop_is_punctuation(statement, fields):
+    got, warnings = _fields(statement)
+    assert got == fields
+    assert warnings == []
+    assert got == _fields(statement.rstrip(" ."))[0]
+
+
+def test_both_runs_are_read_when_the_second_ends_with_a_full_stop():
+    got, _ = _fields("v.23,no.1(Sept.1932)-v.33,no.10(June 1943);"
+                     "v.34,no.1(Sept.1943)-v.59(June 1969).")
+    assert len(got) == 2
+    assert got[1].startswith("$a 34-59 $i 1943-1969")
+
+
+@pytest.mark.parametrize("statement", [
+    "v.1(1990)..",                           # two are not one
+    "v.1(1990)-v.3(1992). (Incomplete)",     # a note after it (D42)
+    "v.1 no.",                               # an abbreviation's own
+])
+def test_other_full_stops_are_still_held(statement):
+    got, warnings = _fields(statement)
+    assert got == []
+    assert warnings

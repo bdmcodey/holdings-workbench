@@ -15,6 +15,12 @@ more than one release; numbering resumed with 0.6.1. Reasoning behind the
 parser and converter decisions, including the defects a real corpus exposed and
 what was done about each, is in [CORPUS-FINDINGS.md](CORPUS-FINDINGS.md).
 
+## 0.30.5 — 2026-09-30
+
+A statement ending with a full stop ("v.89,pt.1(1969)-v.96,pt.3(Dec.1972).") now converts instead of being held for the full stop.
+
+- **MARC Serials Toolkit** — Some catalogues end each holdings statement with a full stop. The whole statement used to be held for it ("could not account for '.'"), and in a statement with two runs the second was skipped. One full stop at the end, after a closing parenthesis, a number or an open end, is now ignored. A full stop after a letter belongs to an abbreviation ("no.", "Dec.") and is still read as part of it; two full stops, or a note after one ("(Incomplete)"), are still held. In the test collections four statements now convert that did not; nothing that already converted changes.
+
 ## 0.30.4 — 2026-09-30
 
 A month written straight against its year ("Sept.1932") is read; before, the year was lost and a month could be recorded wrongly.

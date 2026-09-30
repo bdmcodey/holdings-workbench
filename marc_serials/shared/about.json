@@ -1,6 +1,6 @@
 {
   "name": "MARC Serials Toolkit",
-  "version": "0.30.4",
+  "version": "0.30.5",
   "released": "2026-09-30",
   "status": "Proof of concept — under active development. Check your output before loading it into the catalog.",
   "description": "One tool for MARC serials holdings. Upload a MARC file, find the patterns in its 866 statements, confirm what each part of a pattern means, and convert to structured 853 caption/pattern and 863 enumeration/chronology fields. Statements no pattern matches are converted by the standard parser.",
@@ -9,6 +9,17 @@
   "contact": "Matthew Codey, codey@usc.edu",
   "_comment": "Written for cataloging staff, not developers. Say what changed about the output or the screen, not how the code changed. Newest version first.",
   "changelog": [
+    {
+      "version": "0.30.5",
+      "date": "2026-09-30",
+      "summary": "A statement ending with a full stop (\"v.89,pt.1(1969)-v.96,pt.3(Dec.1972).\") now converts instead of being held for the full stop.",
+      "changes": [
+        {
+          "tool": "MARC Serials Toolkit",
+          "text": "Some catalogues end each holdings statement with a full stop. The whole statement used to be held for it (\"could not account for '.'\"), and in a statement with two runs the second was skipped. One full stop at the end, after a closing parenthesis, a number or an open end, is now ignored. A full stop after a letter belongs to an abbreviation (\"no.\", \"Dec.\") and is still read as part of it; two full stops, or a note after one (\"(Incomplete)\"), are still held. In the test collections four statements now convert that did not; nothing that already converted changes."
+        }
+      ]
+    },
     {
       "version": "0.30.4",
       "date": "2026-09-30",

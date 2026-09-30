@@ -2784,9 +2784,14 @@ three corpora and the real export, only this one converts differently.
 
 Open, each held or warned rather than misread:
 
-- **D39 — a full stop ending the statement** (4): `v.89,pt.1(1969)-v.96,pt.3(Dec.1972).`
-  is refused for the full stop alone, and in the D40 statement the second run
-  is skipped for it (flagged). The ISBD habit of ending with a full stop.
+- **D39 — a full stop ending the statement** (4), **fixed in 0.30.5**:
+  `v.89,pt.1(1969)-v.96,pt.3(Dec.1972).` was refused for the full stop alone,
+  and in the D40 statement the second run was skipped for it. One final full
+  stop after a closing parenthesis, a number or an open end is now dropped
+  before a part is read; after a letter it is an abbreviation's and stays; two,
+  or a note after one, are still held. Two now convert cleanly, and two with
+  warnings already known (D2, D16); of 1,158 statements nothing else moved.
+  The file of 63: 33 clean, 8 warned, 22 no fields, 0 lost.
 - **D41 — dates in angle brackets** (3): `(<1884:6:28><1890:5:9><1907:4:11>)`.
   Another notation; held.
 - **D42 — a note after the holdings** (2): `(Incomplete)`, `in film; Cancelled.`
