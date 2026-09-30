@@ -1,6 +1,6 @@
 # How the Holdings Workbench Works
 
-*Written for librarians and cataloguers. Describes version 0.30.4.*
+*Written for librarians and cataloguers. Describes version 0.30.5.*
 
 The Holdings Workbench turns the free-text holdings in MARC 866 fields into structured 853 caption/pattern and 863 enumeration/chronology fields, and asks a cataloguer to confirm anything it cannot be sure of. This guide explains how, for librarians rather than programmers.
 
@@ -208,7 +208,7 @@ flowchart TD
 
 1. **Notes come out first.** Text in braces, like `{bound with v.2}`, is removed and reported as a note that wasn't encoded. The holdings around it are still read.
 2. **Two grammars.** Most statements put the enumeration first, as in `v.1(1990)`. Some older local records put the year first, as in `2019: (1-6 [Feb-Nov])2020: (7-12 [Jan-Dec])`. These are read by a separate reader, but only when the colon after the year is followed by a volume number or a parenthesis. A word after the colon is Z39.71's own way of writing a date, as in `1990:Jan.-1994:Dec.`, and goes to the main reader. Before version 0.28.0 the year-first reader took those too, and they converted to nothing.
-3. **Cutting into parts.** The statement is cut at commas and semicolons outside parentheses. The parser remembers which mark it cut at, because that becomes the 863's break code: a comma means a gap (`$w g`), a semicolon a break that is not a gap (`$w n`). A mark at the very end counts too, as in `1986-1988,`, which is how Alma writes a gap after the last run.
+3. **Cutting into parts.** The statement is cut at commas and semicolons outside parentheses. The parser remembers which mark it cut at, because that becomes the 863's break code: a comma means a gap (`$w g`), a semicolon a break that is not a gap (`$w n`). A mark at the very end counts too, as in `1986-1988,`, which is how Alma writes a gap after the last run. A full stop at the very end, as in `v.89,pt.1(1969)-v.96,pt.3(Dec.1972).`, is only punctuation and is ignored. A full stop after a letter, as in `no.` or `Dec.`, is part of an abbreviation and is kept.
 4. **Reading each part.** A part is read as one of three things, tried in this order:
    - A **list of runs**, like `v. 19 nos. 1, 3, 5, 7-12 (Jan, Mar, May, Jul-Dec 1915)`. This becomes four 863s, one for each run, with the months matched to their issues.
    - A **run of years only**, like `(1986-1988, 1993-1994)`. This becomes one 863 for each run.
@@ -368,9 +368,9 @@ The log is built from the same summary as the conversion, so it describes exactl
 
 Four checks run before any change is released, and each answers a different question.
 
-| Check | Question it answers | Result as of 0.30.4 |
+| Check | Question it answers | Result as of 0.30.5 |
 | --- | --- | --- |
-| Automated tests | Does every behaviour described here still hold? | 872 passed, 8 skipped |
+| Automated tests | Does every behaviour described here still hold? | 882 passed, 8 skipped |
 | Corpus report | What do 117 real 866 statements convert to, and has any outcome changed? | 90 clean (77%), 22 converted with a warning, 5 with no fields, 0 with values lost |
 | Conversion audit | Did any number in a statement reach no field and no warning? | 0 unaccounted for: the corpus, the LC examples, the other library's catalogue, and all 1,057 statements of the 372-record test export |
 | Round trip | Convert, write the 866 as Alma would, convert again: do the same 863s come back? | Test export: 938 identical, 106 identical apart from an 853 caption, 11 not converted, **0 drift** |
@@ -379,7 +379,7 @@ Four checks run before any change is released, and each answers a different ques
 - **The corpus report** runs a collection of real statements (enumeration and chronology text only, with no identifiers) through both the detector and the parser. Each statement's expected outcome is recorded, so the report can say exactly what a change moved.
 - **The audit** compares what went in with what came out, and it can be run on a real file. It found two silent losses that the corpus couldn't, because their shapes weren't in it. It reads the file where it lies and writes nothing.
 - **The Library of Congress examples** are the 7 866 statements in LC's MARC holdings documentation, kept as a second, separate corpus. They're the only statements in the project written outside the collection the tool was built on. Four convert cleanly, one converts with a warning, and two are in the US Newspaper Program's own notation and are held rather than misread.
-- **Other libraries' catalogues** is a third corpus: 63 statements from outside, picked for how messy they are. 42 are from one public catalogue and 21 from several others. Some follow Z39.71, some write their dates without parentheses, some are 863 subfield values written out as text with no captions, and a few aren't holdings at all ("undefined"). As of 0.30.4, 31 convert cleanly, 7 convert with a warning, and 25 are held. None is misread, and none drifts on the round trip.
+- **Other libraries' catalogues** is a third corpus: 63 statements from outside, picked for how messy they are. 42 are from one public catalogue and 21 from several others. Some follow Z39.71, some write their dates without parentheses, some are 863 subfield values written out as text with no captions, and a few aren't holdings at all ("undefined"). As of 0.30.5, 33 convert cleanly, 8 convert with a warning, and 22 are held. None is misread, and none drifts on the round trip.
 - **The round trip** checks the circle with the library system. Holdings are exported from Alma, converted here and loaded back, and Alma regenerates every 866 from the new 853/863s. Exported and converted again, those 866s must give the same 863s; any difference is a bug. Alma can't be run from here, so the tool imitates the 866 Alma writes. The imitation was built from 48 866s that Alma generated in the test export, and it reproduces all 48 exactly. Run on a new Alma export, the check also compares the imitation with Alma's real 866s, which is how to confirm the forms those 48 didn't show: seasons, days, and date-only ranges with months.
 - **What the round trip can't close:** a level with no caption. An 866 generated from `(*)` is bare numbers, and nothing says what they count, so the parser refuses them. Five corpus statements are like this: four in the local year-first format, and "8,13,15,17,19,20-(1982-1994)". A caption confirmed on the pattern closes the loop.
 - **An 853 caption can differ, and that's expected.** A statement that names a level with no value, like the `no. 9` at one end of `v. 1 (1973)-v. 11 no. 9 (Sep 1983)`, keeps that level in its 853, and the first conversion already says the value was left out. A regenerated 866 can't name a level no 863 fills.
