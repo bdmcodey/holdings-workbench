@@ -108,17 +108,35 @@ def test_a_run_from_pasted_statements_shows_its_patterns_open():
 def test_the_source_is_a_file_or_pasted_statements_never_both():
     """
     Asked for by the cataloguer: patterns found from pasted text while Convert
-    worked on a file were two sources on one screen. The last one chosen wins:
-    an upload clears the text box, and "Use these statements" sets the file
-    aside, Convert and the patterns found from it with it.
+    worked on a file were two sources on one screen. The last one chosen wins.
+    "Use these statements" sets the file aside -- still loaded, with its
+    records and decisions, but out of play -- and "Back to <file>" brings it
+    back without a second upload.
     """
     page = _page()
     upload = re.search(r"async function uploadMarcFile.*?\n}\n", page, re.S).group(0)
-    assert "sourceMode    = 'file';" in upload
-    assert "document.getElementById('stmt-input').value = '';" in upload
+    assert "sourceMode    = 'file';" in upload and "fileName      = file.name;" in upload
     use = re.search(r"getElementById\('btn-use-text'\)\.addEventListener.*?\n}\);", page, re.S).group(0)
     assert "if (sourceMode === 'file') setFileAside();" in use
     aside = re.search(r"function setFileAside\(\).*?\n}\n", page, re.S).group(0)
-    assert "allRecords = [];" in aside and "allStatements = [];" in aside
+    assert "allRecords" not in aside, "setting a file aside must keep it"
+    back = re.search(r"function useFileAgain\(\).*?\n}\n", page, re.S).group(0)
+    assert "sourceMode = 'file';" in back and "renderPatterns(fileDetect)" in back
     detect = re.search(r"function statementsForDetection\(\).*?\n}\n", page, re.S).group(0)
     assert "sourceMode === 'paste' ? pastedStatements() : allStatements" in detect
+    reveal = re.search(r"function revealSteps\(\).*?\n}\n", page, re.S).group(0)
+    assert "sourceMode === 'paste'" in reveal
+
+
+def test_pasted_statements_are_linked_to_no_record(client):
+    """
+    With a file loaded, a pasted statement that reads the same as one in the
+    file was credited to that record. Pasted statements come from no record.
+    """
+    upload_marc(client, _file("v.1(1990)-v.3(1992)"))
+    from_file = client.post("/api/detect", json={
+        "statements": ["v.1(1990)-v.3(1992)"]}).get_json()["groups"][0]
+    pasted = client.post("/api/detect", json={
+        "statements": ["v.1(1990)-v.3(1992)"], "pasted": True}).get_json()["groups"][0]
+    assert from_file["records"] == [0]
+    assert pasted["records"] == []

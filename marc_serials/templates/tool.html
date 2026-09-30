@@ -658,15 +658,12 @@ v.6(1995)-"></textarea>
           Pasted statements are enough to work out patterns. Converting a file
           needs the file itself.
         </div>
-        <div class="alert alert-info small mt-1" id="paste-hint" hidden>
-          A file is loaded. <strong>Use these statements</strong> switches to
-          these statements and sets the file aside; uploading a file again
-          switches back.
-        </div>
+        <div class="alert alert-info small mt-1" id="paste-hint" hidden></div>
         <div class="btn-row">
           <button type="button" class="btn btn-secondary btn-sm" id="btn-use-text">
             Use these statements
           </button>
+          <button type="button" class="btn btn-ghost btn-sm" id="btn-use-file" hidden></button>
         </div>
       </div>
     </div>
@@ -1107,6 +1104,12 @@ let detected    = [];    // the last detection run's groups
 // worked on a file were two sources on one screen, and nothing said which
 // was which. The last one chosen wins.
 let sourceMode  = null;  // "file" or "paste"
+// The loaded file, kept while pasted statements are in use, so switching back
+// is one click rather than a second upload: its name, its line in step 1, and
+// the patterns last found from it.
+let fileName    = '';
+let fileSummary = '';
+let fileDetect  = null;
 let library     = [];    // confirmed patterns, mirroring the server's copy
 let lastSplit   = true;  // how the last detection ran; patterns inherit it
 // Patterns the cataloguer has taken out of the library. Auto-confirmation must
@@ -1430,7 +1433,9 @@ syncStrict();
 function revealSteps() {
   const haveStatements = allStatements.length > 0 || pastedStatements().length > 0;
   document.getElementById('step-patterns').hidden = !haveStatements;
-  document.getElementById('step-convert').hidden  = allRecords.length === 0;
+  // Convert works on the file, so it is there only while the file is in use.
+  document.getElementById('step-convert').hidden  =
+    allRecords.length === 0 || sourceMode === 'paste';
 
   const summary = document.getElementById('convert-summary');
   if (allRecords.length) {
@@ -1446,7 +1451,7 @@ function revealSteps() {
 }
 
 /** Collapse step 1 to a line once it has a file; "Change" puts it back. */
-function showSourceSummary(text) {
+function showSourceSummary(text, extraHtml = '') {
   const body = document.getElementById('source-body');
   const summary = document.getElementById('source-summary');
   const change = document.getElementById('btn-change-source');
@@ -1457,7 +1462,7 @@ function showSourceSummary(text) {
   body.hidden = true;
   summary.hidden = false;
   change.hidden = false;
-  summary.innerHTML = `<span class="icon">✓</span> ${escHtml(text)}`;
+  summary.innerHTML = `<span class="icon">✓</span> ${escHtml(text)}${extraHtml}`;
 }
 
 document.getElementById('btn-change-source').addEventListener('click',
@@ -1504,8 +1509,10 @@ async function uploadMarcFile(file) {
     allRecords    = data.records;
     allStatements = data.statements;
     sourceMode    = 'file';
-    document.getElementById('stmt-input').value = '';
-    document.getElementById('paste-hint').hidden = true;
+    fileName      = file.name;
+    fileDetect    = null;       // a new file: nothing found from it yet
+    fileSummary   = `${file.name} — ${data.total} records, ${data.count} holdings statements`;
+    showPasteHint();
     renderRecordList(data.records);
     showIdentifierNotice(data);
     recordPreviews.clear();
@@ -1533,8 +1540,7 @@ async function uploadMarcFile(file) {
     await loadLibrary();
     reloadReview();
     dropZone.innerHTML = '<span class="icon">📁</span>Drop a MARC file here, or click to browse';
-    showSourceSummary(
-      `${file.name} — ${data.total} records, ${data.count} holdings statements`);
+    showSourceSummary(fileSummary);
     revealSteps();
   } catch (err) {
     dropZone.innerHTML = '<span class="icon">❌</span>Upload failed.';
@@ -2587,42 +2593,72 @@ document.getElementById('btn-use-text').addEventListener('click', () => {
   }
   if (sourceMode === 'file') setFileAside();
   sourceMode = 'paste';
-  document.getElementById('paste-hint').hidden = true;
+  showPasteHint();
   const n = pastedStatements().length;
-  showSourceSummary(`${n} pasted statement${n !== 1 ? 's' : ''}`);
+  showSourceSummary(`${n} pasted statement${n !== 1 ? 's' : ''}`,
+    allRecords.length ? fileAsideHtml() : '');
   revealSteps();
   document.getElementById('step-patterns').scrollIntoView({ behavior: 'smooth', block: 'start' });
 });
 
 /**
- * Switch from a file to pasted statements: the file's records, the review of
- * them and the patterns found from them all go from the page, and Convert with
- * them. Uploading again brings a file back.
+ * Switch from a file to pasted statements. The file stays loaded -- its
+ * records, what has been decided on them, the patterns found from it -- but out
+ * of play: Convert is hidden and its patterns come off the page. "Back to" the
+ * file puts all of it back; uploading replaces it.
  */
 function setFileAside() {
-  allRecords = [];
-  allStatements = [];
-  renderRecordList([]);
-  recordPreviews.clear();
-  reviewed.clear();
-  keepSeparate.clear();
-  skipRecords.clear();
-  convertedRecords.clear();
-  recordIndex.clear();
   clearPatternFilter(false);
-  fileInput.value = '';
-  document.getElementById('btn-download').style.display = 'none';
-  document.getElementById('btn-download-log').style.display = 'none';
   detected = [];
   document.getElementById('patterns-area').innerHTML = '';
 }
 
-// Typing into the box while a file is loaded changes nothing until the switch
-// is asked for, so say how to ask.
-document.getElementById('stmt-input').addEventListener('input', e => {
-  document.getElementById('paste-hint').hidden =
-    !(sourceMode === 'file' && e.target.value.trim());
-});
+/** Switch back from pasted statements to the file set aside. */
+function useFileAgain() {
+  sourceMode = 'file';
+  if (fileDetect) {
+    detected = fileDetect.groups;
+    patternOffset = 0;
+    renderPatterns(fileDetect);
+    setPatternsCollapsed(!partitionGroups(fileDetect.groups).open.length);
+  } else {
+    detected = [];
+    document.getElementById('patterns-area').innerHTML = '';
+  }
+  showPasteHint();
+  showSourceSummary(fileSummary);
+  revealSteps();
+}
+
+/** The file set aside, named, with the way back to it. */
+function fileAsideHtml() {
+  return ` · <span class="dim">${escHtml(fileName)} set aside</span>
+    <button type="button" class="btn btn-ghost btn-sm"
+            onclick="useFileAgain()">Back to ${escHtml(fileName)}</button>`;
+}
+
+/**
+ * What the text box can do about the file. Typing while the file is in use
+ * changes nothing until the switch is asked for, so say how to ask; while
+ * pasted statements are in use, offer the file back.
+ */
+function showPasteHint() {
+  const hint = document.getElementById('paste-hint');
+  const back = document.getElementById('btn-use-file');
+  const typed = !!document.getElementById('stmt-input').value.trim();
+  const inUse = sourceMode === 'file' && allRecords.length > 0;
+  hint.hidden = !(inUse && typed);
+  if (!hint.hidden) {
+    hint.innerHTML = `<strong>${escHtml(fileName)}</strong> is loaded, so these
+      statements are not being used. <strong>Use these statements</strong>
+      switches to them and sets the file aside, to come back to with one click.`;
+  }
+  back.hidden = !(sourceMode === 'paste' && allRecords.length > 0);
+  back.textContent = `Back to ${fileName}`;
+}
+
+document.getElementById('stmt-input').addEventListener('input', showPasteHint);
+document.getElementById('btn-use-file').addEventListener('click', useFileAgain);
 
 document.getElementById('btn-detect').addEventListener('click', runDetect);
 
@@ -2644,8 +2680,12 @@ async function runDetect() {
     const data = await postJson('api/detect', {
       statements,
       split_multi_range: lastSplit,
+      // Pasted statements belong to no record, even one in the loaded file
+      // that happens to read the same.
+      pasted: sourceMode === 'paste',
     });
     detected = data.groups;
+    if (sourceMode === 'file') fileDetect = data;
     // A new run is a new set of cards, so start at the first page of them
     // rather than wherever the last run had got to.
     patternOffset = 0;

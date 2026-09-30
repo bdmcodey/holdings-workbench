@@ -891,7 +891,9 @@ def api_detect():
         # Built from the stored file rather than from `raw`, so an example
         # resolves to its record whether the client resent the statements or
         # left the server to read them.
-        origins = _statement_origins(do_split)
+        # Pasted statements come from no record, even when a loaded file has
+        # one that reads the same.
+        origins = {} if _flag(data, "pasted", False) else _statement_origins(do_split)
         groups = [_annotate_group(g.to_dict(), origins)
                   for g in detect_patterns(statements)]
         return jsonify({

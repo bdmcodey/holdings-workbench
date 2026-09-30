@@ -1,6 +1,6 @@
 {
   "name": "MARC Serials Toolkit",
-  "version": "0.31.1",
+  "version": "0.31.2",
   "released": "2026-09-30",
   "status": "Proof of concept — under active development. Check your output before loading it into the catalog.",
   "description": "One tool for MARC serials holdings. Upload a MARC file, find the patterns in its 866 statements, confirm what each part of a pattern means, and convert to structured 853 caption/pattern and 863 enumeration/chronology fields. Statements no pattern matches are converted by the standard parser.",
@@ -9,6 +9,17 @@
   "contact": "Matthew Codey, codey@usc.edu",
   "_comment": "Written for cataloging staff, not developers. Say what changed about the output or the screen, not how the code changed. Newest version first.",
   "changelog": [
+    {
+      "version": "0.31.2",
+      "date": "2026-09-30",
+      "summary": "A file set aside for pasted statements comes back with one click, and is named.",
+      "changes": [
+        {
+          "tool": "MARC Serials Toolkit",
+          "text": "Switching from a file to pasted statements no longer drops the file. It is set aside: still loaded, with your review decisions and the patterns found from it, but out of use until you come back to it. Step 1 names it (\"example.mrc set aside\") with a \"Back to example.mrc\" button, which brings back the file, its Convert step and its patterns without uploading again. Uploading a file still replaces it. The note shown when you type while a file is loaded now names the file, and the pasted text is no longer cleared when you upload. Patterns found from pasted statements are no longer linked to records in the loaded file that happen to read the same."
+        }
+      ]
+    },
     {
       "version": "0.31.1",
       "date": "2026-09-30",
