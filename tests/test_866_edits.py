@@ -139,3 +139,32 @@ def test_a_new_upload_forgets_every_edit(client):
     row = client.post("/api/review-index", json={}).get_json()["records"][0]
     assert row["edited"] == []
     assert _preview(client)["source_866"] == TYPO
+
+
+def test_an_edit_changes_only_its_own_record(client):
+    """
+    The cataloguer's edge case: "v. 1 (1990)" was keyed wrongly and should be
+    "no. 1 (1990)", while another record's "v. 6 (2020)" is right. A
+    pattern's caption cannot settle that (it never overrides a printed one:
+    see test_bridge), so the fix is editing the one 866, and only that record
+    changes.
+    """
+    buf = io.BytesIO()
+    writer = MARCWriter(buf)
+    for n, statement in enumerate(("v. 1 (1990)", "v. 6 (2020)")):
+        rec = Record()
+        rec.leader = "00522cy  a22001453n 4500"
+        rec.add_field(Field(tag="001", data=f"r{n}"))
+        rec.add_field(Field(tag="866", indicators=[" ", "0"],
+                            subfields=[Subfield("a", statement)]))
+        writer.write(rec)
+    writer.close(close_fh=False)
+    upload_marc(client, buf.getvalue())
+    client.post("/api/edit-866", json={"record_index": 0, "field_index": 0,
+                                       "code": "a", "value": "no. 1 (1990)"})
+
+    def f853(index):
+        return client.post("/api/preview-record", json={
+            "record_index": index}).get_json()["previews"][0]["field_853"]
+    assert "$a no." in f853(0)
+    assert "$a v." in f853(1)
