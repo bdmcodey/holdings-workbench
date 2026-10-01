@@ -31,6 +31,8 @@ dependencies = [
 dev = ["pytest>=8.0,<9.0"]
 
 [project.scripts]
+holdings-workbench = "marc_serials.webapp:main"
+# The first name, kept so it still works.
 marc-serials = "marc_serials.webapp:main"
 
 [tool.setuptools]
