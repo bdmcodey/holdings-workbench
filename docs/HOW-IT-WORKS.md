@@ -59,6 +59,44 @@ Where a statement holds several runs of holdings, such as `v. 19 nos. 1, 3, 5, 7
 
 Until version 0.10.0 a matched pattern read the statement a second way, on its own. Across 141 test statements the two readings disagreed on 10, and the pattern was wrong on 9 of those. Since then the parser has done all the reading, and a test checks that both routes write the same 863.
 
+### In what order: patterns first, the parser reading
+
+It's natural to picture confirmed patterns doing the conversion, with the parser as a fallback. That is right about the order, but not about who reads. For each statement:
+
+```
+1. Try each confirmed pattern in turn: does its rule match the whole statement?
+     - A Skip pattern matches: leave the statement exactly as it is. Done.
+     - A pattern matches: the statement is that pattern's. Then:
+         a. the parser reads it;
+         b. if it could, keep that reading, and fill in any caption the
+            statement didn't print from the pattern you confirmed;
+         c. if it couldn't, build the reading from the pattern's captured
+            values and the meanings you confirmed.
+2. No pattern matches: the parser reads it on its own, or nothing is written
+   if "Use the standard parser" is off.
+```
+
+So a pattern decides which statements are its own, and supplies what the parser cannot know. The parser transcribes. The same three statements show the difference:
+
+| Statement | The parser reads | The confirmed pattern adds |
+| --- | --- | --- |
+| `v.1(1990)-v.3(1992)` | everything: volumes, years, and the printed `v.` | nothing; the record says which pattern claimed it, and the 863 is the same either way |
+| `8,13,15,17,19,20-(1982-1994)` | the numbers, but not what they count, so the 853 would say `(*)` | the caption you confirmed, such as `v.` |
+| `?: 16` | nothing: it won't guess whether 16 is a volume, an issue or a year | the meaning you confirmed ("a volume"), from which the 863 is built |
+
+Wherever the statement says everything itself, a confirmed pattern and the parser alone write the same 853 and 863. They differ only where your confirmation adds something the statement leaves out. With "Use the standard parser" off, the patterns are also the gate: only statements a confirmed pattern claims are converted.
+
+One way to picture it: the parser is the person transcribing what is printed on the piece in hand. A confirmed pattern is the decision you recorded for a whole run of similar pieces: these are ours, this unlabelled number is the volume, call it "v.". It never re-transcribes what is printed; it supplies only what the piece doesn't say.
+
+### When the printed caption is wrong
+
+Suppose `v. 1 (1990)` was keyed wrongly, and should be `no. 1 (1990)`, while another record's `v. 6 (2020)` is right. Both match the same pattern, `VOL(YEAR)`.
+
+- **Changing the pattern's caption to `no.` changes neither.** A pattern fills only captions the statement leaves out, and both statements print `v.`. Both keep `v.`. This is deliberate: the word printed in the statement is evidence about the piece, and one decision about a whole group must not overwrite it.
+- **Edit the one 866 instead.** Change `v. 1 (1990)` to `no. 1 (1990)` on that record. It converts with `no.` in its 853, and the other record keeps `v.`. The corrected 866 is what the downloaded file carries, the log says the record was edited, and "Put back as uploaded" undoes it.
+
+A wrong statement is a fact about one record, so it is fixed on that record, not by a rule for the whole group.
+
 ## Tokenization: how the detector reads a statement
 
 The detector cuts each statement into small labelled pieces, called **tokens**, much as you might mark up a sentence with parts of speech. Two statements whose pieces carry the same labels in the same order have the same shape, and go into the same group. The actual numbers don't matter to the grouping, only what kind of thing each piece is.
@@ -378,7 +416,7 @@ Four checks run before any change is released, and each answers a different ques
 
 | Check | Question it answers | Result as of 0.31.3 |
 | --- | --- | --- |
-| Automated tests | Does every behaviour described here still hold? | 900 passed, 8 skipped |
+| Automated tests | Does every behaviour described here still hold? | 902 passed, 8 skipped |
 | Corpus report | What do 117 real 866 statements convert to, and has any outcome changed? | 90 clean (77%), 22 converted with a warning, 5 with no fields, 0 with values lost |
 | Conversion audit | Did any number in a statement reach no field and no warning? | 0 unaccounted for: the corpus, the LC examples, the other library's catalogue, and all 1,057 statements of the 372-record test export |
 | Round trip | Convert, write the 866 as Alma would, convert again: do the same 863s come back? | Test export: 938 identical, 106 identical apart from an 853 caption, 11 not converted, **0 drift** |

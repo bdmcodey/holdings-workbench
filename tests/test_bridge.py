@@ -1051,3 +1051,28 @@ def test_the_depth_guard_still_flags_a_hierarchy_nothing_else_catches():
     assert conversion.fields_863                      # still written
     assert conversion.flagged is True
     assert any("separate holdings" in w for w in conversion.warnings)
+
+
+def test_a_confirmed_caption_never_overrides_one_the_statement_prints():
+    """
+    The cataloguer's edge case: "v. 1 (1990)" was keyed wrongly and should be
+    "no. 1 (1990)", while "v. 6 (2020)" is right; both match VOL(YEAR).
+    Confirming the pattern's caption as "no." changes neither, since a pattern
+    fills only captions a statement leaves out. The fix for the one record is
+    editing its 866 (tests/test_866_edits.py covers that route).
+    """
+    from marc_serials.converter import convert_holdings
+
+    group = detect_one("v. 1 (1990)")
+    roles = infer_roles(group.named_groups)
+    decide(roles, "start_vol", BOUNDARY_START, KIND_ENUM, level=0, caption="no.")
+    pattern, errors = plib.validate_pattern({
+        "label": group.human_label, "regex": group.regex,
+        "roles": [r.to_dict() for r in roles], "split": False, "priority": 0,
+    })
+    assert not errors, errors
+    for statement in ("v. 1 (1990)", "v. 6 (2020)"):
+        result, source = apply_patterns(statement, [pattern])
+        assert source == pattern.id
+        f853 = convert_holdings(result).field_853.display()
+        assert "$a v." in f853 and "$a no." not in f853
