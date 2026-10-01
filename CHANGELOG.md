@@ -15,6 +15,12 @@ more than one release; numbering resumed with 0.6.1. Reasoning behind the
 parser and converter decisions, including the defects a real corpus exposed and
 what was done about each, is in [CORPUS-FINDINGS.md](CORPUS-FINDINGS.md).
 
+## 0.31.2 — 2026-09-30
+
+A file set aside for pasted statements comes back with one click, and is named.
+
+- **MARC Serials Toolkit** — Switching from a file to pasted statements no longer drops the file. It is set aside: still loaded, with your review decisions and the patterns found from it, but out of use until you come back to it. Step 1 names it ("example.mrc set aside") with a "Back to example.mrc" button, which brings back the file, its Convert step and its patterns without uploading again. Uploading a file still replaces it. The note shown when you type while a file is loaded now names the file, and the pasted text is no longer cleared when you upload. Patterns found from pasted statements are no longer linked to records in the loaded file that happen to read the same.
+
 ## 0.31.1 — 2026-09-30
 
 Holdings come from a file or from pasted statements, never both at once; patterns found from pasted statements are shown open.
