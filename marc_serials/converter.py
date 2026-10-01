@@ -1,7 +1,7 @@
 """
-marc_converter.py
+converter.py
 -----------------
-Converts ParseResult objects (from holdings_parser.py) into pymarc
+Converts ParseResult objects (from parser.py) into pymarc
 Field objects:
   853 – Captions and Pattern (Basic Bibliographic Unit)
   863 – Enumeration and Chronology (Basic Bibliographic Unit)
@@ -1518,7 +1518,7 @@ def convert_holdings(
 
     Parameters
     ----------
-    parse_result         : output of holdings_parser.parse_866()
+    parse_result         : output of parser.parse_866()
     linking_number       : integer $8 linking number (1, 2, ...)
     captions             : caption overrides (keys: vol, issue, part, year, month)
     frequency            : 853 $w code

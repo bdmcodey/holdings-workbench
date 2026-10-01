@@ -7,7 +7,7 @@
 
 # For scripts/extract_marc_doc.py, which turns an LC holdings-format PDF into
 # the reference Markdown under docs/marc/. Not imported by the package or the
-# test suite -- the toolkit itself needs nothing beyond the pins in
+# test suite -- the tool itself needs nothing beyond the pins in
 # pyproject.toml, and this is here so that refreshing a standard is a command
 # rather than a rediscovery.
 pypdf>=6.0

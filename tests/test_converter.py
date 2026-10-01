@@ -1,5 +1,5 @@
 """
-Tests for marc_converter: field generation, convention resolution, and $8 linking.
+Tests for the converter: field generation, convention resolution, and $8 linking.
 
 Two areas here carry more weight than their size suggests.
 

@@ -1,5 +1,5 @@
 """
-The MARC Serials Toolkit application.
+The MARC Holdings Workbench application.
 
 Upload a MARC file, detect the patterns in its 866 statements, confirm what
 each captured value means, and convert with those patterns applied. A statement
@@ -13,7 +13,8 @@ deleted the other's pattern libraries for six months. They are one application
 now. The converter's screens and the detector's screens were both already here.
 
 Run it:
-    marc-serials                 (after `pip install -e .`)
+    marc-serials                 (after `pip install -e .`; the command keeps
+                                  the project's first name)
     python run.py                (from a clone, without installing)
 
 Both open http://localhost:5003. The port is settable with MARC_PORT; 5003
@@ -209,9 +210,7 @@ def _save_library(patterns) -> None:
 
 
 # ---------------------------------------------------------------------------
-# MARC helpers.  These mirror converter/app.py; the standalone converter is
-# deliberately left untouched, so the glue is repeated rather than imported --
-# importing its app.py would execute a second Flask application at import time.
+# Request helpers.
 # ---------------------------------------------------------------------------
 
 def _flag(data: dict, key: str, default: bool) -> bool:

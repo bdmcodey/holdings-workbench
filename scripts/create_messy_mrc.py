@@ -116,7 +116,7 @@ def make_record(n, title, holdings, existing_853):
     # coded as single-part items -- and 863-865 says first indicator 3 "is not
     # applicable to a single-part item (Leader/06, code x)", so the fixtures
     # were quietly ruling out a value the standard allows for what they hold.
-    # Nothing in the toolkit reads the Leader yet; the first change that does
+    # Nothing in the tool reads the Leader yet; the first change that does
     # would have been calibrated against records describing the wrong kind of
     # thing.
     #

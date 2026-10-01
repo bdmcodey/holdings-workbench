@@ -1,8 +1,8 @@
 /* ============================================================================
-   MARC Serials Toolkit — shared UI
+   MARC Holdings Workbench — UI
    ----------------------------------------------------------------------------
-   One stylesheet for both the converter and the pattern detector, served by
-   each Flask app at /ui.css.
+   The stylesheet for the Workbench, served at /ui.css. It was shared by the
+   converter and the pattern detector when they were separate applications.
 
    Design targets (the primary user is a cataloger with low vision):
      - the browser's own font-size setting is the baseline; never overridden
@@ -32,7 +32,7 @@
   --text-muted:  #474d57;
   --border:      #6b7280;
   --border-soft: #c3cad3;
-  --accent:      #8a5000;   /* converter overrides; detector overrides */
+  --accent:      #8a5000;
   --accent-soft: #f7ede0;
   --ok:          #14672f;
   --ok-soft:     #e4f4ea;

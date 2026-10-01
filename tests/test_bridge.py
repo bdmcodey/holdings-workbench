@@ -568,7 +568,7 @@ def test_a_library_from_a_future_format_is_refused_rather_than_misread():
 def test_a_captionless_number_above_an_issue_is_suggested_as_a_volume():
     """
     "39 no 1" is v.39 no.1 -- a number sitting a level above an issue is a
-    volume, and holdings_parser reads the same statement the same way. It is a
+    volume, and the parser reads the same statement the same way. It is a
     convention rather than something the statement states, so it arrives as a
     default that still has to be accepted.
     """

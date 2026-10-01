@@ -1,12 +1,12 @@
 """
-MARC record handling shared by every application.
+MARC record handling: reading, writing, and matching statements to their 866s.
 
 Reading a file into the shape the screens want, writing a conversion back onto
 a record, and lining a converted statement up with the 866 it came from. None of
 it depends on Flask, so it is testable on its own.
 
-Each of these existed twice, once in converter/app.py and once in
-workbench/app.py, and the copies had drifted -- not in what they did, but in
+Each of these existed twice when the converter and the workbench were
+separate applications, and the copies had drifted -- not in what they did, but in
 what they said. The workbench's copy of remove_converted_866s() carried a
 one-line docstring where the converter's carried the account of the 0.5.2 data
 loss and the warning never to build `sources` from get_fields("866"). Losing the

@@ -1,7 +1,7 @@
 # Corpus findings — what `textual_holdings_corpus.txt` reveals
 
 Written 1 September 2026, after adopting the hand-collected 866 `$a` corpus that
-predates the toolkit — the examples the original monolithic regex was written
+predates the Workbench — the examples the original monolithic regex was written
 against — as `data/textual_holdings_corpus.txt`.
 
 This is a log of what the corpus exposes, so that fixing any of it is a
@@ -2192,7 +2192,7 @@ issues, years. `Leader/18` was a blank, which is not a value it defines; the
 choices are `i` and `n`, and neither file has an 876-878 Item Information
 field. Now `y` and `n`.
 
-**It changed no behaviour, and that is the point.** Nothing in the toolkit
+**It changed no behaviour, and that is the point.** Nothing in the tool
 reads the Leader, so the mis-coding was invisible to all 573 tests and to the
 corpus report. What it would have done is mislead the *next* change: 863-865
 says first indicator `3` *"is not applicable to a single-part item (Leader/06,
@@ -2878,7 +2878,7 @@ The first two are done; the rest are Workbench UI and are not started.
 - **Flag a statement that belongs in another field.** Raised 15 September 2026,
   not started. An 866 saying `Suppl.` is describing supplementary material,
   which MARC 21 puts in **867** with its own **864** enumeration; one saying
-  `Index` belongs in **868** over **865**. The toolkit has no notion of this: it
+  `Index` belongs in **868** over **865**. The tool has no notion of this: it
   reads every 866 as basic bibliographic holdings, and the three `Suppl.`
   statements in the corpus are the only reason D3 still has anything in it.
 
