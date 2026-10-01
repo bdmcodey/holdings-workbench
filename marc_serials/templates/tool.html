@@ -456,6 +456,12 @@
     }
     .role-table tr:last-child td { border-bottom: none; }
     .role-table tr.needs-decision td { background: var(--warn-soft); }
+    /* Read from the statement: shown, but nothing here would change it. */
+    .role-table tr.role-fixed td { color: var(--text-muted); }
+    .role-table tr.role-fixed select:disabled,
+    .role-table tr.role-fixed input:disabled { background: var(--surface-2); color: var(--text-muted);
+                                               border-style: dashed; cursor: not-allowed; }
+    .role-fixed-note { display: block; font-size: var(--fs-sm); color: var(--text-muted); }
     /* What answering this card would change: the first thing in the body,
        because it decides how much care the rest of it deserves. */
     .decides-note { margin-bottom: var(--sp-3); }
@@ -2980,10 +2986,14 @@ function decidesNote(group, skipped) {
     caption: ['alert-info',
       `The standard parser reads ${group.count !== 1 ? 'these statements' : 'this statement'} already.
        What you add here is the caption: the word the 853 declares for a level written as a bare
-       number, where the parser can only write &ldquo;(*)&rdquo;.`],
+       number, where the parser can only write &ldquo;(*)&rdquo;. Only those values can be set;
+       the others are read from the statement itself and are greyed out. To correct one of
+       those, edit the 866 on its record.`],
     nothing: ['alert-info',
       `The standard parser reads ${group.count !== 1 ? 'these statements' : 'this statement'} in full,
-       captions and all. Confirming this pattern is optional — it will not change what is written.`],
+       captions and all. Confirming this pattern is optional — it will not change what is written.
+       The values below are read from the statement itself, so they are greyed out; to correct
+       one, edit the 866 on its record.`],
   }[group.decides];
   if (!note) return '';
   const [cls, text] = note;
@@ -3170,12 +3180,35 @@ function buildExamplesHtml(examples) {
  * only — pooling them across examples produced a column that lined up against
  * nothing.
  */
+/**
+ * Whether a value's settings can change anything. The parser reads every
+ * statement it can, and a confirmed pattern supplies only what it cannot: so
+ * where the parser reads the group in full, nothing here changes the output,
+ * and where it reads all but a caption, only the bare numbers -- the values
+ * written with no caption, named "…_num" -- have anything to decide. Measured,
+ * not assumed: on such a group, changing a captioned value's caption, meaning
+ * or level, or a year's, leaves the 853 and 863 exactly as they were.
+ */
+function roleIsFixed(group, role) {
+  if (!group) return false;
+  if (group.decides === 'nothing') return true;
+  if (group.decides === 'caption') return !BARE_NUMBER_RE.test(role.group);
+  return false;
+}
+const BARE_NUMBER_RE = /(^|_)num(_\d+)?$/;
+const FIXED_ROLE_TITLE = 'Read from the statement itself, so changing it here would change '
+  + 'nothing. To correct it, edit the 866 on its record.';
+
 function renderRoleRows(card, roles, values) {
   const body = card.querySelector('.role-rows');
+  const group = card._group;
   body.innerHTML = roles.map(role => {
+    const fixed = roleIsFixed(group, role);
+    const off = fixed ? 'disabled' : '';
     // A suggested reading is shown chosen but still counts as undecided: the
-    // cataloguer is being offered one, not told one.
-    const undecided = role.kind === UNRESOLVED_KIND || role.suggested;
+    // cataloguer is being offered one, not told one. A fixed value has nothing
+    // to decide.
+    const undecided = !fixed && (role.kind === UNRESOLVED_KIND || role.suggested);
     const value = (values || {})[role.group] || '';
     const kindOptions = KIND_CHOICES.map(([kind, label]) =>
       `<option value="${kind}" ${role.kind === kind ? 'selected' : ''}>${escHtml(label)}</option>`
@@ -3189,18 +3222,20 @@ function renderRoleRows(card, roles, values) {
     ).join('');
     const enumOnly = role.kind === ENUM_KIND ? '' : 'hidden';
     return `
-      <tr class="${undecided ? 'needs-decision' : ''}" data-group="${escHtml(role.group)}">
+      <tr class="${undecided ? 'needs-decision' : ''}${fixed ? ' role-fixed' : ''}"
+          data-group="${escHtml(role.group)}" ${fixed ? `title="${escHtml(FIXED_ROLE_TITLE)}"` : ''}>
         <td class="role-group">${escHtml(role.group)}</td>
         <td class="role-sample">${escHtml(value || '—')}${
-          role.suggested ? '<span class="role-guess">likely, please confirm</span>' : ''}</td>
+          role.suggested && !fixed ? '<span class="role-guess">likely, please confirm</span>' : ''}${
+          fixed ? '<span class="role-fixed-note">from the statement</span>' : ''}</td>
         <td>
-          <select class="role-boundary" aria-label="Boundary for ${escHtml(role.group)}">
+          <select class="role-boundary" ${off} aria-label="Boundary for ${escHtml(role.group)}">
             <option value="start" ${role.boundary === 'start' ? 'selected' : ''}>Start</option>
             <option value="end"   ${role.boundary === 'end'   ? 'selected' : ''}>End</option>
           </select>
         </td>
         <td>
-          <select class="role-kind" aria-label="Meaning of ${escHtml(role.group)}">
+          <select class="role-kind" ${off} aria-label="Meaning of ${escHtml(role.group)}">
             <option value="" ${role.kind === UNRESOLVED_KIND ? 'selected' : ''} disabled>— choose —</option>
             ${kindOptions}
             <option value="${IGNORE_KIND}" ${role.kind === IGNORE_KIND ? 'selected' : ''}>
@@ -3208,12 +3243,12 @@ function renderRoleRows(card, roles, values) {
           </select>
         </td>
         <td class="enum-only" ${enumOnly}>
-          <input type="text" class="role-caption" list="caption-words"
+          <input type="text" class="role-caption" list="caption-words" ${off}
                  value="${escHtml(role.caption || '')}" placeholder="v."
                  aria-label="Caption for ${escHtml(role.group)}" />
         </td>
         <td class="enum-only" ${enumOnly}>
-          <select class="role-enum-level" aria-label="Enumeration level of ${escHtml(role.group)}">
+          <select class="role-enum-level" ${off} aria-label="Enumeration level of ${escHtml(role.group)}">
             <option value="">By position</option>
             ${levelOptions}
           </select>

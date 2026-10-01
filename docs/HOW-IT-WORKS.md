@@ -1,6 +1,6 @@
 # How the Holdings Workbench Works
 
-*Written for librarians and cataloguers. Describes version 0.31.3.*
+*Written for librarians and cataloguers. Describes version 0.31.4.*
 
 The Holdings Workbench turns the free-text holdings in MARC 866 fields into structured 853 caption/pattern and 863 enumeration/chronology fields, and asks a cataloguer to confirm anything it cannot be sure of. This guide explains how, for librarians rather than programmers.
 
@@ -96,6 +96,8 @@ Suppose `v. 1 (1990)` was keyed wrongly, and should be `no. 1 (1990)`, while ano
 - **Edit the one 866 instead.** Change `v. 1 (1990)` to `no. 1 (1990)` on that record. It converts with `no.` in its 853, and the other record keeps `v.`. The corrected 866 is what the downloaded file carries, the log says the record was edited, and "Put back as uploaded" undoes it.
 
 A wrong statement is a fact about one record, so it is fixed on that record, not by a rule for the whole group.
+
+The pattern's table shows this. A value the statement names itself, and every year, is greyed out and marked "from the statement", because changing its settings would change nothing. Only what a pattern can decide stays open: a number written with no caption, and every value of a statement the parser cannot read at all.
 
 ## Tokenization: how the detector reads a statement
 
@@ -414,9 +416,9 @@ The log is built from the same summary as the conversion, so it describes exactl
 
 Four checks run before any change is released, and each answers a different question.
 
-| Check | Question it answers | Result as of 0.31.3 |
+| Check | Question it answers | Result as of 0.31.4 |
 | --- | --- | --- |
-| Automated tests | Does every behaviour described here still hold? | 902 passed, 8 skipped |
+| Automated tests | Does every behaviour described here still hold? | 905 passed, 8 skipped |
 | Corpus report | What do 117 real 866 statements convert to, and has any outcome changed? | 90 clean (77%), 22 converted with a warning, 5 with no fields, 0 with values lost |
 | Conversion audit | Did any number in a statement reach no field and no warning? | 0 unaccounted for: the corpus, the LC examples, the other library's catalogue, and all 1,057 statements of the 372-record test export |
 | Round trip | Convert, write the 866 as Alma would, convert again: do the same 863s come back? | Test export: 938 identical, 106 identical apart from an 853 caption, 11 not converted, **0 drift** |

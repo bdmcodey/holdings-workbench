@@ -15,6 +15,12 @@ more than one release; numbering resumed with 0.6.1. Reasoning behind the
 parser and converter decisions, including the defects a real corpus exposed and
 what was done about each, is in [CORPUS-FINDINGS.md](CORPUS-FINDINGS.md).
 
+## 0.31.4 — 2026-10-01
+
+On a pattern, the settings that would change nothing are greyed out, with a note that the statement itself is where to correct them.
+
+- **MARC Holdings Workbench** — A pattern's table lets you say what each captured value means, its caption and its level. But the standard parser reads every statement it can, and a confirmed pattern only supplies what the parser cannot: so for a value the statement itself names ("v. 1") or a year, changing these settings never changed the 853 or 863, and the screen did not say so. Those rows are now greyed out and marked "from the statement", and the note above the table says that to correct one you edit the 866 on its record. Only what a pattern can decide stays open: a number written with no caption, whose caption is yours to give, and every value of a statement the parser cannot read at all. Nothing about the conversion changes.
+
 ## 0.31.3 — 2026-10-01
 
 The tool is called the MARC Holdings Workbench throughout.

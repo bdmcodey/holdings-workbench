@@ -1076,3 +1076,34 @@ def test_a_confirmed_caption_never_overrides_one_the_statement_prints():
         assert source == pattern.id
         f853 = convert_holdings(result).field_853.display()
         assert "$a v." in f853 and "$a no." not in f853
+
+
+def test_only_a_bare_numbers_settings_change_a_statement_the_parser_reads():
+    """
+    What the pattern screen greys out rests on this. On "39 no. 1 (1990)" the
+    parser reads everything but the first level's caption. Changing the
+    captioned value or the year changes nothing; changing the bare number does.
+    """
+    from marc_serials.converter import convert_holdings
+
+    statement = "39 no. 1 (1990)"
+    group = detect_one(statement)
+
+    def output(**changes):
+        roles = infer_roles(group.named_groups)
+        decide(roles, "start_num", BOUNDARY_START, KIND_ENUM, level=0, caption="v.")
+        for name, (attr, value) in changes.items():
+            role = next(r for r in roles if r.group == name)
+            setattr(role, attr, value)
+        pattern, errors = plib.validate_pattern({
+            "label": group.human_label, "regex": group.regex,
+            "roles": [r.to_dict() for r in roles], "split": False, "priority": 0})
+        assert not errors, errors
+        rc = convert_holdings(apply_patterns(statement, [pattern])[0])
+        return rc.field_853.display(), [f.display() for f in rc.fields_863]
+
+    base = output()
+    assert output(start_iss=("caption", "pt.")) == base
+    assert output(start_iss=("kind", KIND_IGNORE)) == base
+    assert output(start_year=("kind", KIND_IGNORE)) == base
+    assert output(start_num=("caption", "pt.")) != base

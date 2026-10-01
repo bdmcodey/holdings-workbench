@@ -140,3 +140,30 @@ def test_pasted_statements_are_linked_to_no_record(client):
         "statements": ["v.1(1990)-v.3(1992)"], "pasted": True}).get_json()["groups"][0]
     assert from_file["records"] == [0]
     assert pasted["records"] == []
+
+
+def test_settings_that_change_nothing_are_greyed_out():
+    """
+    Asked for by the cataloguer: on a pattern the parser reads in full, every
+    setting was live and none changed the output. Measured: where the parser
+    reads all but a caption, only bare numbers ("…_num") change anything; where
+    it reads the statement in full, nothing does. Those rows are disabled.
+    """
+    page = _page()
+    fixed = re.search(r"function roleIsFixed\(group, role\).*?\n}\n", page, re.S).group(0)
+    assert "group.decides === 'nothing'" in fixed
+    assert "group.decides === 'caption'" in fixed and "BARE_NUMBER_RE" in fixed
+    assert "const BARE_NUMBER_RE = /(^|_)num(_\\d+)?$/;" in page
+    rows = re.search(r"function renderRoleRows.*?\n}\n", page, re.S).group(0)
+    assert rows.count("${off}") == 4          # boundary, meaning, caption, level
+    assert "edit the 866 on its record" in page
+
+
+def test_which_settings_change_the_output_is_what_the_screen_says(client):
+    """The server's 'decides' is what the greying keys on; pin the three cases."""
+    for statement, decides in (("v. 1 (1990)", "nothing"),
+                               ("39 no. 1 (1990)", "caption"),
+                               ("?: 16", "reading")):
+        [group] = client.post("/api/detect", json={
+            "statements": [statement], "pasted": True}).get_json()["groups"]
+        assert group["decides"] == decides, statement
