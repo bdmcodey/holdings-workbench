@@ -1,6 +1,6 @@
-# MARC Serials Toolkit
+# MARC Holdings Workbench
 
-A small toolkit for **enhancing MARC serials holdings** — turning the free-text
+A tool for **enhancing MARC serials holdings** — turning the free-text
 holdings summaries libraries keep in the MARC **866** field into structured,
 machine-actionable **853 / 863** enumeration-and-chronology fields.
 
@@ -14,7 +14,7 @@ network calls, no API key, nothing leaves the machine.
 
 | Step | What happens |
 |---|---|
-| **Holdings** | Upload a MARC file, or paste 866 statements. One statement can be converted on its own, with no file and no pattern. |
+| **Holdings** | Upload a MARC file, or paste 866 statements to see their patterns. Converting needs the file. |
 | **Patterns** | The 866 statements are clustered by structure and a named-group regex is generated for each cluster. You confirm what each captured value means in MARC — which number is a volume, which is an issue, what caption the 853 should declare — once per pattern. |
 | **Convert** | Every record is converted, with your confirmed patterns supplying what the parser cannot work out on its own. Review the file record by record and download it. |
 
@@ -45,7 +45,7 @@ python run.py
 ## Repository layout
 
 ```
-marc-serials-toolkit/
+holdings-workbench/
 ├── marc_serials/       the whole tool, as one installable package
 │   ├── webapp.py           the Flask application: routes and session handling
 │   ├── templates/          the page
@@ -67,7 +67,7 @@ marc-serials-toolkit/
 │   ├── messy_holdings.mrc     SYNTHETIC awkward cases, for the test suite
 │   ├── textual_holdings_corpus.txt  117 real 866 $a statements (text, not MARC)
 │   ├── lc_holdings_examples.txt     the 866 $a examples from LC's MARC pages
-│   └── outside_catalog_examples.txt 42 statements from another library's catalogue
+│   └── outside_catalog_examples.txt 63 statements from other libraries' catalogues
 ├── scripts/
 │   ├── create_example_mrc.py  Regenerates the synthetic sample
 │   ├── create_messy_mrc.py    Regenerates the awkward-case fixture

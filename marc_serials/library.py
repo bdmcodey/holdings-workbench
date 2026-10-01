@@ -1,5 +1,5 @@
 """
-pattern_library.py
+library.py
 ------------------
 The set of patterns a cataloguer has confirmed, and the JSON they travel in.
 
@@ -272,7 +272,7 @@ def to_export(patterns: Sequence[ConfirmedPattern]) -> dict:
     return {
         "schema":     SCHEMA_VERSION,
         "generated":  datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-        "tool":       "MARC Serials Toolkit — Holdings Workbench",
+        "tool":       "MARC Holdings Workbench",
         "patterns":   [p.to_dict() for p in patterns],
     }
 

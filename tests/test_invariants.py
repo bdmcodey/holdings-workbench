@@ -483,7 +483,7 @@ def test_the_committed_fixtures_are_coded_as_serial_holdings():
     Both .mrc files in data/ carry serial holdings -- volumes, issues, years --
     and until 0.12.5 both were coded Leader/06 = x, single-part item holdings.
 
-    It changed no behaviour, because nothing in the toolkit reads the Leader.
+    It changed no behaviour, because nothing in the tool reads the Leader.
     It mattered because of what it would have done to the first change that
     did: 863-865 says first indicator 3 "is not applicable to a single-part
     item (Leader/06, code x)", so fixtures coded x rule out a value the

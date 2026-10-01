@@ -1,6 +1,6 @@
 {
-  "name": "MARC Serials Toolkit",
-  "version": "0.31.2",
+  "name": "MARC Holdings Workbench",
+  "version": "0.31.3",
   "released": "2026-09-30",
   "status": "Proof of concept — under active development. Check your output before loading it into the catalog.",
   "description": "One tool for MARC serials holdings. Upload a MARC file, find the patterns in its 866 statements, confirm what each part of a pattern means, and convert to structured 853 caption/pattern and 863 enumeration/chronology fields. Statements no pattern matches are converted by the standard parser.",
@@ -10,12 +10,23 @@
   "_comment": "Written for cataloging staff, not developers. Say what changed about the output or the screen, not how the code changed. Newest version first.",
   "changelog": [
     {
+      "version": "0.31.3",
+      "date": "2026-10-01",
+      "summary": "The tool is called the MARC Holdings Workbench throughout.",
+      "changes": [
+        {
+          "tool": "MARC Holdings Workbench",
+          "text": "The name at the foot of the page, in this list of changes and in an exported pattern library is now MARC Holdings Workbench, the name the screen already used, instead of MARC Serials Toolkit. Changes made to the original Converter and Pattern Detector, and to the first Workbench that joined them, keep those names. Nothing about the conversion changes."
+        }
+      ]
+    },
+    {
       "version": "0.31.2",
       "date": "2026-09-30",
       "summary": "A file set aside for pasted statements comes back with one click, and is named.",
       "changes": [
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "Switching from a file to pasted statements no longer drops the file. It is set aside: still loaded, with your review decisions and the patterns found from it, but out of use until you come back to it. Step 1 names it (\"example.mrc set aside\") with a \"Back to example.mrc\" button, which brings back the file, its Convert step and its patterns without uploading again. Uploading a file still replaces it. The note shown when you type while a file is loaded now names the file, and the pasted text is no longer cleared when you upload. Patterns found from pasted statements are no longer linked to records in the loaded file that happen to read the same."
         }
       ]
@@ -26,11 +37,11 @@
       "summary": "Holdings come from a file or from pasted statements, never both at once; patterns found from pasted statements are shown open.",
       "changes": [
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "When you paste statements into step 1 instead of uploading a file, there is no Convert step, so the patterns are the only result to look at. After Find patterns they now stay open, with every group unfolded and each pattern's regular expression and Copy button in view. With an uploaded file nothing changes: when no pattern needs a decision, the step still folds to one line so Convert is in view."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "Step 1 is now either a file or pasted statements, not both. It used to be possible to upload a file and also paste statements: Find patterns then used the pasted ones while Convert worked on the file. Now the last one you choose wins. Uploading a file clears the text box. Clicking \"Use these statements\" sets a loaded file aside, and its records, Convert step and patterns go with it; uploading again brings a file back. If you type in the box while a file is loaded, a note says that \"Use these statements\" is how to switch."
         }
       ]
@@ -41,7 +52,7 @@
       "summary": "Each 866's declared notation (its second indicator and $2) is now noted where it matters, without changing what is converted.",
       "changes": [
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "An 866's second indicator says what notation its text is written in, and indicator 7 names it in $2 (\"usnp\" for the US Newspaper Program). The tool reads Z39.71 and still reads every statement the same way whatever is declared, so a wrong indicator or $2 costs nothing. What is new is a note, shown on the statement in yellow and written to the log: when an 866 declares a notation other than Z39.71 in $2; when it declares usnp but the text does not look like it; and when the text looks like US Newspaper Program notation (dates as [year:month:day]) but the 866 does not declare it. None of the 1,057 866s in the test export gets a note."
         }
       ]
@@ -52,7 +63,7 @@
       "summary": "A list of single dates written as prose (\"Jun. 17, 1880; Oct. 4, 1883\") is held whole instead of recording only the last year.",
       "changes": [
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "\"Jun. 17, 1880; Oct. 4, 1883; Jun. 1887; Dec. 16, 1887\" used to convert to a single 863, $i 1887, with the rest skipped: the comma in \"Dec. 16, 1887\" was taken for a gap between two holdings. The comma of a date is no longer read as a gap, and a statement made only of dates written this way is now held, with a note saying it is a list of single dates and that each would need its own 863, entered by hand. A lone \"Jun. 17, 1880\", which recorded just $i 1880, is held the same way. Nothing else in the test collections or the test export changes."
         }
       ]
@@ -63,7 +74,7 @@
       "summary": "A statement ending with a full stop (\"v.89,pt.1(1969)-v.96,pt.3(Dec.1972).\") now converts instead of being held for the full stop.",
       "changes": [
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "Some catalogues end each holdings statement with a full stop. The whole statement used to be held for it (\"could not account for '.'\"), and in a statement with two runs the second was skipped. One full stop at the end, after a closing parenthesis, a number or an open end, is now ignored. A full stop after a letter belongs to an abbreviation (\"no.\", \"Dec.\") and is still read as part of it; two full stops, or a note after one (\"(Incomplete)\"), are still held. In the test collections four statements now convert that did not; nothing that already converted changes."
         }
       ]
@@ -74,7 +85,7 @@
       "summary": "A month written straight against its year (\"Sept.1932\") is read; before, the year was lost and a month could be recorded wrongly.",
       "changes": [
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "Some catalogues leave out the space after an abbreviated month: \"v.23,no.1(Sept.1932)-v.33,no.10(June 1943)\". The date was not recognised, so both years were left out, and the end's month was written as if it were the month of the whole run ($j 06). It now converts to $a 23-33 $b 1-10 $i 1932-1943 $j 09-06, the same as with the space. Of all the statements in the test collections and the test export, this is the only one that converts differently."
         }
       ]
@@ -85,11 +96,11 @@
       "summary": "A warning that needs a decision is now orange and headed \"To check:\", so it stands apart from warnings that are only for the log.",
       "changes": [
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "On a record with more than one statement, a warning that makes a statement \"to check\" looked the same as a warning that was only recorded for the log, so you could not tell which statement the \"to check\" pill meant. Warnings that need a decision are now orange, with a thicker left edge, and begin \"To check:\". The reason a statement was held is orange too. Warnings that only go into the log stay yellow. The \"held\" and \"to check\" pills on each record are orange to match. Nothing about the conversion changes."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "A held statement now shows every reason it was held, not only the first. The first is often the general \"No recognisable holdings ranges found\"; the one after it says where reading stopped, such as \"could not account for '// 1982//'\", which is the part to clean up with Edit."
         }
       ]
@@ -100,7 +111,7 @@
       "summary": "An 866 that holds the values of an 863 written out as text is now named as such, instead of \"No recognisable holdings ranges found\".",
       "changes": [
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "Some catalogues have 866s like \"2.1 54-62 1-1 1998-2006 21-21 g\": the values of an 863 ($8 2.1 $a 54-62 $b 1-1 $i 1998-2006 $j 21-21 $w g) with the subfield codes gone. These are still not converted, because what each number counts was in an 853 that is not part of the text. But the record now says what the text looks like and what to do (rewrite it as a statement with Edit, or enter the 853 and 863 by hand), instead of \"No recognisable holdings ranges found\" and a note pointing at the wrong place. Nothing else changes."
         }
       ]
@@ -111,7 +122,7 @@
       "summary": "An open end written inside the parentheses (\"v.35 (2025-)\") is kept, instead of being dropped without a warning.",
       "changes": [
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "\"v.35 (2025-)\" used to convert to $a 35 $i 2025, a closed holding for a title still being received, and nothing said the open end had gone. It now converts to $a 35- $i 2025-, the same as \"v.35(2025)-\". A statement that gives a run and then leaves it open, such as \"v.1-3 (1990-)\", \"v.1-3 (1990)-\" or \"v.1 (1990-1992)-\", is now held with a note, because it does not say which part is still being received. Before, the first dropped the open end and the other two wrote a value an ILS would not accept ($a 1-3-). None of the statements in the test collections or the test export is written these ways, so nothing that already converted changes."
         }
       ]
@@ -122,11 +133,11 @@
       "summary": "Dates written after the numbering without parentheses (\"v.3-36 1963-1995\") are now read.",
       "changes": [
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "A statement that gives its dates after the volumes without parentheses, as older summary statements often do (\"v.3-36 1963-1995\", \"v.40 no.4-6 2003.\", \"v.12 no.3 Mar. 1990\"), used to convert to nothing and was held. It now converts to the same 853 and 863 as the statement with its dates in parentheses. The dates must come last and contain only years, months and seasons, so \"v.1 2000 copies\" is still held. So is \"v.1-3 1990-\", which does not say whether the run of volumes is open or the holding is. Statements already converting are unchanged: none of the 117 in the test collection or the 1,055 in the test export is written this way."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "Pattern headings keep the spaces the statements had: \"VOLISS(CHRONYEAR)\" is now \"VOL ISS(CHRON YEAR)\". Most headings in a file will look slightly different; what each pattern matches and converts is unchanged, and patterns you have already confirmed still apply. Dates written after the numbering without parentheses are headed with an ordinary hyphen (\"VOL-VOL YEAR-YEAR\"), not the long dash that divides the start of a holding from its end."
         }
       ]
@@ -137,7 +148,7 @@
       "summary": "A year written before a volume (\"1990: v.1\") is read as its date, not as a level above the volume.",
       "changes": [
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "\"1990: v.1\" used to convert to $a 1990 $b 1, treating the year as a level of numbering above the volume, and the 853 then called the volume the second level. It now converts to $a 1 $i 1990, and \"1990: v.1-1992: v.3\" to $a 1-3 $i 1990-1992. A year before an issue number (\"2004 no. 3\") is read as before, since some journals do number by year. A statement giving two different years for one volume, such as \"1990: v.1 (1991)\", is held rather than guessed at. None of the test collection's statements are written this way, so nothing already converting changes."
         }
       ]
@@ -148,11 +159,11 @@
       "summary": "A range inside one end of the holdings (\"nos. 1-3\" at the start) is recorded by its first and last part, and the record says so.",
       "changes": [
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "\"v. 6 nos. 1-3-v. 14 nos. 10-12 (Mar 1978-Oct-Dec 1986)\" used to write $b 1-3-10-12, which cannot be read, and lost the end year and the months. It now writes $a 6-14 $b 1-12 $i 1978-1986 $j 03-12: a compressed 863 records the first part held and the last, and a hyphen means \"through\". The record is marked to check, and its note says what to do if \"1-3\" was one combined issue rather than a range: write it with a slash in the 866 (Edit), and it is kept whole, as $b 1/3-10/12."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "Dates with a range at one end, such as \"(May 1992-Mar-Jun 1995)\", now keep both years and the months. Before, only the first year was written."
         }
       ]
@@ -163,19 +174,19 @@
       "summary": "Holdings that Alma writes back from this tool's 853/863s now convert to the same 853/863s again, and a check proves it.",
       "changes": [
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "Statements written the way Alma and Z39.71 write dates on their own -- \"1990:Jan.-1994:Dec.\", \"2000:Spring/Summer\", \"2014:Nov. 7\" -- now convert. They used to convert to nothing: they were mistaken for the year-first format (\"1993: (1 [Feb])\"), which the tool still reads as before. 42 statements in the test collection's export are of this kind once Alma has regenerated them."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "A statement like \"(Feb, Jun, Aug 1998)\" used to produce an 863 with nothing in it but its link number, and counted as converted, so \"Remove each 866\" would delete the 866 that held the holdings. It is now held for review, and the 866 stays."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "Smaller fixes found the same way: bare years ending in a comma (\"1986-1988,\") are read, with the gap; \"v. 1 - 55\" writes $a 1-55 without the spaces; and a range within one month of one year (\"Oct 7-Oct 21, 1993\") writes $j 10 rather than $j 10-10."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "For whoever maintains the tool: scripts/round_trip.py converts statements, writes the 866 Alma would generate from the result, and converts that again, reporting any difference. Run on an Alma export, it also checks its imitation of Alma against the 866s Alma itself generated."
         }
       ]
@@ -186,11 +197,11 @@
       "summary": "A strict setting for the standard parser: convert a statement only if all of it can be read.",
       "changes": [
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "Under \"Use the standard parser for holdings no confirmed pattern matches\" there is a new option: \"Only where it reads the whole statement (strict)\". Normally, when a statement goes beyond what the parser expects, it converts what it can and says what it left out. With strict on, that statement is held instead: nothing is written, its 866 stays, and the log lists it as \"Not converted\" with the reasons. It is off unless you turn it on. Statements your confirmed patterns match are not affected. On the test collection's 1,057 statements it holds 126 instead of 2, nearly all of them ranges where one end gives a month and the other does not."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "The Library of Congress's own 866 examples, from its MARC holdings documentation, are now kept as a separate set of test statements. They show how the tool does on holdings written outside the collection it was built on: of 7, 4 convert cleanly, 1 converts and says what it left out, and 2 are in the US Newspaper Program's notation and are held rather than misread."
         }
       ]
@@ -201,11 +212,11 @@
       "summary": "Each pattern shows its expression, with a Copy button, and can show you the records it touches.",
       "changes": [
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "Every pattern card now shows its expression under the heading, two lines at a time; click it to see all of it. \"Copy\" puts it on the clipboard exactly as it stands, including any change you have made in the box under \"Expression and example statements\". \"Copy all expressions\" at the top of the list copies every pattern at once, one per line, with its heading and number of statements, ready to paste into a spreadsheet."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "Each card can now show its records in the list of records below. \"Show the records with this shape\" lists every record holding a statement of that shape. For a confirmed pattern, \"Show the records it converts\" lists the records it actually converts, which can be fewer (a larger pattern may claim some first) or more (its expression may also match a similar shape). When the two differ, both are offered. The list is then filtered by a chip naming the pattern; press × beside it to go back to all records. Uploading a new file clears it."
         }
       ]
@@ -216,15 +227,15 @@
       "summary": "A month written with a full stop (\"Jan.\") no longer makes a pattern of its own, and an uncertain year like \"2016?\" no longer says it was not converted when it was.",
       "changes": [
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "\"Find patterns\" put statements like \"v.1 (Jan. 1990)\" and \"v.2 (Jan 1991)\" in two different groups, because the full stop after an abbreviated month was treated as a scrap of free text. The group with the full stop was headed \"CHRON‹text›\" and had to be confirmed separately. The full stop now belongs to the month, so both are one group. What each statement converts to is unchanged, and a pattern you confirmed for the old group still works."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "A statement that is only an uncertain year, such as \"2016?\", converts to the year as before. It no longer also carries a second warning saying nothing was converted. The warning that the question mark is not encoded remains."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "A note in braces on a statement like that, as in \"2016? {gift}\", was lost: the statement converted nothing and the note was mentioned nowhere. The year now converts and the note is reported, as it is on every other statement."
         }
       ]
@@ -235,7 +246,7 @@
       "summary": "Ticking Skip no longer opens the record and moves the cursor to its note box.",
       "changes": [
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "Ticking Skip now only marks the record skipped, as it did before 0.25.0. Opening the record and jumping to its note box got in the way when skipping several records in a row, and under \"Needs attention\" it did nothing, because a skipped record leaves that list. To write a reason for a skip, open the record: the \"Your note\" box is still at the bottom. The Skipped filter shows every skipped record together, so you can skip first and write notes afterwards."
         }
       ]
@@ -246,15 +257,15 @@
       "summary": "Write your own note on a record -- a reminder for you or a colleague that goes into the log, never into the record.",
       "changes": [
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "Opening a record now shows a \"Your note\" box at the bottom. Write a reminder for yourself or a colleague -- why the record was skipped, or what to check when you open it in your catalogue -- and it is saved when you click away or press \"Save note\". The note goes into the session log and nowhere else: unlike a $x or $z, it is never written into the record. Emptying the box removes the note."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "Ticking Skip on a record now opens it with the cursor in the note box, so the reason for skipping is easy to write down. Nothing asks you to: skipping without a note works as before."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "A record with a note is marked \"note\" in the list (hover to read it), and appears in the log even if nothing else is wrong with it, with the note as its first line under \"Your note\". Like everything else in a session, notes are kept until you upload a new file or the session ends -- download the log first if you want to keep them."
         }
       ]
@@ -265,7 +276,7 @@
       "summary": "A skipped record no longer stays under \"Needs attention\".",
       "changes": [
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "A record with a warning about the 853s already on it stayed under \"Needs attention\" after you marked it Skip, while other records left the list when skipped. Skipping a record means you are handling it yourself, so a skipped record is no longer listed there, whatever it carries. The warnings still show when you open the record, and the session log still lists it as skipped."
         }
       ]
@@ -276,7 +287,7 @@
       "summary": "The review list shows at most 50 records a page.",
       "changes": [
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "The \"All records\" choice in the review list's \"Show\" menu has been withdrawn: with every record of a large file on screen at once, opening and closing a record was slow. The largest page is now 50 records; 5, 10 and 25 are still offered, and 10 is still where it starts. If you had chosen \"All records\", the list now opens at 50 per page."
         }
       ]
@@ -287,11 +298,11 @@
       "summary": "A session log: a spreadsheet of every record with something to look at, to take back to your catalogue or MarcEdit.",
       "changes": [
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "Once you have converted anything, a \"Download log\" button appears beside \"Download .mrc\". It gives you a spreadsheet (a CSV file, which opens in Excel) with one line for each thing a record needs looked at: records you skipped, records kept because they already had 863s, 853s to check, statements that were not converted, statements converted with a note, corrections you made to 866s, and settings that were refused."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "Each line names the record three ways -- its place in the file, its identifier (the field you chose when uploading, 999 $b unless you changed it) and its title -- with the 866 statement concerned and what was said about it, so you can find the record again in your catalogue or in MarcEdit and fix it there. Sort or filter by the \"What\" column to work through one kind at a time. Records with nothing to report are left out. The log describes the same file the Download button gives you, including records you converted one at a time."
         }
       ]
@@ -302,19 +313,19 @@
       "summary": "A file with an 866 that carries only a note no longer stops the records being checked, and one record the tool cannot handle no longer stops the rest.",
       "changes": [
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "An 866 with no holdings statement -- one carrying only a note, such as \"$z Current issues in reading room\" -- stopped the whole file being checked. The list still appeared and \"All\" showed every record, but \"Read by the parser\" and \"Read by a pattern\" found nothing, and \"Convert all records\" failed. Such an 866 is now kept as it is, and the record's other 866s are converted as usual."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "If a record cannot be handled for any other reason, it is now marked \"could not check\", listed under Needs attention, left exactly as it was in the converted file, and the reason is shown when you open it. The rest of the file is checked and converted as usual, where before one such record stopped them all."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "If the records cannot be checked at all, the screen now says so above the list. Before, the only sign was every filter but \"All\" showing 0 records, which looked like a result rather than a failure."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "Uploading a new file now clears the Find box. Text left in it used to narrow every filter on the next file without saying so."
         }
       ]
@@ -325,15 +336,15 @@
       "summary": "Correct an 866 in the Workbench: an Edit button beside each 866 re-checks the statement and regenerates its 853 and 863s.",
       "changes": [
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "Opening a record now lists its 866 fields, each with an Edit button. Edit opens the field for correction, with a menu to choose what to change: the holdings statement ($a), which is where it starts, or the public ($z) or nonpublic ($x) note. \"Save and check again\" re-reads the corrected statement straight away: the record's 853 and 863s are regenerated, the review list is updated, and pattern detection runs again if you have run it. A typo such as \"Fal 1995\" no longer means leaving the Workbench to fix the record and starting over."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "The corrected 866 is what the converted file carries, so the record goes back to your catalogue fixed. Each correction is shown on the record -- \"You edited 866 no. 3 $a: it read ... and now reads ...\" -- and in the run summary, and the record is marked \"866 edited\" in the list. It is not listed under Needs attention: it is a change you made on purpose, not a problem. \"Put back as uploaded\" undoes a correction, and uploading a new file forgets them all."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "The holdings statement cannot be emptied; use \"Put back as uploaded\" to undo a change instead. An emptied note is removed."
         }
       ]
@@ -344,31 +355,31 @@
       "summary": "853s and 863s already on a record are kept unless you ask for them to be cleared.",
       "changes": [
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "A record that already had 863 fields -- added by hand, or by an earlier load -- had them written over by 863s generated from its 866s, even with \"Clear existing 853 / 863 first\" left unticked. The replacements could lose information the originals carried: on a real 372-record file, 38 hand-entered 863s on 10 records were replaced, and every gap marker ($w g) among them was lost. Nothing on the screen said so."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "A record with 863s of its own is now kept exactly as it came in. Its row in the review list says \"has 863s · kept\", opening it explains why, and the run summary counts it: \"13 records already had 863s, kept as they were\". Ticking \"Clear existing 853 / 863 first\" is how to have such records regenerated from their 866s instead, and the list and previews update as soon as you tick it."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "A record with an 853 but no 863s still takes its new 863s under that 853 when its holdings match it. When they do not, the tool used to write its own 853 over yours; it now adds a second 853 beside it, under the next linking number neither uses, and marks the record \"853 to check\" so you can decide which pattern is right."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "An 853 already on a record with indicators MARC 21 does not define, or two 853s sharing one linking number, is now reported on that record and listed under \"Needs attention\". Neither is changed."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "A statement that ends in a comma now records the gap it marks. \"v.45(1988),\" is how Alma displays an 863 with a gap after it ($w g), and the comma used to be read and dropped, so the 863 written from it had no gap and a display rebuilt from that 863 would lose the comma. A comma between two runs of one statement is read the same way -- \"v.1(1990)-v.5(1994), v.7(1996)-v.9(1998)\" records the gap after v.5 -- unless the numbering carries straight on. A semicolon records a break that is not a gap ($w n), as Z39.71 punctuates it."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "Notes on an 866 now go onto the 863s written from it: a public note ($z) such as \"Incomplete\", and a nonpublic note ($x). They used to be left behind. When one statement becomes several 863s, the note goes on the last of them, and the record says so, because the note does not say which part it belongs to."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "\"Remove each 866 once it has been converted\" no longer removes an 866 with something on it that has nowhere to go. Before, an 866's $z note was deleted with it and nothing said so. Now its notes are carried, and an 866 carrying anything else is kept, with a note on the record saying what."
         }
       ]
@@ -379,15 +390,15 @@
       "summary": "An 853 that carries a count in $u is now written as able to compress or expand.",
       "changes": [
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "When you fill in \"Issues per volume\" in Conversion settings, each 853 that takes the count in $u now has first indicator 2, \"Can compress or expand\", in place of 3, \"Unknown\". MARC 21 ties compression to $u and $v being present, and the tool already writes $v; the count was the missing piece. An 853 that does not take the count -- a serial numbered by volume alone, or one with three levels of enumeration -- stays at 3, so a single run can write both."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "A count of var or und leaves the indicator at 3, because a number that varies or is not known is not one compression can use. A first indicator you have typed yourself in the \"853 indicators\" box, and the house preset's 2, are left as they are: only 3 is replaced."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "Fixed: \"Issues per volume\" was left out of two places since it was added in 0.19. Opening a record showed its 853 without the $u, and \"Convert this record\" wrote the record without it, while \"Convert all records\" included it. So the same record came out differently depending on which button converted it, and the preview agreed with the one that was wrong. A record converted on its own, or previewed, now gets the $u \"Convert all records\" gives it. Records you converted one at a time with a count set are worth converting again."
         }
       ]
@@ -398,15 +409,15 @@
       "summary": "The 853 indicator boxes in Conversion settings accept only the values MARC 21 defines.",
       "changes": [
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "The two \"853 indicators\" boxes in Conversion settings wrote whatever was typed into every generated 853. A 4 or a 9 in the first box went into the file as the first indicator, and a box left empty wrote a blank, although MARC 21 defines only 0, 1, 2 and 3 for either indicator. Nothing on the screen or in the run summary said so."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "A value other than 0, 1, 2 or 3 is now refused, and the 853 keeps the preset's value instead -- 3 and 1 for the standard preset, 2 and 0 for house practice. The box turns red and a note beside it says so while you type, and the run summary names the value that was refused and the one kept in its place. Each indicator is checked on its own, so a mistyped second indicator does not cost you the first."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "An 853 that was already in your record before conversion is still kept exactly as it came in, indicators included."
         }
       ]
@@ -417,11 +428,11 @@
       "summary": "The notes about the Leader above the review list can be hidden, and stay hidden in this browser.",
       "changes": [
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "Each of the three notes about the Leader above the review list -- the encoding level, holdings that go past the level you are recording at, and records coded as single-part items (06 = x) -- now has a Hide button. On a file whose Leader values are the same defaults on every record, these came back on every upload saying the same thing."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "A hidden note is folded, not removed. It shrinks to one line that still gives its count -- \"Hidden: Leader/06 coded as single-part item -- 36 records\" -- with a Show button that brings the whole note back. Each note is hidden on its own, and it stays hidden in this browser for every file you upload, as the theme and text size are remembered. The \"Leader & level\" filter still finds the records whichever notes are hidden."
         }
       ]
@@ -432,15 +443,15 @@
       "summary": "Choose how many records the review list shows at once: 5, 10, 25, 50, or all of them.",
       "changes": [
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "A \"Show\" menu beside the record count sets how many records a page of the review list holds: 5, 10, 25 or 50 per page, or every record in the file on one page. Ten is still where it starts. The menu stays in view whatever you choose, so \"All records\" can always be changed back."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "Your choice is remembered in this browser, as the theme and text size are, so it is still set after a reload or a new upload. Changing it takes you back to the first page, as changing a filter does. The filters and the Find box work the same at every size: \"All records\" under \"Needs attention\" shows every record that needs attention."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "\"All records\" loads the whole file, however long it is. The server prepares at most 200 records at a time, so a longer file is loaded in parts rather than stopping at the two-hundredth record."
         }
       ]
@@ -451,7 +462,7 @@
       "summary": "The count at the top of a conversion no longer includes the records you skipped.",
       "changes": [
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "\"Convert all records\" counted the records you had marked Skip among the records it converted. Skipping one record of five read \"5 records converted\" beside \"1 record skipped\", although that record came out of the run exactly as it went in. The count now gives only the records the run converted -- 4 in that case -- and the skipped ones are counted once, under \"records skipped\"."
         }
       ]
@@ -462,31 +473,31 @@
       "summary": "Records converted one at a time now stay converted, and each can be downloaded on its own.",
       "changes": [
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "Converting a record on its own used to throw away the record you converted before it. The file behind the Download button was rebuilt from your uploaded file each time, with only the record you had just converted written into it. Working through ten records a record at a time left a download containing the tenth and nine records exactly as they came in. Every record reported success, and the Download button stayed available throughout, so there was nothing on the screen to say the other nine had been dropped."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "Every record you convert now stays converted. The file is rebuilt from all of your decisions rather than the last one, so the download holds every record you have worked on, in the order they sit in your file."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "Each record you have converted now has a \"Download this record\" button of its own, beside \"Convert this record\". It gives you that one record as its own .mrc file, named after its identifier -- holdings_991234567890.mrc for a record whose 999 $b is 991234567890, or its place in the file if it has no identifier. For checking one record in a test load without running the whole file through."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "\"Convert all records\" now leaves a record you have already converted yourself exactly as you converted it, with the settings you chose for that record rather than the settings on the button. It reports how many it kept that way. Before, it redid every record and your own settings were lost."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "Skipping a record is still the stronger instruction: a record you have marked Skip comes out of a run exactly as it went in, even if you converted it by hand earlier. The run now says so -- it tells you how many records it set aside that you had converted individually, and unticking Skip and converting again puts your conversion back. The decision is held, not discarded."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "Uploading a new file clears every conversion decision, as it always cleared everything else. A decision is about a record in the file you made it on."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "Both download buttons were underlined, because a download is a link rather than something the page does and a link is underlined. Beside a button that is not, the pair read as two different kinds of control. They now look the same."
         }
       ]
@@ -497,19 +508,19 @@
       "summary": "The 853 and 863 fields are written in their proper place in the record, instead of after everything else.",
       "changes": [
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "A converted record put its new 853 and 863 fields at the very end, after the 866 they were generated from and after any local fields a system keeps there. A record that went in as 852, 866, 999 came out as 852, 866, 999, 853, 863. Valid, and wrong to anyone reading it: the field that defines the pattern sat after the textual holdings it explains."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "They now go where they belong — after the 852, before the 866 — with each 853 ahead of the 863s linked to it, and those in the order they were generated."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "Records that already had their fields out of order before conversion are left exactly as they were. Two records in the file this was reported from carry control fields out of sequence in the source; the new fields are placed correctly around them and nothing else is moved. Tidying somebody else's record inside a conversion is not this tool's business."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "Nothing about what is written changes — same 853s, same 863s, same values. Only where they sit in the record."
         }
       ]
@@ -520,11 +531,11 @@
       "summary": "The browser tab now shows the site's icon instead of a blank page symbol.",
       "changes": [
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "The tool had no icon, so a tab showed whatever blank marker the browser uses — which makes it hard to find among a row of open tabs. It now carries the same icon as the main site."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "It is served under both the name the page asks for and the name browsers request on their own, so bookmarking a page gets the icon too. That also clears the only error the browser console had been reporting on every page load, which was a request for the missing icon."
         }
       ]
@@ -535,15 +546,15 @@
       "summary": "\"Issues per volume\" is written where issues are counted, and a serial with three levels of numbering is left alone rather than guessed at.",
       "changes": [
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "The box asks for issues per volume, and on a serial numbered by volume and issue that is exactly where the number went. On one numbered by series, volume and issue it went beside the volume instead — saying how many volumes make a series, under a label promising something else."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "Three levels ask two questions at once: how many issues make a volume, and how many volumes make a series. MARC answers both by recording a number against each level. This tool collects one number, so it now writes none there and says why, rather than answering the wrong question with it."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "Nothing changes for a serial numbered by volume and issue, which is 857 of the 1004 statements in the file this was measured against and 89 of the 112 in the sample corpus. A serial numbered by volume alone still takes no number, because there is nothing above a volume to count against."
         }
       ]
@@ -554,19 +565,19 @@
       "summary": "Recording at level 3 reports how many records carry more than that, once, instead of marking two thirds of them.",
       "changes": [
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "Choosing level 3 — summary holdings, the first level of enumeration and chronology only — marked every record whose fields go further than that. On a file of detailed holdings that was 242 records of 372, which is not a signal: a marker on two thirds of a list tells you about the file, not about a record."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "It is now a line above the list, saying how many, like the two notes about the Leader beside it. The number was not visible anywhere before — the markers were spread over twenty-five pages, and the only total on screen belonged to a filter that also gathered records flagged for a different reason, so it showed neither figure."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "That filter is now called \"Leader & level\", which is what it gathers: records with something to note about their Leader, or about the level you are recording at. Its button finds them whatever the counts are, which is what matters for a file where only two or three records disagree."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "Recording at level 4 still reports nothing at all, because level 4 means every level a statement gives and nothing can exceed it. Nothing about conversion changes, and the Leader is still never touched."
         }
       ]
@@ -577,15 +588,15 @@
       "summary": "The notices above the record list read as sentences again, instead of breaking into columns with gaps through them.",
       "changes": [
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "A notice that mentioned a field by name — \"06 = x\", or an encoding level — came apart where the name appeared, leaving the sentence spread across the box in pieces with wide gaps between them. It was readable only with effort, and it affected the two notices about the Leader, the note about a missing identifier field, and the message about an unusable value for issues per volume."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "The cause was in the shared styling of every boxed message, which laid its contents out side by side rather than as running text. Any message naming a field in the middle of a sentence was split at that point. Messages that happened to be plain sentences were unaffected, which is why this only appeared once the tool started naming fields."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "Nothing but the layout changed. No wording, no counts, and nothing about conversion."
         }
       ]
@@ -596,19 +607,19 @@
       "summary": "A run written as \"(1960-66)\" now records both years instead of losing the second.",
       "changes": [
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "\"v. 1-7 (1960-66)\" converted to a field reading 1960, and the 66 — meaning 1966 — was dropped with nothing said about it. It now records 1960-1966. Nine statements in the file this was found in are written that way, and a run of years is exactly the thing a holdings statement exists to record."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "Two digits after a year can be ambiguous: \"1990-12\" might be 1990 to 2012, or December 1990. Months only run from 01 to 12, so anything above 12 is read as a year without hesitation, and anything that could be a month is left unencoded and reported rather than guessed at either way. \"1999-00\" reads as 1999-2000, because there is no month 00."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "This was found by a new check that reads a file and compares what each statement says against what was written from it, reporting anything that reached neither a field nor a warning. It found this on its first run. The sample corpus never contained a statement of this shape, which is why nothing had caught it before."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "Nothing else changes: the sample corpus converts exactly as it did — 90 statements cleanly, none with values lost."
         }
       ]
@@ -619,23 +630,23 @@
       "summary": "A run of years written as a list no longer loses all but the first of them, and records coded as single items while holding serials are counted for you.",
       "changes": [
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "A statement like \"(1986-1988, 1993-1994)\" converted to a single 863 reading 1986, and 1988, 1993 and 1994 were dropped — with no warning, nothing marked for review, and nothing to tell you it had happened. It now converts to two 863s, one for each run, with the break between them recorded. This is the thing this tool is least willing to do, and it was doing it: one statement in 1057 on the file it was found in."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "The same shape written with enumeration — \"v. 24 nos. 2-5, 8-10 (Apr-Jul, Oct-Dec 1920)\" — has always converted correctly. A list written as dates alone was the case nothing covered, because the list sits inside the parentheses with nothing in front of them to read it from."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "A statement that names its year once for the whole list, like \"(Jan, Mar-May, Sep, Oct 1982)\", is left exactly as it was: it still reports that it could not encode those dates. Reading it as a list would have filed three of those runs under a month in no particular year, which is worse than saying so."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "The Convert step now also counts records whose Leader calls them single-part item holdings while their holdings name a volume, an issue, or a span of more than one part. A single-part item is complete in one piece, so that coding cannot be right for them. Whether they should be serials or multipart items is a cataloguing decision, so the tool counts them and says nothing more."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "Like the encoding level, it is one line above the list rather than a marker on every row, because on a file migrated from a system that kept no MARC holdings it is true of nearly all of them. The Leader is still never changed."
         }
       ]
@@ -646,23 +657,23 @@
       "summary": "The encoding level is reported once for the file instead of on almost every record, and \"Needs attention\" means something again.",
       "changes": [
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "Version 0.13.0 marked a record whose Leader said one encoding level while you were recording at another. On a real file that turned out to be every record: an export of 372 holdings records, all of them declaring level 3, converted by a library recording at level 4, put the marker on 371 rows. A marker on almost every row tells you nothing, and it had also pushed all 371 records into \"Needs attention\", so that filter stopped being usable."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "The trouble was the question, not the counting. Whether your records' Leader matches the level you record at is a fact about the file — it is the same answer on every row — so it is now said once, in a line above the list: how many records disagree, what they say, and what you are recording at. Acting on it means changing those records in your catalogue, which is one operation there rather than a row-by-row job here."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "What stays beside a record is the question that actually differs from record to record: whether the fields being written go beyond the level you declared. Level 4 means every level the statement gives, so nothing can exceed it and recording at 4 now marks no records at all. Level 3 means summary — the first level of enumeration and chronology only — and on that same file 242 of 371 records carry more than that, while 129 genuinely are summary."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "\"Needs attention\" is about conversion again, and on that file went from 371 records to 11. The encoding level has a filter of its own beside it, so the records are still one click away — which is what matters for the file where only three of them disagree and finding those three is the point."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "The Leader is still never changed, and the test whose only job is to check that is untouched. Nothing about conversion changes."
         }
       ]
@@ -673,27 +684,27 @@
       "summary": "You can state how many issues make a volume, and the tool writes it into the 853 where the standard puts it.",
       "changes": [
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "A new box in Conversion settings, \"Issues per volume\". It fills 853 $u — the number of parts that make one of the level above, 12 for a monthly with annual volumes, 4 for a quarterly. The codes var and und are accepted where the number varies or is not known."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "It is written beside the caption it describes and nowhere else. On \"v.\" and \"no.\" it goes on the issue, because it says how many issues make a volume. A serial numbered by volume alone never gets one: there is nothing above a volume for it to count against, and the standard says so in as many words."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "Where a serial has three levels — a series, volumes within it, issues within those — the number you type is taken to mean the second level, volumes per series. The third level asks a different question, issues per volume, and is left alone rather than given the same answer."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "Left empty, nothing is written, which is exactly what every previous version did. That is the point: how many issues make a volume is a fact about how the serial is published, and a holdings statement does not state it. The frequency does not settle it either — a monthly with two volumes a year has six issues to a volume, not twelve — so the tool asks rather than guesses."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "Something that is not a count is refused with a note beside the box rather than written. A wrong number here would make a claim about the publication; no number simply makes none."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "Nothing else changes. The sample corpus converts exactly as before: 90 statements cleanly, none with values lost."
         }
       ]
@@ -704,19 +715,19 @@
       "summary": "A note in curly braces no longer costs a statement its holdings.",
       "changes": [
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "A statement like \"1993: {Memorial Issue} (1 [Feb])\" used to report that the note had been preserved and then convert nothing at all — the note was left in the text, the grammar met something it had no rule for, and the holdings went with it. A statement lost its holdings in order to say something about a note."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "The note is now set aside before the statement is read, so the holdings convert and the note is still reported as preserved but not encoded. This affected both ways the tool reads a statement, so the fix sits above both."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "\"{lcub}\" and \"{rcub}\" are left exactly as they are. Those are MARC's way of writing a literal curly brace rather than a note, and treating one as a note would delete a character somebody typed on purpose. The single statement in the sample corpus containing braces is of that kind."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "Nothing else about conversion changes: the sample corpus converts exactly as it did before — 90 statements cleanly, none with values lost."
         }
       ]
@@ -727,31 +738,31 @@
       "summary": "When a file carries no 999 $b, the tool offers the fields that file does carry, instead of leaving a blank where the number should be.",
       "changes": [
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "Version 0.14.0 read each record's identifier from 999 $b — Ex Libris Alma's MMS ID. A library on a different system has the number somewhere else, and the tool's only answer was to say it had not found one."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "Now it reads the file and offers what is actually in it. A field is proposed when it is on every record, appears only once in each, and has a different value on every one — the three things that make a field a name for a record rather than data about it. Each suggestion comes with a real value from your file beside it, because \"991000485469603731\" is recognisable to whoever uses those numbers and \"999 $b\" is not."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "You can also name a field yourself, written as 999$b or 001, or say to show no identifier at all. Something that is not a MARC field is refused with an explanation rather than accepted and shown as a column of blanks — a mistyped field and a field your records do not carry need different things from you, so the tool does not make them look alike."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "A field two records share is still offered, but marked. A title is the case that matters: two holdings of the same serial carry the same 245, so a title can be different on three records out of four — enough to look like a way of naming a record, and not enough to be one, because picking it would label two rows identically. Such a field now says \"some records share one\" beside it, and the list no longer claims that everything it offers is distinct."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "The change takes effect at once. The list is relabelled where it stands, without re-uploading the file and without disturbing the Reviewed, Skip or Keep-patterns-separate boxes you have already ticked."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "Your choice is remembered for the next file, because it describes your library's system rather than one export. Choosing to show no identifier is remembered too, so the tool does not keep asking a question you have already answered. Where the identifier is working, the field it came from is named quietly above the record list with a Change beside it."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "Nothing about conversion changes. The identifier is read and displayed only: it is never written to a record and never altered."
         }
       ]
@@ -762,23 +773,23 @@
       "summary": "Each record on the Convert step now shows the number you look it up by, and a Find box searches the whole file for one.",
       "changes": [
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "Holdings records do not usually carry a title — the title is on the bibliographic record, not on the holdings attached to it. So the Convert step was listing rows that read \"Record 1\", \"Record 2\", \"Record 3\", with no ISSN and the same location on every one. In a file of 372 records measured while this was built, nothing on screen distinguished one row from another except its position."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "Each row now shows the record's identifier, taken from 999 $b — in Ex Libris Alma, the MMS ID shown beside every record and used to key reports. It sits before the title, because on a holdings file it is the title, in the sense of being the thing that tells one row from another."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "A Find box above the filters searches the whole file, not the page on screen: identifier, title, ISSN, location, and the text of every 866. Part of a number is enough. It narrows whichever filter you have selected rather than replacing it, so \"Needs attention\" plus a search means both, and the count line and the pager follow along."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "If a file carries no 999 $b at all, the tool says so once, above the list, rather than drawing an empty space beside every row and leaving you to work out whether the file lacks the number or the tool failed to read it. Searching still works on everything else the records carry. Being able to name a different field is the next change."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "Nothing about conversion changes. No record is read differently, and the identifier is read and displayed only — it is never written, and never altered."
         }
       ]
@@ -789,15 +800,15 @@
       "summary": "After updating the tool, refreshing the page is enough to see the new version. It used to need the server stopped and started again, without saying so.",
       "changes": [
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "If you updated the tool while it was running, the page kept showing the old screen. The version number in the header updated, because that is read fresh every time the page loads — but the page itself was built once when the server started and then kept. So the header told you the update had arrived while you were looking at the version before it."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "This is how it showed up in practice. After an update that changed the Convert step to ten records a page, the screen still listed every record at once and the buttons underneath still counted in fifties — while the header read 0.13.0. Nothing was wrong with the update; the page being displayed simply predated it."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "The page is now rebuilt whenever its file changes, so a refresh is enough and restarting the server is no longer a step anyone has to know about. Nothing about conversion changes."
         }
       ]
@@ -808,31 +819,31 @@
       "summary": "You tell the tool which level your library reports holdings at, and it writes that into every 863. A record whose Leader says something different is marked for your attention, and left alone.",
       "changes": [
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "Conversion settings has a new choice, \"Holdings reported at\". Level 4 means detailed — every level a statement gives. Level 3 means summary — the first level of enumeration and chronology only. Whichever you pick goes into the first indicator of every 863 the tool writes."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "It starts on 4, which is what the tool wrote before this setting existed. Leaving it there produces exactly the same fields as version 0.12.5: the output of both sample files and all 117 corpus statements was compared byte for byte and is identical. Choosing 3 changes the first indicator of 134 863 fields across that same material and changes nothing else — not a caption, not a subfield, not a second indicator."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "Every holdings record also declares a level in its Leader, and the two should agree. When they do not, the record now shows an \"encoding level\" marker on the Convert step and appears under \"Needs attention\". Hovering it says what the record claims, what the tool wrote, and that nothing was changed. Both sample files declare level 3 throughout, so all 15 of their records with holdings are marked while the setting says 4, and none are once it says 3."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "The tool does not change the Leader, and that is deliberate. It is a statement your library makes about its own holdings, and correcting one on your behalf is a different kind of act from adding the fields you asked for. Set it yourself if the record should say what it now carries."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "Why you are asked rather than told. The obvious approach is to work the level out from the fields themselves — a statement with a volume and a month is detailed, one with only a volume is summary. That cannot be done, and the MARC documentation shows why. Every 863, 864 and 865 example in the five documents now kept under docs/marc was sorted by which subfields it carries: of the 129 that state a level, the four commonest shapes are marked both ways, and those four account for 89 of them. A volume and a year — the shape most of these statements convert to — is marked summary twenty-two times and detailed twenty-three times, and one field appears in two documents with the same bytes and a different level. The same holdings, reported differently by two libraries, and both right. So the tool asks."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "Changing the setting redraws what is on screen straight away, rather than waiting for the next reload, because it changes both the fields in every preview and which records are marked."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "No byte of any record's Leader is rewritten — there is a test whose only job is to check that."
         }
       ]
@@ -843,23 +854,23 @@
       "summary": "Convert shows ten records at a time instead of the whole file, so the buttons below the list are no longer a long scroll away.",
       "changes": [
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "The Convert step had a pager underneath the records, and it was telling the truth about which records it had fetched details for — but the list above it was showing every record in the file regardless. On a 320-record file that was the whole 320, about thirty-nine screens of scrolling to reach 'Convert all records' and 'Download'. The list now shows the ten the pager names."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "Ten a page rather than the fifty the pager used before. Fifty rows was still around eight screens."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "The line above the list now reads '29 of 320 match · 0 of 320 reviewed'. It used to say how many rows were on screen, which with a page of ten is only ever ten; what is useful is how much of the file the filter is showing you, with the pager saying where in it you are."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "The Patterns step pages the same way, but only the cards still wanting an answer from you, and only when there are more than ten of them. The confirmed, parser-read, skipped and too-complex groups are folded away already, so paging them would hide what is hidden."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "Nothing about conversion changes. The same records convert the same way, the filters still answer for the whole file rather than the page on screen, and moving between pages does not lose which records you have ticked as reviewed or skipped."
         }
       ]
@@ -870,23 +881,23 @@
       "summary": "An 863 recording a single issue no longer describes itself as a compressed range. The code that says which it is now matches the field it sits on.",
       "changes": [
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "Every 863 carries a code saying whether it records a range of parts — the first and last held — or a single part on its own. The tool was writing \"compressed\" on all of them, so \"863 $a 8\", one volume out of a list, claimed to be a range. Forty-five of the 137 fields the test collection produces were affected."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "\"v. 19 nos. 1, 3, 5, 7-12 (Jan, Mar, May, Jul-Dec 1915)\" shows both in one statement. The three single issues are now marked as single parts and \"nos. 7-12\" as a range, where before all four claimed to be ranges."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "Nothing about your holdings changes — no enumeration, chronology or caption is touched, and all 117 statements in the test collection convert to the same values they did before. What changes is one character that tells a receiving system how to read the field."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "A year written across the turn of one — \"1996/97\" — counts as a single year rather than a range, so \"v. 12 no. 4 (Winter 1996/97)\" is recorded as one part. It is one issue of one publication year, which is what the slash means."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "The MARC 21 documentation this is drawn from is now kept in the repository under docs/marc, so the reason for a decision like this one can be traced to the paragraph it came from."
         }
       ]
@@ -897,19 +908,19 @@
       "summary": "A serial numbered by volume alone no longer gets a numbering-continuity code the standard does not allow there.",
       "changes": [
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "The 853's $v says whether a level's numbering restarts when the level above it completes — issue numbers starting again at 1 with each new volume. MARC 21 allows it on any level of enumeration except the first, because the first level has nothing above it to restart against."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "The tool was putting $v on whichever level came last, so a statement with only one level put it on the first. \"v. 6 (1935)\" produced \"853 $a v. $v r\", claiming the volume numbering restarts against nothing. Eighteen of the 117 statements in the test collection were affected — every single-level one. Those 853s now end after the caption, as they should."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "A statement with two or more levels is unchanged. \"v. 1 no. 2 (1990)\" still gives \"853 $a v. $b no. $v r\", where $v describes the issue level and is correct."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "Nothing about enumeration or chronology values changes — no 863 is affected, and all 117 statements convert to the same holdings they did before. Only the pattern subfield on the 853 moves."
         }
       ]
@@ -920,19 +931,19 @@
       "summary": "A record with a part of its statement the tool could not read is now marked as needing attention, instead of only carrying a warning you would have to open the row to see.",
       "changes": [
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "Where a statement has several parts separated by commas and one of them cannot be read — \"v. 4 (1990), 3rd series\" — the readable part still converts and the part left out is still named. What changes is that the record now shows in \"needs attention\" on the Convert step, rather than looking converted with the explanation hidden inside the row."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "This is the same decision made in 0.9.6 for wording a coded subfield cannot hold: a warning only appears once you open a row, and nobody opens a row that looks finished. One path had been left out of that rule."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "It matters most where the part left out contains a number. \"v. 4 (1990), lacks 7\" and \"v. 4 (1990), see also v. 9\" both do, and nothing in the tool can tell a note about an issue you do not hold from one you do. That judgment needs a person, so the record is put in front of one."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "Nothing else changes. A statement the tool reads in full is not marked, and no statement in the test collection is affected — all 117 convert exactly as they did, with the same warnings."
         }
       ]
@@ -943,23 +954,23 @@
       "summary": "A statement beginning with an ordinal — \"50th Anniversary Issue\" — is still refused, but the message no longer quotes a piece of a word that was never there.",
       "changes": [
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "\"50th Anniversary Issue (2017)\" was refused with the message: Read '50t' but could not account for 'h Anniversary Issue (2017)'. The tool had split the word \"50th\" down the middle, so the message pointed at a place where reading never stopped. It now says only that no holdings ranges could be recognised, which is what actually happened."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "The same applied to any statement opening with a written ordinal — \"3rd Series\", \"21st Century\" — which were read as the values \"3r\" and \"21s\". None of them converted before and none convert now; only the explanation changes."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "Why a statement like this is refused at all has not changed: \"50th Anniversary Issue\" numbers nothing, so there is no volume or issue to record. A cataloguer who knows what the run contains can supply it by confirming a pattern on the Patterns step."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "A volume genuinely numbered with a letter is unaffected. \"v. 4a\" still records volume 4a, and \"v. 12b no. 3\" still records volume 12b, issue 3 — the trailing letter there is part of the number, which is why the tool allows one."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "Where the tool really does read part of a statement and stop, it still says so. \"v. 58 Suppl. (Sep 2003)\" is still refused with: Read 'v. 58' but could not account for 'Suppl. (Sep 2003)' — which is true, and tells you the supplement is the part it could not place."
         }
       ]
@@ -970,23 +981,23 @@
       "summary": "The 853 now declares every level a statement shows the serial has, including one its own 863 cannot record a value for — and stops declaring a month where the statement never gave one.",
       "changes": [
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "\"v. 78 - v. 93 no. 3 (1981 - Sep 1996)\" states a month. Because the month is at one end of the range only, a compressed 863 cannot record it — that is unchanged, and the value is still left out and named. What was wrong is that the 853 stopped declaring a month level at all, so the record described a serial that is not numbered by month, when the statement plainly says it is."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "Seven statements in the test collection now declare the month caption they were losing, and one declares a day caption. No 863 changes: not one value moves, and nothing that was recorded stops being recorded. The 853 gains a caption; the warning naming the value it could not place stays exactly as it was."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "The reverse case is fixed too. \"v. 15 (1998 Buyers Guide)\" was declaring a month caption because \"Buyers Guide\" sat in the slot a month would occupy. It is not a month, nothing could ever be written under that caption, and the 853 no longer offers one. The wording is still named as something the tool could not code, as before."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "Why the two are one change. The 853 sets out the whole structure a serial can have; the 863 records the values one holding pins down. Those are different questions, and the tool had been answering both with \"did a value survive?\" — so a month it could not place vanished from the map, and a phrase it could not code appeared on it."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "A note for anyone comparing output with an earlier version: an 853 caption with nothing under it in the 863 is normal and expected, not a sign something was lost. The tool's own corpus report used to count those as promises the record failed to keep; it now reports them as ordinary."
         }
       ]
@@ -997,15 +1008,15 @@
       "summary": "Starting the tool no longer prints a warning about the program's own code. Nothing about how statements convert has changed.",
       "changes": [
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "On Windows, and anywhere else running Python 3.12 or newer, starting the tool printed a line of its own before the address: SyntaxWarning: invalid escape sequence '\\s'. Nothing was wrong with your file or your holdings — the message was about a note inside the program — but a warning you cannot act on is one you learn to ignore, and the next one might matter. It is gone."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "Whether you saw it at all depended on which Python you run. On 3.10 and 3.11 the same message is suppressed, so the tool looked clean on one machine and not on another. That is why it went unnoticed for so long, and the suite now checks for it on every version rather than only where it happens to be printed."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "Nothing about conversion changes in this version. All 117 statements in the test collection convert to exactly the fields they did in 0.11.1 — 90 cleanly, 22 with a warning, 5 held for review, and none losing a value silently."
         }
       ]
@@ -1016,23 +1027,23 @@
       "summary": "Confirming a pattern now says what your answer will change — the reading of a statement, a caption, or nothing at all — and stops asking where the answer would change nothing.",
       "changes": [
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "Since 0.10.0 the standard parser reads every statement it can and a confirmed pattern supplies only what it cannot. The Patterns step had not caught up: it asked about every pattern in the same words, whether the answer decided how a statement was read or was discarded entirely. Each pattern now says which."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "Three things an answer can do. It can decide the reading — the parser writes nothing for those statements, so what you say is what converts them. It can supply a caption — the parser reads the statement, and your word goes where it could only write “(*)”. Or it can change nothing, when the statement names its own captions and the parser reads it in full."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "Patterns in that third group are no longer presented as work. They are folded away with the confirmed ones under “the standard parser reads on its own”. In the test collection one pattern of 44 was being asked about for an answer that was then discarded — “Series 1, v. 6 no. 1 (Summer/Fall 1992)”, which the parser reads as ser. 1, v. 6, no. 1 without help."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "A pattern whose answer decides the reading is no longer confirmed for you automatically, however confident it looks. The parser refuses those statements deliberately — it read part of the wording and could not account for the rest — so confirming one unasked writes holdings on a guess nobody checked. “v. 19 no. 2 Suppl. (1998)” is the case that showed it up: the pattern reads it as volume 19, issue 2, and the supplement, which is what the library actually holds, disappears into an ordinary 863. Those patterns now wait for you."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "The count at the top of the step says what is outstanding and why: “3 still want an answer — 1 decides how a statement is read, 2 supply a caption”, rather than describing them all as needing you to say what a value means."
         }
       ]
@@ -1043,23 +1054,23 @@
       "summary": "The Converter and the Pattern Detector are now part of the one tool rather than separate sites. Everything they did is still here.",
       "changes": [
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "There were three tools on three addresses: a Converter, a Pattern Detector, and the Workbench that joined them up. There is one now. Both of the other two had already been rebuilt inside the Workbench, so nothing they could do has been lost — the screens you used are the screens that remain, and every address the old tools answered on has a matching one here."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "The single-statement box is back: paste an 866 statement and see the 853 and 863 it converts to, with no file and no pattern needed. That was the Converter's front page and it is the quickest way to check one statement."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "One difference to know about. The old Converter removed the original 866 by default when a statement converted; this tool keeps it unless you ask for it to go. Keeping it is the safer default and the one the Workbench has always used, but if you were relying on the Converter's behaviour, tick 'Remove converted 866 fields' under Conversion settings."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "It opens at http://localhost:5003 — 5003 rather than 5000 because macOS uses 5000 for AirPlay Receiver. Start it with 'marc-serials' after installing, or 'python run.py' from a copy of the repository."
         },
         {
-          "tool": "MARC Serials Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "Because there is one tool, there is one session and one place your uploaded file and pattern library are kept. Running the old Converter used to delete pattern libraries the Workbench was keeping; that cannot happen now."
         }
       ]
@@ -1975,7 +1986,7 @@
           "text": "Colours were adjusted so labels and borders meet accessibility contrast guidance, buttons and boxes are large enough to click comfortably, and the layout reflows rather than clipping when text is enlarged."
         },
         {
-          "tool": "Toolkit",
+          "tool": "MARC Holdings Workbench",
           "text": "No license is granted pending a review of institutional intellectual property rights, and attribution to the original author was made complete."
         }
       ]

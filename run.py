@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Start the MARC Serials Toolkit on this machine.
+Start the MARC Holdings Workbench on this machine.
 
     python run.py
 

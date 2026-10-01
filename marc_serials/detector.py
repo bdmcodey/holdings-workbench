@@ -1,5 +1,5 @@
 """
-pattern_detector.py
+detector.py
 -------------------
 Detects structural patterns in MARC 866 textual holdings statements and
 generates named-capture-group regular expressions for each pattern cluster.
@@ -72,7 +72,7 @@ _VALUE_KINDS   = {YEAR, CHRON, NUMBER}
 # permissive toward pattern shapes not present in those samples.
 MAX_PATTERN_TOKENS = 40
 
-# What /api/test-regex accepts, and what pattern_library will store.  An
+# What /api/test-regex accepts, and what library.py will store.  An
 # expression longer than this could never be checked against real statements
 # before being trusted, so emitting one would put "generated" and "usable" out
 # of step.  Enforced on the generated expression itself, not estimated from the
@@ -339,7 +339,7 @@ def _find_range_sep(stripped: list[Token]) -> Optional[int]:
       divide the statement into a start unit and an end unit, and treating it as
       though it did put every later value on the wrong side of the range.
 
-    The third rule mirrors holdings_parser._smart_split_range, which has always
+    The third rule mirrors parser._smart_split_range, which has always
     made the same distinction: a digit-to-digit hyphen is a compressed range at
     one level, so a separator needs a closing paren before it, a caption after
     it, or years on both sides (the bare "1990-1994" form).

@@ -1,5 +1,5 @@
 """
-MARC Serials Toolkit — the holdings pipeline.
+MARC Holdings Workbench — the holdings pipeline.
 
 One installable package: every engine, and the application that serves them.
 

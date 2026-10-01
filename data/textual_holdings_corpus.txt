@@ -6,8 +6,8 @@
 # more caption and chronology styles than the synthetic .mrc fixtures in this
 # directory do. Most of them the old monolith parsed; a few it never did.
 #
-# This is 866 $a TEXT, not MARC. It exercises holdings_parser.parse_866(),
-# marc_converter.convert_holdings() and pattern_detector.detect_patterns()
+# This is 866 $a TEXT, not MARC. It exercises parser.parse_866(),
+# converter.convert_holdings() and detector.detect_patterns()
 # directly, and says nothing about record-level behaviour -- $8 linking, 853
 # conformance, multiple 866s on one record. data/messy_holdings.mrc remains the
 # fixture for that.
@@ -186,7 +186,7 @@ v. 20 no. 1 Suppl. (1999)                                           # fail:D3
 
 [section: block-grammar]
 # Chronology-first statements, parsed by the separate block
-#   grammar in holdings_parser._parse_block_format().
+#   grammar in parser._parse_block_format().
 # Source heading: ONE examples. 5 unique statements.
 1979: 1 (6-8 [Sep-Dec])
 N1984: (2 (1))M1985: 2 (2 [summer])                                 # warn:D9

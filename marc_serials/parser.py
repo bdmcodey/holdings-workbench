@@ -1,5 +1,5 @@
 """
-holdings_parser.py
+parser.py
 ------------------
 Parses textual MARC 866 holdings statements into structured data
 that can be used to generate 853 (caption/pattern) and 863

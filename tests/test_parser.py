@@ -1,5 +1,5 @@
 """
-Tests for holdings_parser.parse_866().
+Tests for parser.parse_866().
 
 The parser carries two grammars behind one entry point. parse_866() asks
 _looks_like_block() whether a statement is chronology-first ("1993: (1 [Feb])")
@@ -160,8 +160,8 @@ def test_a_chronology_that_cannot_be_shared_is_named_not_copied(text, dropped):
     The enumeration is unambiguous and is kept; only the chronology has nowhere
     to go. Refusing the statement would throw away holdings the parser read
     perfectly well, and copying the chronology onto each run would assert
-    something the statement never said -- so it is named, which is what this
-    toolkit does with every other value it can read and cannot place.
+    something the statement never said -- so it is named, which is what the
+    tool does with every other value it can read and cannot place.
     """
     result = parse_866(text)
     assert len(result.ranges) > 1
@@ -518,7 +518,7 @@ def test_unrecognised_chron_unit_is_left_alone():
     """
     Text that is genuinely not a month or season is passed through rather than
     dropped or guessed at, so nothing is invented here. The converter decides
-    separately whether it can be written -- see marc_converter._is_codeable.
+    separately whether it can be written -- see parser.is_codeable.
     """
     assert chron_unit_code("Michaelmas") is None
     assert normalise_chron_unit("Michaelmas") == "Michaelmas"

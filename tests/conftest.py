@@ -1,5 +1,5 @@
 """
-Shared fixtures for the MARC Serials Toolkit test suite.
+Shared fixtures for the MARC Holdings Workbench test suite.
 
 There is one application and one package. Everything is reached by ordinary
 import, and no fixture puts a directory on sys.path or loads a module from a

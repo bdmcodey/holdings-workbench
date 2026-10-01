@@ -1,5 +1,5 @@
 """
-Tests for pattern_detector: tokenising, clustering, and regex generation.
+Tests for the detector: tokenising, clustering, and regex generation.
 
 split_multi_range() gets a disproportionate share of this file because the risk
 there is silent corruption rather than a visible failure. A slash is meaningful
@@ -214,7 +214,7 @@ def test_a_compressed_range_is_not_a_unit_separator():
     later value on the far side of a range that was not there -- both years in
     "v.1-5(1990-1994)" came out named end_year.
 
-    holdings_parser._smart_split_range has always drawn this distinction; this
+    parser._smart_split_range has always drawn this distinction; this
     is the same rule in token form.
     """
     groups = detect_patterns(["v.1-5(1990-1994)"])[0]

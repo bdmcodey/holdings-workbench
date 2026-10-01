@@ -485,7 +485,7 @@ def test_a_statement_recording_more_detail_joins_the_same_853(client,
     Its second 866 adds month chronology the first does not record, which is the
     same publication described more fully, so it joins the run at 1.3 rather
     than starting its own 853. The rule itself is pinned in
-    tests/test_marc_converter.py; this checks the API agrees.
+    tests/test_converter.py; this checks the API agrees.
     """
     records = upload_marc(client, messy_marc_bytes).get_json()["records"]
     assert preview_links(

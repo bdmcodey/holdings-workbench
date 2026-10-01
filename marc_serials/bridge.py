@@ -10,7 +10,7 @@ issue, nor which year opens a range and which closes it.  A cataloguer does.
 Once they have said so, every capture group has a MARC role and the existing
 converter can take it from there unchanged.
 
-Nothing here replaces holdings_parser.parse_866().  A statement no confirmed
+Nothing here replaces parser.parse_866().  A statement no confirmed
 pattern matches is still parsed by it, and the chronology encoding is borrowed
 from it rather than reimplemented, so a month coded through a pattern and a
 month coded through the parser come out identical.
@@ -715,7 +715,7 @@ def apply_patterns(text: str, patterns: Sequence,
     """
     Convert one statement with the first confirmed pattern that matches it.
 
-    `patterns` is a sequence of pattern_library.ConfirmedPattern, already in the
+    `patterns` is a sequence of library.ConfirmedPattern, already in the
     order they should be tried.  Returns the ParseResult and the id of whatever
     produced it, so the screen can tell the cataloguer which pattern was used --
     or that the standard parser was.
