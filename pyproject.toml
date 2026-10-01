@@ -3,7 +3,7 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "marc-serials-toolkit"
+name = "marc-serials-workbench"
 version = "0.31.3"
 description = "Convert free-text MARC 866 serials holdings into structured 853/863 fields"
 readme = "README.md"
@@ -31,6 +31,8 @@ dependencies = [
 dev = ["pytest>=8.0,<9.0"]
 
 [project.scripts]
+holdings-workbench = "marc_serials.webapp:main"
+# The first name, kept so it still works.
 marc-serials = "marc_serials.webapp:main"
 
 [tool.setuptools]

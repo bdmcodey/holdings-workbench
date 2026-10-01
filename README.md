@@ -29,11 +29,21 @@ application; nothing was dropped.
 ```bash
 python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -e .
-marc-serials
+holdings-workbench
 ```
 
 Then open <http://localhost:5003>. Port 5003 rather than 5000 because macOS
-gives 5000 to AirPlay Receiver; set `MARC_PORT` to change it.
+gives 5000 to AirPlay Receiver; set `MARC_PORT` to change it. The older command,
+`marc-serials`, still works and starts the same thing.
+
+Installed before October 2026? The install name changed from
+`marc-serials-toolkit` to `marc-serials-workbench`. Remove the old one first,
+then install again; the other way round deletes the start commands:
+
+```bash
+pip uninstall marc-serials-toolkit
+pip install -e .
+```
 
 From a clone, without installing:
 

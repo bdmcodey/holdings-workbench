@@ -13,8 +13,8 @@ deleted the other's pattern libraries for six months. They are one application
 now. The converter's screens and the detector's screens were both already here.
 
 Run it:
-    marc-serials                 (after `pip install -e .`; the command keeps
-                                  the project's first name)
+    holdings-workbench           (after `pip install -e .`; `marc-serials`,
+                                  the first name, still works too)
     python run.py                (from a clone, without installing)
 
 Both open http://localhost:5003. The port is settable with MARC_PORT; 5003
@@ -2400,7 +2400,7 @@ def api_parse_text():
 # ---------------------------------------------------------------------------
 
 def main() -> None:
-    """Run the application locally. Installed as the `marc-serials` command."""
+    """Run the application locally. Installed as `holdings-workbench`, and as `marc-serials`."""
     port = int(os.environ.get("MARC_PORT", 5003))
     app.run(debug=os.environ.get("FLASK_DEBUG") == "1", port=port)
 
