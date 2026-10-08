@@ -24,7 +24,8 @@ except ImportError:
     HAS_PYMARC = False
 
 from marc_serials.parser import (ParseResult, HoldingsRange, EnumChron,
-                             SEASON_CODES, MARC_CHRON_CODES, is_codeable)
+                             LeftOut, SEASON_CODES, MARC_CHRON_CODES,
+                             is_codeable)
 
 # The converter's own name for it, kept so the call sites below read as they
 # always did.
@@ -663,6 +664,10 @@ class ConversionResult:
     # Held because the statement belongs in another field: "867" for a
     # supplement, "868" for an index. See parser.belongs_elsewhere().
     belongs_in: Optional[str] = None
+    # Which of the warnings say a value was read and left out because MARC,
+    # this convention or the record's own 853 has no place for it. See
+    # parser.LeftOut.
+    left_out: List[str] = field(default_factory=list)
 
     def all_fields(self) -> List[FieldData]:
         return ([self.field_853] if self.field_853 else []) + self.fields_863
@@ -678,12 +683,18 @@ class ConversionResult:
             "flagged": self.flagged,
             "attention": self.attention,
             "belongs_in": self.belongs_in,
+            "left_out": self.left_out,
         }
 
 
 # ---------------------------------------------------------------------------
 # Caption builder
 # ---------------------------------------------------------------------------
+
+def _left_out(warnings: List[str]) -> List[str]:
+    """The warnings that say a value was read and left out: see parser.LeftOut."""
+    return [w for w in warnings if isinstance(w, LeftOut)]
+
 
 def _enum_caption_overrides(captions: Optional[Dict[str, Any]]) -> Dict[int, str]:
     """
@@ -938,7 +949,7 @@ def _note_unplaceable(warnings: Optional[List[str]], which: str,
         return
     article, word = label
     other = "end" if which == "start" else "start"
-    note = (
+    note = LeftOut(
         f"Only the {which} of this range gives {article} {word} ({value}); a "
         f"compressed 863 records the first and last part held, and there is "
         f"nothing at the {other} to pair it with, so it was left out."
@@ -997,7 +1008,7 @@ def _note_no_subfield(warnings: Optional[List[str]], level: str,
     if warnings is None:
         return
     article, word = _LEVEL_WORDS.get(level, ("a", level))
-    note = (
+    note = LeftOut(
         f"This convention has no subfield for {article} {word}, so the "
         f"{word} ({value}) was left out. MARC 21 puts it in 863 $k; the "
         f"standard convention writes it."
@@ -1018,7 +1029,7 @@ def _note_caption_conflict(warnings: Optional[List[str]], stated: str,
     """
     if warnings is None:
         return
-    note = (
+    note = LeftOut(
         f"'{stated}{value}' was left out: this record's 853 calls that level "
         f"'{declared}', and one 853 has to describe every 863 under it. Split "
         f"the statements that number differently onto their own records."
@@ -1043,7 +1054,7 @@ def _note_level_disagreement(warnings: Optional[List[str]], opens: str,
     """
     if warnings is None:
         return
-    note = (
+    note = LeftOut(
         f"'{closes}{value}' was left out: this range opens at a '{opens}' level "
         f"and closes at a '{closes}' level, so which level '{value}' closes "
         f"cannot be told from the statement. A compressed 863 pairs the two "
@@ -1089,7 +1100,7 @@ def _note_unpairable_under_range(warnings: Optional[List[str]], label: tuple,
     if warnings is None:
         return
     _, word = label
-    note = (
+    note = LeftOut(
         f"'{value}' was left out. The {word} sits under a level written as the "
         f"range '{above}', and a compressed 863 pairs its subfields position by "
         f"position: '{above}' beside a single '{value}' reads as {value} of each "
@@ -1171,7 +1182,7 @@ def _note_uncodeable(warnings: Optional[List[str]], label: tuple,
     if warnings is None:
         return
     _, word = label
-    note = (
+    note = LeftOut(
         f"'{value}' is not something a {word} subfield can hold — it takes "
         f"MARC codes, not wording — so it was left out. Record it by hand if "
         f"it matters."
@@ -1621,6 +1632,7 @@ def convert_holdings(
             conformed=True,
             flagged=_check_enumeration_depth(levels, warnings, flags) or bool(flags),
             attention=[w for w in warnings if w in flags],
+            left_out=_left_out(warnings),
         )
 
     if declared:
@@ -1669,6 +1681,7 @@ def convert_holdings(
         warnings=warnings,
         flagged=_check_enumeration_depth(levels, warnings, flags) or bool(flags),
         attention=[w for w in warnings if w in flags],
+        left_out=_left_out(warnings),
     )
 
 

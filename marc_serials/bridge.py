@@ -824,7 +824,7 @@ def apply_patterns(text: str, patterns: Sequence,
     run -- and the cataloguer is told, since they confirmed that pattern and
     would otherwise see it quietly unused.
     """
-    passed_over = ""
+    passed_over = None
 
     for pattern in patterns:
         try:
@@ -846,9 +846,9 @@ def apply_patterns(text: str, patterns: Sequence,
                     "was left exactly as it is."
                 ), SKIPPED_SOURCE
             continue
-        if not passed_over and is_more_than_one_run(text.strip()) \
+        if passed_over is None and is_more_than_one_run(text.strip()) \
                 and compiled.fullmatch(text.strip()):
-            passed_over = pattern.label
+            passed_over = pattern
 
         result = build_parse_result(text, compiled, pattern.roles,
                                     pattern.split, fallback)
@@ -861,12 +861,15 @@ def apply_patterns(text: str, patterns: Sequence,
             held = _held_unless_read_in_full(text, result)
             if held is not None:
                 return held, PARSER_SOURCE
-        if passed_over:
+        if passed_over is not None:
+            used = _captions_of_passed_over(result, passed_over.roles)
             result.warnings.append(
-                f"'{passed_over}' matches this statement, but the statement "
+                f"'{passed_over.label}' matches this statement, but the statement "
                 "holds several runs of holdings and a pattern describes one "
                 "run. It was read by the standard parser instead, which "
                 "records each run as its own 863."
+                + (" The caption confirmed on the pattern was used for the "
+                   "levels the statement leaves blank." if used else "")
             )
         return result, PARSER_SOURCE
 
@@ -875,6 +878,36 @@ def apply_patterns(text: str, patterns: Sequence,
         "No confirmed pattern matched this statement, and the standard parser "
         "was not applied. It has been left as it is."
     ), UNMATCHED_SOURCE
+
+
+def _captions_of_passed_over(result: ParseResult,
+                             roles: Sequence[GroupRole]) -> bool:
+    """
+    Give a list of runs the captions confirmed on the pattern it was too many for.
+
+    A pattern describes one run, so for "34 no 3, 4 (Summer, Autumn 1990)" it
+    stands aside and the parser records each run as its own 863. Until 0.34.0
+    the pattern's caption stood aside with it: confirming "v." for the bare 34
+    left the 853 at "$a (*)" whatever was typed. The caption is the one thing a
+    cataloguer told the pattern that the parser cannot know, so it is still
+    used, on the rule every caption follows here -- only a blank level is filled.
+
+    Taken by level from the pattern's start, which carries the whole hierarchy.
+    Its end does not: in this statement the second issue, "4", is the pattern's
+    end at level 1 but stands at level 0 of its role list, captioned "no.", and
+    reading captions by boundary would call the volume of each run "no.".
+    Returns whether anything was filled.
+    """
+    by_level = {}
+    for role in roles:
+        if (role.kind == KIND_ENUM and role.caption and role.level is not None
+                and role.boundary == BOUNDARY_START):
+            by_level.setdefault(role.level, role.caption)
+    if not by_level:
+        return False
+    before = uncaptioned_levels([result])
+    fill_record_captions([result], by_level)
+    return uncaptioned_levels([result]) != before
 
 
 def _held_unless_read_in_full(text: str, result: ParseResult) -> Optional[ParseResult]:

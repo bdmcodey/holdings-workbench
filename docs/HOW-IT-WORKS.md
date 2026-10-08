@@ -1,6 +1,6 @@
 # How the Holdings Workbench Works
 
-*Written for librarians and cataloguers. Describes version 0.33.0.*
+*Written for librarians and cataloguers. Describes version 0.34.0.*
 
 The Holdings Workbench turns the free-text holdings in MARC 866 fields into structured 853 caption/pattern and 863 enumeration/chronology fields, and asks a cataloguer to confirm anything it cannot be sure of. This guide explains how, for librarians rather than programmers.
 
@@ -55,7 +55,7 @@ A confirmed pattern supplies only what the parser cannot work out for itself:
 - **A caption for a level written without one.** The parser writes `(*)` in the 853 for an unnamed level. Your confirmed caption, such as `v.`, fills it. A caption the statement actually prints is never overwritten.
 - **"Leave these alone."** A pattern marked Skip claims every statement of that shape, and none of them is converted.
 
-Where a statement holds several runs of holdings, such as `v. 19 nos. 1, 3, 5, 7-12`, it is always split into one 863 per run: here four, for nos. 1, 3, 5 and 7-12. The parser does that splitting even when a pattern matches the statement, and the record says the pattern was passed over. A pattern describes a single run, so on its own it could only have recorded the first and last issues as one run (`$b 1-12`), losing the gaps.
+Where a statement holds several runs of holdings, such as `v. 19 nos. 1, 3, 5, 7-12`, it is always split into one 863 per run: here four, for nos. 1, 3, 5 and 7-12. The parser does that splitting even when a pattern matches the statement, and the record says the pattern was passed over. The caption you confirmed on that pattern is still used for the levels the statement leaves blank: `34 no 3, 4 (Summer, Autumn 1990)` with `v.` confirmed for the 34 is written `$a v. $b no.`, as two 863s. Before 0.34.0 it stayed `$a (*)`. A pattern describes a single run, so on its own it could only have recorded the first and last issues as one run (`$b 1-12`), losing the gaps.
 
 Until version 0.10.0 a matched pattern read the statement a second way, on its own. Across 141 test statements the two readings disagreed on 10, and the pattern was wrong on 9 of those. Since then the parser has done all the reading, and a test checks that both routes write the same 863.
 
@@ -328,11 +328,39 @@ The rule the whole tool is built around: every value in an 866 is either written
 | --- | --- | --- |
 | Converted | Every value went into an 863 | `1 converted` |
 | Converted, with something to check | It converted, but a value couldn't be placed or a note needs reading | `1 to check` |
+| Converted, part left out to fit MARC | It converted, but a value it read correctly has no place in an 863 | `1 left out` |
 | Held | Nothing was written, because writing part of it would be wrong | `1 held` |
 | Belongs in another field | It reads as a supplement or an index, which belong in 867 or 868; nothing was written | `1 belongs in 867` |
 | Skipped | You chose to leave it; nothing was written | `skipped` |
 
 "To check" and "held" are different. A statement to check has been converted, and the warning tells you what to look at. A held statement hasn't been converted at all, and its 866 is left in place.
+
+### Left out to fit MARC
+
+Some values are read correctly and still can't be written, because an 863 has no place for them:
+
+- A month, season or day at one end of a range only, as in `v. 8 no. 3-v. 10 no. 2 (1981-Fall 1983)`. A compressed 863 records both ends of each level or neither.
+- A level at one end only, like the `no. 9` in `v. 1 (1973)-v. 11 no. 9 (Sep 1983)`, or under a level written as a range, like `v. 40-45 no. 4`.
+- A date stated once for several runs that isn't a single year.
+- The `?` in `2016?`. An 863 can't say a year is uncertain.
+- Wording a coded subfield can't hold, like `Late Summer`. This one is also orange "To check", because it may be an issue of its own.
+- A level the record's own 853 calls something else, or a value the chosen subfield convention has no place for.
+
+None of these is a value lost in conversion or misread by the parser. Each is named on the record with a dashed box beginning "Left out to fit MARC:", the row says `1 left out`, and the log calls it "Converted, part left out". The "Something left out" filter gathers these records. On the Patterns step, a card whose statements lose something says `left out`, and so does the line a folded group shows, so a pasted statement no longer hides it under "nothing to decide".
+
+Notes in braces, unexplained markers like `N`, and anything the parser couldn't read are not in this group. They stay yellow notes for the log, or holds.
+
+What happens to such a statement is a Conversion setting, "When something would be left out to fit MARC":
+
+| Choice | What happens |
+| --- | --- |
+| Convert it, and mark what was left out | The default. The statement converts and says what it left out |
+| Hold that statement; convert the rest of the record | Nothing is written from that statement and its 866 stays. The rest of the record converts, with its linking numbers running on without a gap |
+| Leave the whole record as uploaded | Nothing is written to the record at all. Its row says `left as uploaded`, it is under "Needs attention", and the record shows what converting would have written and what it would have left out |
+
+Unlike strict, this setting applies to statements your patterns read too.
+
+In the corpora, 19 of the 112 statements that convert in the main corpus leave something out, 1 of 5 in the LC examples, and 7 of 40 from other libraries' catalogues.
 
 ### Supplements and indexes
 
@@ -373,9 +401,9 @@ Each can be folded to one line with Hide. That setting is remembered in your bro
 
 ### The "Needs attention" filter
 
-This filter gathers every record with something held, to check, or belonging in another field that you haven't marked Skip. Skipping a record means you are handling it yourself, so it leaves the list. Its warnings are still shown when you open it, and it still appears in the log.
+This filter gathers every record with something held, to check, or belonging in another field, and every record left as uploaded by the left-out setting, that you haven't marked Skip. A record that converted with something left out is not here unless you chose to hold it; the "Something left out" filter finds those. Skipping a record means you are handling it yourself, so it leaves the list. Its warnings are still shown when you open it, and it still appears in the log.
 
-Inside a record, the two kinds of warning look different. A warning that needs a decision from you is orange and begins "To check:", and the reason a statement was held is orange too. A warning that is only recorded for the log is yellow. So on a record marked "1 to check", the orange box shows which statement it means.
+Inside a record, the kinds of warning look different. A warning that needs a decision from you is orange and begins "To check:", and the reason a statement was held is orange too. A value left out to fit MARC is in a dashed box beginning "Left out to fit MARC:". A warning that is only recorded for the log is yellow. So on a record marked "1 to check", the orange box shows which statement it means.
 
 A held statement shows every reason it was held. The first is often the general "No recognisable holdings ranges found", and the next says where reading stopped, as in "could not account for '// 1982//'". That is the part to fix with Edit. Stray characters like `//` aren't given rules of their own: a messy catalogue can have any number of them, and a rule for each one risks misreading something else.
 
@@ -415,12 +443,13 @@ What you choose is used wherever the record is converted (the preview, "Convert 
 - Whether the standard parser reads statements no confirmed pattern matches. Turned off, only your patterns convert anything
 - "Clear existing 853 / 863 first", and "Remove each 866"
 - "Only where it reads the whole statement (strict)": the standard parser writes a statement only if it can account for all of it. Anything it could only partly read is held, with its 866 kept and the reasons in the log. It's off by default, and it doesn't affect statements your confirmed patterns match. It's meant for collections whose holdings weren't written the way the parser expects.
+- "When something would be left out to fit MARC": convert it and mark it (the default), hold that statement, or leave the whole record as uploaded. See "Left out to fit MARC" above.
 
 A setting the tool can't use, such as an indicator of 4, is refused with the reason, and the default is used instead.
 
 ### Finding records
 
-- **Filters:** All, Needs attention, Read by a pattern, Read by the parser, Not yet reviewed, Leader & level, Skipped.
+- **Filters:** All, Needs attention, Read by a pattern, Read by the parser, Not yet reviewed, Leader & level, Something left out, Skipped.
 - **Find:** searches by identifier, title, ISSN, location or 866 text.
 - **Page size:** 5, 10, 25 or 50 records.
 
@@ -438,6 +467,8 @@ A setting the tool can't use, such as an indicator of 4, is refused with the rea
 | Kept: already has 863s | The record's own holdings were kept |
 | 853 to check | Something about an existing 853, or a second 853 was added |
 | Converted with a note | It converted, with something to read |
+| Converted, part left out | It converted, and a value read correctly was left out to fit MARC |
+| Left as uploaded | The setting left this record as uploaded, because converting it would leave something out. One line for each value, with its 866 |
 | Not converted | Held: nothing written, 866 left in place |
 | Supplement: belongs in 867 | Held because it reads as a supplement; move it to an 867 |
 | Index: belongs in 868 | Held because it reads as an index; move it to an 868 |
@@ -449,9 +480,9 @@ The log is built from the same summary as the conversion, so it describes exactl
 
 Four checks run before any change is released, and each answers a different question.
 
-| Check | Question it answers | Result as of 0.33.0 |
+| Check | Question it answers | Result as of 0.34.0 |
 | --- | --- | --- |
-| Automated tests | Does every behaviour described here still hold? | 942 passed, 8 skipped |
+| Automated tests | Does every behaviour described here still hold? | 959 passed, 8 skipped |
 | Corpus report | What do 117 real 866 statements convert to, and has any outcome changed? | 90 clean (77%), 22 converted with a warning, 5 with no fields, 0 with values lost |
 | Conversion audit | Did any number in a statement reach no field and no warning? | 0 unaccounted for: the corpus, the LC examples, the other library's catalogue, and all 1,057 statements of the 372-record test export |
 | Round trip | Convert, write the 866 as Alma would, convert again: do the same 863s come back? | Test export: 938 identical, 106 identical apart from an 853 caption, 11 not converted, **0 drift** |

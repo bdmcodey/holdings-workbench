@@ -15,6 +15,15 @@ more than one release; numbering resumed with 0.6.1. Reasoning behind the
 parser and converter decisions, including the defects a real corpus exposed and
 what was done about each, is in [CORPUS-FINDINGS.md](CORPUS-FINDINGS.md).
 
+## 0.34.0 — 2026-10-08
+
+A value read correctly but left out because MARC has no place for it is now called "left out to fit MARC", shown everywhere it happens, and a setting decides whether such a statement converts, is held, or leaves its record as uploaded.
+
+- **MARC Holdings Workbench** — Some values are read correctly and still cannot be written, because an 863 has no place for them: a season at one end of a range only, as in "(1981-Fall 1983)", a level at one end only, the "?" in "2016?", a date stated once for several runs. These used to be yellow notes among notes. They are now marked "Left out to fit MARC" in a dashed box on the record, the row says "1 left out", the log calls them "Converted, part left out", and a "Something left out" filter gathers them. Notes in braces and unexplained markers stay yellow notes. Nothing about what is written changes by default.
+- **MARC Holdings Workbench** — On the Patterns step, a card whose statements lose something says "left out", and so does the line of a folded group and the summary at the top. A pasted statement no longer hides it under "nothing to decide".
+- **MARC Holdings Workbench** — A new Conversion setting, "When something would be left out to fit MARC": convert it and mark it (the default), hold that statement and convert the rest of the record, or leave the whole record as uploaded. A record left as uploaded says so on its row, is under "Needs attention", shows what converting would have written, and has a "Left as uploaded" line in the log for each value, with its 866. Unlike strict, this applies to statements your patterns read too.
+- **MARC Holdings Workbench** — A statement listing several runs, such as "34 no 3, 4 (Summer, Autumn 1990)", now takes the caption confirmed on its pattern. A pattern describes one run, so such a statement is read by the standard parser, one 863 per run; until now the caption confirmed for the bare number went unused, and the 853 kept "$a (*)" whatever you entered. It now reads "$a v. $b no.", and the pattern's preview shows it. A caption the statement prints is never replaced.
+
 ## 0.33.0 — 2026-10-08
 
 Each record has its own 853 settings: its frequency ($w), and captions for the levels its statements leave blank. Frequency now starts at "not specified".

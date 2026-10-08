@@ -94,7 +94,7 @@ from marc_serials.records import (
     records_to_bytes as _records_to_bytes,
     remove_converted_866s as _remove_converted_866s,
 )
-from marc_serials.parser import parse_866
+from marc_serials.parser import ParseResult, parse_866
 from marc_serials.converter import (CONVENTION_LEVELS, CONVENTION_STANDARD,
                             INDICATOR_VALUES, enum_level_fields,
                             FREQUENCY_CODES, convention_presets,
@@ -110,7 +110,8 @@ from marc_serials.bridge import (CAPTION_CHOICES, ENCODABLE_KINDS, KIND_IGNORE,
                             PARSER_SOURCE, SKIPPED_SOURCE, STRICT_FALLBACK,
                             UNMATCHED_SOURCE,
                             apply_patterns, build_parse_result,
-                            fill_record_captions, infer_roles, split_statement,
+                            fill_record_captions, infer_roles,
+                            is_more_than_one_run, split_statement,
                             uncaptioned_levels)
 
 # ---------------------------------------------------------------------------
@@ -233,6 +234,55 @@ def _parser_fallback(data: dict):
     if not _flag(data, "parser_fallback", True):
         return False
     return STRICT_FALLBACK if _flag(data, "parser_strict", False) else True
+
+
+# What becomes of a statement that would leave something out to fit MARC: a
+# value read correctly that an 863 has no place for. See parser.LeftOut.
+LEFT_OUT_CONVERT = "convert"      # convert it, and say what was left out
+LEFT_OUT_HOLD = "statement"       # hold that statement; the rest convert
+LEFT_OUT_RECORD = "record"        # leave the whole record as uploaded
+LEFT_OUT_POLICIES = (LEFT_OUT_CONVERT, LEFT_OUT_HOLD, LEFT_OUT_RECORD)
+
+
+def _left_out_policy(data: dict) -> str:
+    policy = str((data or {}).get("left_out_policy") or LEFT_OUT_CONVERT)
+    return policy if policy in LEFT_OUT_POLICIES else LEFT_OUT_CONVERT
+
+
+def _held_for_left_out(text: str, reasons: list) -> ParseResult:
+    """A statement held because converting it would leave something out."""
+    held = ParseResult(raw=text)
+    held.success = False
+    held.needs_review = True
+    held.warnings = [
+        "Held by your setting: converting this statement would leave something "
+        "out to fit MARC, so nothing was written from it and its 866 stays as "
+        "it is. What would be left out:"
+    ] + [str(w) for w in reasons]
+    return held
+
+
+def _convert_under_policy(parsed: list, policy: str, **kwargs) -> tuple:
+    """
+    convert_record(), with the cataloguer's choice about values left out.
+
+    Returns (the conversion, and -- only when the whole record is to be left as
+    uploaded -- what would have been left out, which is why, as
+    {"text": statement, "reason": warning} for each value). Holding a
+    statement converts the record again without it, so the linking numbers of
+    what is written run on without a gap.
+    """
+    rc = convert_record(parsed, **kwargs)
+    losing = [i for i, r in enumerate(rc.results) if r.fields_863 and r.left_out]
+    if not losing or policy == LEFT_OUT_CONVERT:
+        return rc, []
+    if policy == LEFT_OUT_RECORD:
+        return rc, [{"text": parsed[i].raw, "reason": str(w)}
+                    for i in losing for w in rc.results[i].left_out]
+    held = list(parsed)
+    for i in losing:
+        held[i] = _held_for_left_out(parsed[i].raw, rc.results[i].left_out)
+    return convert_record(held, **kwargs), []
 
 
 def _keep_separate(data: dict) -> set:
@@ -402,7 +452,8 @@ def _review_row(record, index, *, patterns, fallback, conv_opts, captions,
                 units_per_higher: str = "",
                 clear_existing: bool = False,
                 edited: Optional[list] = None,
-                record_853: Optional[dict] = None) -> dict:
+                record_853: Optional[dict] = None,
+                left_out_policy: str = LEFT_OUT_CONVERT) -> dict:
     """
     One record as the review screen sees it: what it would produce, and what
     read it.
@@ -457,6 +508,11 @@ def _review_row(record, index, *, patterns, fallback, conv_opts, captions,
         # to here. See api_record_853().
         "record_853": dict(record_853 or {}),
         "uncaptioned_levels": [],
+        # Statements converted with something left out to fit MARC, and --
+        # under the setting that leaves such a record as uploaded -- what
+        # would have been left out, which is why nothing is written.
+        "left_out": 0,
+        "left_as_uploaded": [],
     }
     if with_previews:
         row["previews"] = []
@@ -479,8 +535,8 @@ def _review_row(record, index, *, patterns, fallback, conv_opts, captions,
     row["uncaptioned_levels"] = uncaptioned_levels(parsed)
     frequency = _apply_record_853(parsed, frequency, record_853)
     existing_853s = [] if clear_existing else list(record.get_fields("853"))
-    rc = convert_record(
-        parsed, existing_853s=existing_853s, captions=captions,
+    rc, row["left_as_uploaded"] = _convert_under_policy(
+        parsed, left_out_policy, existing_853s=existing_853s, captions=captions,
         frequency=frequency, numbering_continuity=continuity,
         merge_patterns=merge_patterns, holdings_level=holdings_level,
         units_per_higher=units_per_higher,
@@ -512,6 +568,8 @@ def _review_row(record, index, *, patterns, fallback, conv_opts, captions,
     # because these records *do* have fields -- what they need is a look, not
     # a pattern.
     row["flagged"] = sum(1 for p in previews if p.get("flagged"))
+    row["left_out"] = sum(1 for p in previews
+                          if p["fields_863"] and p.get("left_out"))
     row["sources"] = sorted({p["source"] for p in previews})
     row["leader_note"] = encoding_level_conflict(record, rc.fields_863,
                                                  holdings_level)
@@ -550,6 +608,7 @@ def _review_row_safely(record, index, **kwargs) -> dict:
             "edited": list(kwargs.get("edited") or []),
             "record_853": dict(kwargs.get("record_853") or {}),
             "uncaptioned_levels": [],
+            "left_out": 0, "left_as_uploaded": [],
             "unreadable": True,
         }
         if kwargs.get("with_previews"):
@@ -591,6 +650,7 @@ def _previews_from(rc, rejections=(), existing_853s=(), sources=(),
             "flagged": c.flagged,
             "attention": c.attention,
             "belongs_in": c.belongs_in,
+            "left_out": c.left_out,
             "link": link,
             "existing": bool(c.conformed and display),
             "source": source,
@@ -721,6 +781,24 @@ def _what_confirming_decides(examples) -> str:
     return DECIDES_CAPTION if caption_slots else DECIDES_NOTHING
 
 
+def _statements_leaving_out(examples) -> int:
+    """
+    How many of a group's statements would convert with something left out to
+    fit MARC, as the standard parser reads them.
+
+    Said on the Patterns step because a group can have nothing to decide and
+    still lose a value -- "v. 8 no. 3-v. 10 no. 2 (1981-Fall 1983)" was folded
+    away as "nothing to decide", and its Fall was only to be found by opening
+    the card and reading the preview.
+    """
+    count = 0
+    for text in list(examples)[:DECISION_SAMPLE]:
+        result = parse_866(text)
+        if result.ranges and convert_holdings(result).left_out:
+            count += 1
+    return count
+
+
 def _annotate_group(group_dict: dict, origins: Optional[dict] = None) -> dict:
     """Add the roles to offer, and per-example values and provenance."""
     named = group_dict.get("named_groups") or []
@@ -756,6 +834,7 @@ def _annotate_group(group_dict: dict, origins: Optional[dict] = None) -> dict:
     )
     if group_dict["decides"] == DECIDES_ELSEWHERE:
         group_dict["belongs_in"] = parse_866(examples[0]).belongs_in
+    group_dict["left_out"] = _statements_leaving_out(examples)
     return group_dict
 
 
@@ -1119,8 +1198,11 @@ def api_pattern_preview():
             record_frequency = _apply_record_853(
                 parsed, frequency,
                 _load_decisions()["record_853"].get(str(record_index)))
-            rc = convert_record(
-                parsed,
+            # A preview of what this pattern would do, so a statement the
+            # setting would hold is shown held; a record it would leave as
+            # uploaded is still shown, since that is what is being asked about.
+            rc, _ = _convert_under_policy(
+                parsed, _left_out_policy(data),
                 existing_853s=existing_853s,
                 captions=captions,
                 frequency=record_frequency,
@@ -1176,6 +1258,18 @@ def api_pattern_preview():
     for statement in statements:
         pattern_result = build_parse_result(statement, compiled, roles, do_split,
                                             _parser_fallback(data))
+        if pattern_result is None and is_more_than_one_run(statement.strip()) \
+                and compiled.fullmatch(statement.strip()):
+            # A list of runs is more than a pattern describes, so conversion
+            # hands it to the parser -- with this pattern's captions for the
+            # levels it leaves blank. Shown the way it will be written, or a
+            # caption confirmed here would seem to do nothing.
+            candidate, _ = plib.validate_pattern({
+                "id": CANDIDATE_ID, "label": CANDIDATE_LABEL, "regex": regex_str,
+                "roles": [r.to_dict() for r in roles], "split": do_split})
+            if candidate is not None:
+                pattern_result, _ = apply_patterns(statement, [candidate],
+                                                   _parser_fallback(data))
         pattern_side = _fields(pattern_result) if pattern_result else None
         parser_side = _fields(parse_866(statement))
         differs = (
@@ -1387,7 +1481,8 @@ def api_preview_record():
             units_per_higher=resolve_units_per_higher(data.get("units_per_higher")),
             clear_existing=bool(data.get("clear_existing_853_863")),
             edited=edit_notes(_load_decisions()["edits"].get(str(record_index))),
-            record_853=_load_decisions()["record_853"].get(str(record_index)))
+            record_853=_load_decisions()["record_853"].get(str(record_index)),
+            left_out_policy=_left_out_policy(data))
         # Deliberately no write and no save: preview leaves the file untouched.
         return jsonify({
             "success": True,
@@ -1400,6 +1495,8 @@ def api_preview_record():
             "edited": row["edited"],
             "record_853": row["record_853"],
             "uncaptioned_levels": row["uncaptioned_levels"],
+            "left_out": row["left_out"],
+            "left_as_uploaded": row["left_as_uploaded"],
         })
     except Exception as exc:
         app.logger.exception("Request failed")
@@ -1466,7 +1563,8 @@ def api_preview_records():
                         units_per_higher=units_per_higher,
                         clear_existing=bool(data.get("clear_existing_853_863")),
                         edited=edit_notes(session_edits.get(str(index))),
-                        record_853=session_853.get(str(index)))
+                        record_853=session_853.get(str(index)),
+                        left_out_policy=_left_out_policy(data))
             for index in wanted
         ]
         session_notes = _load_decisions()["notes"]
@@ -1538,7 +1636,8 @@ def api_review_index():
                         units_per_higher=units_per_higher,
                         clear_existing=bool(data.get("clear_existing_853_863")),
                         edited=edit_notes(session_edits.get(str(index))),
-                        record_853=session_853.get(str(index)))
+                        record_853=session_853.get(str(index)),
+                        left_out_policy=_left_out_policy(data))
             for index, record in enumerate(all_records)
         ]
         session_notes = _load_decisions()["notes"]
@@ -1659,8 +1758,10 @@ def _apply_one_decision(record, decision: dict, patterns: list,
     The record has to be freshly read from the upload: a decision says what the
     record should end up as, not what to add to whatever is on it already.
 
-    Returns (result, previews, sources, statements, and the 866 each
-    statement came from, or None where it was edited on screen).
+    Returns (result, previews, sources, statements, the 866 each statement
+    came from or None where it was edited on screen, and -- when the setting
+    leaves a record that would lose something as uploaded -- what it would
+    have lost, in which case nothing has been written to the record).
     """
     conversions_input = decision.get("conversions", [])
 
@@ -1683,8 +1784,8 @@ def _apply_one_decision(record, decision: dict, patterns: list,
 
     first = specs[0] if specs else {}
     frequency = _apply_record_853(parsed, first.get("frequency", ""), record_853)
-    rc = convert_record(
-        parsed,
+    rc, left_as_uploaded = _convert_under_policy(
+        parsed, _left_out_policy(decision),
         existing_853s=existing_853s,
         captions=first.get("captions") or None,
         frequency=frequency,
@@ -1697,6 +1798,9 @@ def _apply_one_decision(record, decision: dict, patterns: list,
             first.get("units_per_higher", decision.get("units_per_higher"))),
         **conv_opts,
     )
+    previews = _previews_from(rc, rejections, (), sources, patterns)
+    if left_as_uploaded:
+        return rc, previews, sources, texts, sources_866, left_as_uploaded
     _carry_866_notes(sources_866, rc)
     _apply_record_conversion(record, rc)
 
@@ -1704,7 +1808,23 @@ def _apply_one_decision(record, decision: dict, patterns: list,
         _remove_converted_866s(record, sources_866, rc)
 
     return (rc, _previews_from(rc, rejections, (), sources, patterns), sources,
-            texts, sources_866)
+            texts, sources_866, [])
+
+
+LEFT_AS_UPLOADED_NOTE = (
+    "Left as uploaded by your setting: converting this record would leave "
+    "something out to fit MARC, so nothing was written to it. What would be "
+    "left out:")
+
+
+def _left_as_uploaded_entry(index: int, reasons: list, own: bool = False) -> dict:
+    """A run-summary entry for a record the left-out setting kept as uploaded."""
+    entry = {"index": index, "converted_fields": 0, "conformed_fields": 0,
+             "needs_review": 0, "left_as_uploaded": list(reasons),
+             "warnings": [LEFT_AS_UPLOADED_NOTE] + [r["reason"] for r in reasons]}
+    if own:
+        entry["own_decision"] = True
+    return entry
 
 
 def _rebuild_converted(decisions: dict, previews_for: Optional[int] = None):
@@ -1756,6 +1876,7 @@ def _rebuild_converted(decisions: dict, previews_for: Optional[int] = None):
         conv_opts, rejections = _convention_opts(batch)
         captions = batch.get("captions") or None
         fallback = _parser_fallback(batch)
+        left_out_policy = _left_out_policy(batch)
 
     summary: list = []
     by_source: dict = {}
@@ -1823,10 +1944,14 @@ def _rebuild_converted(decisions: dict, previews_for: Optional[int] = None):
             notes_853 = [] if clears else existing_853_notes(record)
 
             if decision is not None:
-                rc, record_previews, sources, texts, fields = _apply_one_decision(
+                rc, record_previews, sources, texts, fields, left = _apply_one_decision(
                     record, decision, patterns, record_853s.get(str(rec_idx)))
                 if rec_idx == previews_for:
                     previews = record_previews
+                if left:
+                    all_records[rec_idx] = pristine
+                    summary.append(_left_as_uploaded_entry(rec_idx, left, own=True))
+                    continue
                 for src in sources:
                     by_source[src] = by_source.get(src, 0) + 1
                 review_total += rc.needs_review
@@ -1863,8 +1988,8 @@ def _rebuild_converted(decisions: dict, previews_for: Optional[int] = None):
             for src in sources:
                 by_source[src] = by_source.get(src, 0) + 1
 
-            rc = convert_record(
-                parsed,
+            rc, left = _convert_under_policy(
+                parsed, left_out_policy,
                 existing_853s=existing_853s,
                 captions=captions,
                 frequency=_apply_record_853(parsed, frequency,
@@ -1875,6 +2000,10 @@ def _rebuild_converted(decisions: dict, previews_for: Optional[int] = None):
                 units_per_higher=units_per_higher,
                 **conv_opts,
             )
+            if left:
+                all_records[rec_idx] = pristine
+                summary.append(_left_as_uploaded_entry(rec_idx, left))
+                continue
             _carry_866_notes(sources_866, rc)
             _apply_record_conversion(record, rc)
 
@@ -1939,6 +2068,7 @@ def _statement_report(texts, rc, fields=()) -> list:
     """Each statement a record was converted from, and what was said about it."""
     report = [{"text": text, "converted": bool(result.fields_863),
                "warnings": list(result.warnings),
+               "left_out": list(result.left_out),
                "belongs_in": result.belongs_in}
               for text, result in zip(texts, rc.results)]
     # The notation each 866 declares, as the review screen says it.
@@ -1957,6 +2087,9 @@ LOG_COLUMNS = ("Record", "Identifier", "Title", "What", "866", "Details")
 
 # What the log calls a statement held because it belongs in another field, so
 # a cataloguer can filter the spreadsheet to the ones to move.
+# A converted statement's note that a value was read and left out to fit MARC.
+LEFT_OUT_LOG = "Converted, part left out"
+
 ELSEWHERE_LOG = {"867": "Supplement: belongs in 867",
                  "868": "Index: belongs in 868"}
 
@@ -2006,6 +2139,10 @@ def _log_rows(result: dict, records: list, identifier_spec: str,
         if entry.get("unreadable"):
             rows.append(who + ("Could not check", "", entry["warnings"][-1]))
             continue
+        if entry.get("left_as_uploaded"):
+            for lost in entry["left_as_uploaded"]:
+                rows.append(who + ("Left as uploaded", lost["text"], lost["reason"]))
+            continue
         if entry.get("kept_existing"):
             kept = next(w for w in entry["warnings"] if "already has" in w)
             rows.append(who + ("Kept: already has 863s", "", kept))
@@ -2017,8 +2154,10 @@ def _log_rows(result: dict, records: list, identifier_spec: str,
                                            "Not converted"))
             if statement["converted"] and not statement["warnings"]:
                 continue
+            left_out = set(statement.get("left_out") or ())
             for warning in statement["warnings"] or [""]:
-                rows.append(who + (what, statement["text"], warning))
+                rows.append(who + (LEFT_OUT_LOG if warning in left_out else what,
+                                   statement["text"], warning))
     return rows
 
 
@@ -2290,6 +2429,8 @@ def api_convert_record():
             # Kept for its own 863s, so the screen says that instead of
             # "Converted 0 statements".
             "kept_existing": bool(this.get("kept_existing")),
+            # Left as uploaded by the left-out setting: said, not counted.
+            "left_as_uploaded": this.get("left_as_uploaded", []),
             "warnings": this.get("warnings", []),
         })
     except Exception as exc:

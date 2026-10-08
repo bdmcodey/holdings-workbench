@@ -412,6 +412,11 @@
     /* A supplement or an index: held, but for moving to 867/868 rather than
        for a pattern, so it does not wear the same colour as "held". */
     .pill.elsewhere { border-color: var(--accent); background: var(--accent-soft); }
+    /* Read correctly, and left out because MARC has no place for it: neither a
+       note for the log (yellow) nor a decision to make (orange). */
+    .pill.leftout { border-color: var(--accent); border-style: dashed; }
+    .alert-leftout { background: var(--accent-soft); border-color: var(--accent);
+                     border-style: dashed; color: var(--text); }
 
     /* The expression, readable without opening the card. Two lines until it is
        clicked; Copy takes the whole of it either way. */
@@ -902,6 +907,24 @@ v.6(1995)-"></textarea>
         Statements your confirmed patterns match are not affected.
       </div>
 
+      <div class="form-group mt-2">
+        <label for="opt-left-out">When something would be left out to fit MARC</label>
+        <select id="opt-left-out">
+          <option value="convert" selected>Convert it, and mark what was left out</option>
+          <option value="statement">Hold that statement; convert the rest of the record</option>
+          <option value="record">Leave the whole record as uploaded</option>
+        </select>
+        <div class="small dim mt-1">
+          Some values are read correctly but have nowhere to go in an 863: a
+          season at one end of a range only, as in <code>(1981-Fall 1983)</code>,
+          a <code>?</code> after a year, a date stated once for several runs.
+          They are marked "Left out to fit MARC" on the record and in the log.
+          Choose here whether such a statement is converted anyway, held with
+          its 866 kept, or whether its whole record is left exactly as uploaded.
+          Unlike strict, this applies to statements your patterns read too.
+        </div>
+      </div>
+
       <div class="check-row">
         <input type="checkbox" id="batch-clear853863" />
         <label for="batch-clear853863">Clear existing 853 / 863 first</label>
@@ -952,6 +975,8 @@ v.6(1995)-"></textarea>
           <button type="button" class="chip" data-filter="encoding"
                   title="Records with something to note about their Leader, or about the level you are recording at"
                   >Leader &amp; level</button>
+          <button type="button" class="chip" data-filter="leftout"
+                  title="Records where a value was read and left out to fit MARC">Something left out</button>
           <button type="button" class="chip" data-filter="skipped">Skipped</button>
           <!-- Set from a pattern card's "Show ... records"; named after it. -->
           <button type="button" class="chip" data-filter="one-pattern"
@@ -1327,6 +1352,7 @@ function conventionPayload() {
     chronology: document.getElementById('batch-chronology').value,
     parser_fallback: document.getElementById('opt-parser-fallback').checked,
     parser_strict: document.getElementById('opt-parser-strict').checked,
+    left_out_policy: document.getElementById('opt-left-out').value,
     keep_separate: [...keepSeparate],
     skip_records: [...skipRecords],
     frequency: document.getElementById('batch-freq').value,
@@ -1407,7 +1433,7 @@ function syncStrict() {
   strict.disabled = !document.getElementById('opt-parser-fallback').checked;
 }
 
-['opt-parser-fallback', 'opt-parser-strict'].forEach(id =>
+['opt-parser-fallback', 'opt-parser-strict', 'opt-left-out'].forEach(id =>
   document.getElementById(id).addEventListener('change', () => {
     syncStrict();
     // Every preview on screen was computed under the old setting.
@@ -2045,6 +2071,11 @@ function paintStatusPills(slot, entry) {
       return;
     }
     const bits = [];
+    if ((entry.left_as_uploaded || []).length) {
+      slot.innerHTML = `<span class="pill attention"
+        title="Converting it would leave something out to fit MARC, and Conversion settings say to leave such a record as uploaded">left as uploaded</span>`;
+      return;
+    }
     if (entry.converted) bits.push(`<span class="pill has-866">${entry.converted} converted</span>`);
     if (entry.held) bits.push(`<span class="pill attention">${entry.held} held</span>`);
     elsewhereCounts(entry.elsewhere).forEach(([tag, n]) => bits.push(
@@ -2052,6 +2083,8 @@ function paintStatusPills(slot, entry) {
         tag === '868' ? 'an index' : 'a supplement'}: not converted, and ${n === 1 ? 'belongs' : 'belong'} in ${tag}">${
         n} belong${n === 1 ? 's' : ''} in ${tag}</span>`));
     if (entry.flagged) bits.push(`<span class="pill attention">${entry.flagged} to check</span>`);
+    if (entry.left_out) bits.push(`<span class="pill leftout"
+      title="Converted, with a value read and left out because MARC has no place for it">${entry.left_out} left out</span>`);
     if ((entry.record_notes || []).length) bits.push('<span class="pill decide">853 to check</span>');
     if ((entry.edited || []).length) bits.push('<span class="pill">866 edited</span>');
     if (Object.keys(entry.record_853 || {}).length) bits.push('<span class="pill">853 set</span>');
@@ -2108,7 +2141,10 @@ function recordMatchesFilter(entry, index) {
     case 'held':       return !entry.skipped
                              && (entry.held > 0 || entry.flagged > 0
                                  || (entry.elsewhere || []).length > 0
+                                 || (entry.left_as_uploaded || []).length > 0
                                  || (entry.record_notes || []).length > 0);
+    case 'leftout':    return entry.left_out > 0
+                             || (entry.left_as_uploaded || []).length > 0;
     case 'encoding':   return !!entry.leader_note || !!entry.leader_mismatch
                              || !!entry.single_part;
     case 'pattern':    return entry.sources.some(
@@ -2818,6 +2854,15 @@ function partitionGroups(groups) {
 // to look at a pattern, then removing another, does not fold it back up.
 const patternFolds = {};
 
+/** Said under the pattern count: nothing to decide is not nothing lost. */
+function leftOutSentence(groups) {
+  const n = (groups || []).reduce((sum, g) => sum + (g.left_out || 0), 0);
+  if (!n) return '';
+  return ` <strong>${n}</strong> statement${n !== 1 ? 's' : ''} will convert with
+    something left out to fit MARC; the cards marked "left out" say which, and
+    Conversion settings say what happens to ${n !== 1 ? 'them' : 'it'}.`;
+}
+
 function buildPatternFold(key, label, entries) {
   const details = document.createElement('details');
   details.className = 'pattern-group';
@@ -2826,7 +2871,12 @@ function buildPatternFold(key, label, entries) {
 
   const summary = document.createElement('summary');
   summary.className = 'small';
-  summary.textContent = label;
+  // A fold of patterns with nothing to decide can still lose a value; say so
+  // on the line that is all a folded group shows.
+  const losing = entries.reduce((n, { group }) => n + (group.left_out || 0), 0);
+  summary.textContent = losing
+    ? `${label} · ${losing} statement${losing !== 1 ? 's' : ''} with something left out to fit MARC`
+    : label;
   details.appendChild(summary);
 
   const body = document.createElement('div');
@@ -2865,7 +2915,7 @@ function renderPatterns(data) {
             parts.readable.length
               ? ': the confirmed patterns and the standard parser between them read every statement'
               : ' — all patterns are confirmed and will be used when you convert'}.`
-    }</p>`;
+    }${leftOutSentence(data.groups)}</p>`;
   area.appendChild(summary);
 
   // A page of the cards still wanting a decision.
@@ -3081,6 +3131,8 @@ function buildPatternCard(group, idx) {
       <span class="pc-label">${escHtml(group.human_label)}</span>
       <span class="pill">${group.count} statement${group.count !== 1 ? 's' : ''}</span>
       <span class="pill ${rate === 100 ? 'has-866' : 'decide'}">${rate}% matched</span>
+      ${group.left_out ? `<span class="pill leftout"
+        title="Statements that convert with a value read and left out because MARC has no place for it; the preview below says which">${group.left_out} left out</span>` : ''}
       <span class="pill confirmed-pill" ${confirmed && !skipped ? '' : 'hidden'}>Confirmed</span>
       <span class="pill skipped-pill" ${skipped ? '' : 'hidden'}>Skipped</span>
       <span class="pill decide role-warning" ${
@@ -3511,6 +3563,9 @@ function heldReasonHtml(pv) {
 function warningHtml(pv, w, extra = 'small') {
   if ((pv.attention || []).includes(w)) {
     return `<div class="alert alert-attention ${extra}"><strong>To check:</strong> ${escHtml(w)}</div>`;
+  }
+  if ((pv.left_out || []).includes(w)) {
+    return `<div class="alert alert-leftout ${extra}"><strong>Left out to fit MARC:</strong> ${escHtml(w)}</div>`;
   }
   return `<div class="alert alert-warn ${extra}">${escHtml(w)}</div>`;
 }
@@ -4236,9 +4291,18 @@ async function renderRecordDetail(idx) {
         </div>`).join('')}
     </div>` : '';
 
+  const leftAsUploaded = (about && about.left_as_uploaded) || [];
+  const leftHtml = leftAsUploaded.length ? `
+    <div class="alert alert-attention mt-2"><strong>Left as uploaded by your setting.</strong>
+      Converting this record would leave something out to fit MARC, and Conversion settings
+      say to leave such a record exactly as it is. Below is what converting would have
+      written; nothing of it goes into the file. What would be left out:
+      ${leftAsUploaded.map(w => `<div class="mt-1"><code>${escHtml(w.text)}</code>:
+        ${escHtml(w.reason)}</div>`).join('')}</div>` : '';
   detail.innerHTML = `
     ${sourceHtml}
     ${notesHtml}
+    ${leftHtml}
     ${groupsHtml}
     ${reviewHtml}
     ${elsewhereHtml(elsewhere)}
@@ -4281,6 +4345,10 @@ async function applyAllInRecord(recIdx) {
       // Nothing was converted, and "Converted 0 statements" would say
       // something happened. Say why nothing did.
       showAlert(status, (data.warnings || []).join(' '), 'info');
+      return;
+    }
+    if ((data.left_as_uploaded || []).length) {
+      showAlert(status, (data.warnings || []).join(' '), 'warn');
       return;
     }
     const converted = data.previews.filter(p => p.fields_863.length).length;
