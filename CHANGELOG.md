@@ -15,6 +15,12 @@ more than one release; numbering resumed with 0.6.1. Reasoning behind the
 parser and converter decisions, including the defects a real corpus exposed and
 what was done about each, is in [CORPUS-FINDINGS.md](CORPUS-FINDINGS.md).
 
+## 0.31.5 — 2026-10-08
+
+Confirming a pattern with its suggested caption accepted as offered now clears "needs a decision".
+
+- **MARC Holdings Workbench** — Where a pattern offers a reading as "likely, please confirm", such as the caption v. for the bare 39 in "39 no 1 (Spring 1995)", pressing Confirm pattern accepts it. But the card went on saying "needs a decision", and the row stayed highlighted, unless you had first changed something in it, so accepting the suggestion as offered looked as if it had not worked. The pattern had been saved and was used when converting. Confirming now clears the highlight and the pill whether or not you changed anything. Nothing about the conversion changes.
+
 ## 0.31.4 — 2026-10-01
 
 On a pattern, the settings that would change nothing are greyed out, with a note that the statement itself is where to correct them.

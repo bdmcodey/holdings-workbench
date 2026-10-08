@@ -3358,7 +3358,8 @@ function wireCard(card) {
  * The pill and the Confirm button answer different questions.
  *
  * The pill asks "has a cataloguer looked at this yet?", so a suggested level
- * keeps it lit until the row is touched or the pattern confirmed. The button
+ * keeps it lit until the row is touched or the pattern confirmed (confirmPattern
+ * redraws the table from the saved roles, which carry no suggestions). The button
  * asks "is there an answer to act on?", which a suggestion already is.
  */
 function updateCardWarnings(card) {
@@ -3667,6 +3668,12 @@ async function confirmPattern(card) {
     return;
   }
 
+  // Confirming is the cataloguer accepting what the table shows, suggestions
+  // included, so redraw it from what was saved: that puts out the "likely,
+  // please confirm" labels and the pill. Only a changed row used to clear them,
+  // so confirming a suggestion unchanged left "needs a decision" lit.
+  card._roles = entry.roles;
+  showExample(card);
   card.classList.add('confirmed');
   card.querySelector('.confirmed-pill').hidden = false;
   card.querySelector('.pc-remove').hidden = false;
