@@ -2837,6 +2837,44 @@ real export gets no note on any of its 1,057 866s. The angle-bracket dates of
 D41 (`<1884:6:28>`) are not treated as the Newspaper Program's: nothing here
 says whose they are.
 
+## An 853's settings can be one record's · **0.33.0**
+
+*8 October 2026.* Two findings from the same afternoon, one decision.
+
+**$w was Annual for the whole file.** The Frequency menu began at its first
+option, Annual, so every 853 in every converted file said `$w a` unless the
+cataloguer changed it -- and changing it changed it for every title at once.
+The guide already said `$w` is "written only when you declare" it; the screen
+was declaring it. Frequency is a fact about how one serial is published, and no
+holdings statement says it. The menu now begins at "(not specified)", which the
+converter already treated as writing nothing. The engine's own default was
+always "", so no corpus figure moves; what changes is every 853 a cataloguer
+converted without touching the menu.
+
+**One caption pattern split a record.** In the demo file, `34 no 3, 4 (Summer,
+Autumn 1990)` and `39 no 1 (Spring 1995)` are one serial written in two shapes,
+so two patterns. Confirming `v.` for the bare number on one of them gave the
+record two 853s, `$a (*)` and `$a v.`. Spreading a caption from one pattern to
+another was rejected: a pattern is file-wide, and the other shape may number a
+different title differently. Merging `(*)` with `v.` at conversion was rejected
+too: that is guessing a caption. The cataloguer's direction: a way to decide it
+for one record, all of its statements at once, touching no other record.
+(Raised before and left, on the grounds that editing the 866 covers it; it does,
+one statement at a time.)
+
+**What changed.** Each record has "This record's 853": a `$w` ("As in
+Conversion settings" until chosen; any code, or "(not specified)" said
+deliberately) and a caption for each level its statements leave blank. Kept
+with the session's decisions, like the note, and applied wherever the record
+converts -- review, "Convert this record", "Convert all". The captions follow
+the confirmed pattern's rule and are applied to the readings before
+`convert_record()` decides which statements share an 853, so the two shapes
+above share one: `853 31 $8 1 $a v. $b no.`. A printed caption is never
+replaced. The log says "853 set by you"; the row says `853 set`.
+
+$v and $u stay file-wide for now. They are the next candidates for the same
+panel: issues per volume is as much one title's fact as frequency is.
+
 ## Supplements and indexes are held for their own field · **0.32.0**
 
 *8 October 2026.* Found in a dry run for a demo to technical services. The

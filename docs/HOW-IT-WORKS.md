@@ -1,6 +1,6 @@
 # How the Holdings Workbench Works
 
-*Written for librarians and cataloguers. Describes version 0.32.0.*
+*Written for librarians and cataloguers. Describes version 0.33.0.*
 
 The Holdings Workbench turns the free-text holdings in MARC 866 fields into structured 853 caption/pattern and 863 enumeration/chronology fields, and asks a cataloguer to confirm anything it cannot be sure of. This guide explains how, for librarians rather than programmers.
 
@@ -282,7 +282,7 @@ Once a statement is read, the converter writes one 853 for its shape and one 863
 - **Enumeration captions** go in `$a`, `$b`, `$c`… in order of level, using the words the statement printed or you confirmed. A level with no caption anywhere gets `(*)`, which is the standard's "asterisk in place of data". It is never a guessed `v.`.
 - **Chronology captions** are `$i (year)`, `$j (month)` or `(season)`, and `$k (day)`.
 - **Indicators** default to `3` (compressibility unknown) and `1` (captions verified; all levels may not be present). When you declare how many issues make a volume (`$u`), the first indicator becomes `2`, meaning the holdings can be compressed or expanded. Only the values 0-3 are accepted. Anything else is refused and explained, not written.
-- **`$u` and `$w`** (units per higher level, frequency) are written only when you declare them. They are facts about how the serial is published. For example, `v.1-5 (1990-1994)` is just as true of a monthly as of a quarterly.
+- **`$u` and `$w`** (units per higher level, frequency) are written only when you declare them. They are facts about how the serial is published. For example, `v.1-5 (1990-1994)` is just as true of a monthly as of a quarterly. Frequency differs from title to title, so it is set on each record (see "This record's 853" below); the file-wide setting starts at "(not specified)". Before 0.33.0 it started at Annual, and every 853 said `$w a` unless you changed it.
 - **`$v`** (numbering continuity) is written as `r`, numbering restarts each volume, unless you choose "Continuous" or "not specified" in the settings.
 
 ### The 863: values
@@ -392,12 +392,24 @@ Everything you decide is kept for the session and applied every time the file is
 | **Reviewed** | Marks the record as looked at, for the "Not yet reviewed" filter. It changes nothing in the output |
 | **Edit an 866** | Corrects a typo before conversion, such as `(Fal 1995-Fall 1999)`. The corrected text goes into the file, and "Put back as uploaded" undoes it |
 | **Your note** | A reminder for you or a colleague. It goes into the log, never into the record |
+| **This record's 853** | The record's frequency (`$w`), and a caption for each level its statements print none for. See below |
 
 An 866 edit can change the statement (`$a`, the default), or add or change a public note (`$z`) or staff note (`$x`). The statement can't be emptied, and no other subfield can be edited. Each edit is listed on the record and in the log as "Edited by you", with the text before and after. It is a deliberate change, not a problem, so it doesn't put the record under "Needs attention".
 
+### This record's 853
+
+Some things about an 853 belong to one title, not to the file. Each record has a "This record's 853" panel, below its holdings:
+
+- **Frequency (`$w`).** "As in Conversion settings" until you choose. Any MARC 21 code can be chosen, and so can "(not specified)", which writes no `$w` on this record whatever the file setting says.
+- **A caption for each level its statements leave blank.** Only levels written as a bare number, which the 853 would declare `(*)`, are offered. The caption goes into every 866 on the record that leaves that level blank, whatever its shape, and into no other record. A caption a statement prints is never replaced: to correct one, edit the 866.
+
+The caption is what joins two shapes of one serial. `34 no 3, 4 (Summer, Autumn 1990)` and `39 no 1 (Spring 1995)` are different shapes, so they are different patterns, and confirming `v.` on only one of them gave the record two 853s. Given `v.` on the record, both statements share one 853, and no other record is touched.
+
+What you choose is used wherever the record is converted (the preview, "Convert this record" and "Convert all") and is listed in the log as "853 set by you". The record's row says `853 set`.
+
 ### For the whole file (Conversion settings)
 
-- Frequency (`$w`), numbering continuity (`$v`) and issues per volume (`$u`) for the 853
+- Frequency (`$w`), numbering continuity (`$v`) and issues per volume (`$u`) for the 853. Frequency starts at "(not specified)", and a record's own setting replaces it
 - The holdings level: detailed (4) or summary (3)
 - The subfield convention and the 853 indicators
 - Whether the standard parser reads statements no confirmed pattern matches. Turned off, only your patterns convert anything
@@ -420,6 +432,7 @@ A setting the tool can't use, such as an indicator of 4, is refused with the rea
 | --- | --- |
 | Your note | You wrote a note on the record. Always its first line |
 | Edited by you | You changed an 866 |
+| 853 set by you | You set this record's frequency or captions, as in `$w q (Quarterly); level 1 caption v.` |
 | Skipped | You marked the record Skip |
 | Could not check | The record couldn't be read, and was left as uploaded |
 | Kept: already has 863s | The record's own holdings were kept |
@@ -436,9 +449,9 @@ The log is built from the same summary as the conversion, so it describes exactl
 
 Four checks run before any change is released, and each answers a different question.
 
-| Check | Question it answers | Result as of 0.32.0 |
+| Check | Question it answers | Result as of 0.33.0 |
 | --- | --- | --- |
-| Automated tests | Does every behaviour described here still hold? | 932 passed, 8 skipped |
+| Automated tests | Does every behaviour described here still hold? | 942 passed, 8 skipped |
 | Corpus report | What do 117 real 866 statements convert to, and has any outcome changed? | 90 clean (77%), 22 converted with a warning, 5 with no fields, 0 with values lost |
 | Conversion audit | Did any number in a statement reach no field and no warning? | 0 unaccounted for: the corpus, the LC examples, the other library's catalogue, and all 1,057 statements of the 372-record test export |
 | Round trip | Convert, write the 866 as Alma would, convert again: do the same 863s come back? | Test export: 938 identical, 106 identical apart from an 853 caption, 11 not converted, **0 drift** |

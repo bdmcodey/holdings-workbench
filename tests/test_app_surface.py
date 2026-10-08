@@ -53,6 +53,9 @@ JOINED_ROUTES = {
     "/api/download-log",
     # A cataloguer's own note on a record, for the log only.
     "/api/record-note",
+    # The 853 settings chosen for one record: its $w, and captions for the
+    # levels its statements leave blank.
+    "/api/record-853",
 }
 
 

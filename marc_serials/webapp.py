@@ -109,8 +109,9 @@ from marc_serials.bridge import (CAPTION_CHOICES, ENCODABLE_KINDS, KIND_IGNORE,
                             KIND_LABELS, KIND_UNRESOLVED,
                             PARSER_SOURCE, SKIPPED_SOURCE, STRICT_FALLBACK,
                             UNMATCHED_SOURCE,
-                            apply_patterns, build_parse_result, infer_roles,
-                            split_statement)
+                            apply_patterns, build_parse_result,
+                            fill_record_captions, infer_roles, split_statement,
+                            uncaptioned_levels)
 
 # ---------------------------------------------------------------------------
 
@@ -347,6 +348,23 @@ def _parse_all(texts, patterns, fallback: bool = True) -> tuple[list, list]:
     return parsed, sources
 
 
+def _apply_record_853(parsed: list, frequency: str,
+                      settings: Optional[dict]) -> str:
+    """
+    Apply the 853 settings chosen for one record, and return its $w.
+
+    Captions fill only the levels the record's statements leave blank -- see
+    bridge.fill_record_captions() -- and are applied to the readings, before
+    convert_record() decides which statements share an 853. A frequency chosen
+    for the record replaces the file's; one not chosen leaves it.
+    """
+    settings = settings or {}
+    fill_record_captions(parsed, settings.get("captions") or {})
+    if "frequency" in settings:
+        return settings["frequency"]
+    return frequency
+
+
 def _source_labels(patterns) -> dict:
     labels = {p.id: p.label for p in patterns}
     labels[PARSER_SOURCE] = "Standard parser"
@@ -383,7 +401,8 @@ def _review_row(record, index, *, patterns, fallback, conv_opts, captions,
                 holdings_level: str = DEFAULT_HOLDINGS_LEVEL,
                 units_per_higher: str = "",
                 clear_existing: bool = False,
-                edited: Optional[list] = None) -> dict:
+                edited: Optional[list] = None,
+                record_853: Optional[dict] = None) -> dict:
     """
     One record as the review screen sees it: what it would produce, and what
     read it.
@@ -433,6 +452,11 @@ def _review_row(record, index, *, patterns, fallback, conv_opts, captions,
         # the file will carry them, but not "needs attention": they are the
         # attention, already given.
         "edited": list(edited or []),
+        # The 853 settings chosen for this record alone, and the levels its
+        # statements write with no caption -- the ones a caption can be given
+        # to here. See api_record_853().
+        "record_853": dict(record_853 or {}),
+        "uncaptioned_levels": [],
     }
     if with_previews:
         row["previews"] = []
@@ -450,6 +474,10 @@ def _review_row(record, index, *, patterns, fallback, conv_opts, captions,
         return row
 
     parsed, sources = _parse_all(statements, patterns, fallback)
+    # Before the record's own captions fill them, or a level once given a
+    # caption would stop being offered.
+    row["uncaptioned_levels"] = uncaptioned_levels(parsed)
+    frequency = _apply_record_853(parsed, frequency, record_853)
     existing_853s = [] if clear_existing else list(record.get_fields("853"))
     rc = convert_record(
         parsed, existing_853s=existing_853s, captions=captions,
@@ -520,6 +548,8 @@ def _review_row_safely(record, index, **kwargs) -> dict:
             "existing_863": 0, "kept_existing": False,
             "record_notes": [unreadable_note(exc)],
             "edited": list(kwargs.get("edited") or []),
+            "record_853": dict(kwargs.get("record_853") or {}),
+            "uncaptioned_levels": [],
             "unreadable": True,
         }
         if kwargs.get("with_previews"):
@@ -1086,11 +1116,14 @@ def api_pattern_preview():
             patterns = [candidate] + _load_library()
             parsed, sources = _parse_all(texts, patterns,
                                          _parser_fallback(data))
+            record_frequency = _apply_record_853(
+                parsed, frequency,
+                _load_decisions()["record_853"].get(str(record_index)))
             rc = convert_record(
                 parsed,
                 existing_853s=existing_853s,
                 captions=captions,
-                frequency=frequency,
+                frequency=record_frequency,
                 numbering_continuity=continuity,
                 merge_patterns=record_index not in _keep_separate(data),
                 holdings_level=holdings_level,
@@ -1353,7 +1386,8 @@ def api_preview_record():
             holdings_level=resolve_holdings_level(data.get("holdings_level")),
             units_per_higher=resolve_units_per_higher(data.get("units_per_higher")),
             clear_existing=bool(data.get("clear_existing_853_863")),
-            edited=edit_notes(_load_decisions()["edits"].get(str(record_index))))
+            edited=edit_notes(_load_decisions()["edits"].get(str(record_index))),
+            record_853=_load_decisions()["record_853"].get(str(record_index)))
         # Deliberately no write and no save: preview leaves the file untouched.
         return jsonify({
             "success": True,
@@ -1364,6 +1398,8 @@ def api_preview_record():
             "existing_863": row["existing_863"],
             "record_notes": row["record_notes"],
             "edited": row["edited"],
+            "record_853": row["record_853"],
+            "uncaptioned_levels": row["uncaptioned_levels"],
         })
     except Exception as exc:
         app.logger.exception("Request failed")
@@ -1415,6 +1451,7 @@ def api_preview_records():
     skip_records = _skipped_records(data)
 
     session_edits = _load_decisions()["edits"]
+    session_853 = _load_decisions()["record_853"]
     try:
         wanted = _requested_indices(data, len(all_records), offset, limit)
         out = [
@@ -1428,7 +1465,8 @@ def api_preview_records():
                         with_previews=True, holdings_level=holdings_level,
                         units_per_higher=units_per_higher,
                         clear_existing=bool(data.get("clear_existing_853_863")),
-                        edited=edit_notes(session_edits.get(str(index))))
+                        edited=edit_notes(session_edits.get(str(index))),
+                        record_853=session_853.get(str(index)))
             for index in wanted
         ]
         session_notes = _load_decisions()["notes"]
@@ -1486,6 +1524,7 @@ def api_review_index():
     skip_records = _skipped_records(data)
 
     session_edits = _load_decisions()["edits"]
+    session_853 = _load_decisions()["record_853"]
     try:
         rows = [
             _review_row_safely(record, index,
@@ -1498,7 +1537,8 @@ def api_review_index():
                         with_previews=False, holdings_level=holdings_level,
                         units_per_higher=units_per_higher,
                         clear_existing=bool(data.get("clear_existing_853_863")),
-                        edited=edit_notes(session_edits.get(str(index))))
+                        edited=edit_notes(session_edits.get(str(index))),
+                        record_853=session_853.get(str(index)))
             for index, record in enumerate(all_records)
         ]
         session_notes = _load_decisions()["notes"]
@@ -1562,7 +1602,8 @@ DECISIONS_KEY = "conversion_decisions"
 
 def _empty_decisions() -> dict:
     """Nothing decided yet: no record converted on its own, no run over the file."""
-    return {"records": {}, "batch": None, "edits": {}, "notes": {}}
+    return {"records": {}, "batch": None, "edits": {}, "notes": {},
+            "record_853": {}}
 
 
 def _load_decisions() -> dict:
@@ -1580,6 +1621,7 @@ def _load_decisions() -> dict:
     batch = document.get("batch")
     edits = document.get("edits")
     notes = document.get("notes")
+    record_853 = document.get("record_853")
     return {
         "records": records if isinstance(records, dict) else {},
         "batch": batch if isinstance(batch, dict) else None,
@@ -1588,6 +1630,9 @@ def _load_decisions() -> dict:
         # The cataloguer's own notes, by record: for the log only, never
         # written into the file. See api_record_note().
         "notes": notes if isinstance(notes, dict) else {},
+        # The 853 settings chosen for one record, by record: see
+        # api_record_853().
+        "record_853": record_853 if isinstance(record_853, dict) else {},
     }
 
 
@@ -1606,7 +1651,8 @@ def _forget_decisions() -> None:
     session.pop(DECISIONS_KEY, None)
 
 
-def _apply_one_decision(record, decision: dict, patterns: list) -> tuple:
+def _apply_one_decision(record, decision: dict, patterns: list,
+                        record_853: Optional[dict] = None) -> tuple:
     """
     Apply one cataloguer's per-record decision to one record, in place.
 
@@ -1636,11 +1682,12 @@ def _apply_one_decision(record, decision: dict, patterns: list) -> tuple:
     parsed, sources = _parse_all(texts, patterns, _parser_fallback(decision))
 
     first = specs[0] if specs else {}
+    frequency = _apply_record_853(parsed, first.get("frequency", ""), record_853)
     rc = convert_record(
         parsed,
         existing_853s=existing_853s,
         captions=first.get("captions") or None,
-        frequency=first.get("frequency", ""),
+        frequency=frequency,
         numbering_continuity=first.get("numbering_continuity", "r"),
         holdings_level=resolve_holdings_level(
             first.get("holdings_level", decision.get("holdings_level"))),
@@ -1687,6 +1734,7 @@ def _rebuild_converted(decisions: dict, previews_for: Optional[int] = None):
 
     patterns = _load_library()
     per_record = decisions.get("records") or {}
+    record_853s = decisions.get("record_853") or {}
     batch = decisions.get("batch")
 
     # A run over the whole file carries the skip list and the merge choices;
@@ -1776,7 +1824,7 @@ def _rebuild_converted(decisions: dict, previews_for: Optional[int] = None):
 
             if decision is not None:
                 rc, record_previews, sources, texts, fields = _apply_one_decision(
-                    record, decision, patterns)
+                    record, decision, patterns, record_853s.get(str(rec_idx)))
                 if rec_idx == previews_for:
                     previews = record_previews
                 for src in sources:
@@ -1819,7 +1867,8 @@ def _rebuild_converted(decisions: dict, previews_for: Optional[int] = None):
                 parsed,
                 existing_853s=existing_853s,
                 captions=captions,
-                frequency=frequency,
+                frequency=_apply_record_853(parsed, frequency,
+                                            record_853s.get(str(rec_idx))),
                 numbering_continuity=continuity,
                 merge_patterns=rec_idx not in keep_separate,
                 holdings_level=holdings_level,
@@ -1913,7 +1962,8 @@ ELSEWHERE_LOG = {"867": "Supplement: belongs in 867",
 
 
 def _log_rows(result: dict, records: list, identifier_spec: str,
-             notes: Optional[dict] = None) -> list:
+             notes: Optional[dict] = None,
+             record_853: Optional[dict] = None) -> list:
     """
     The run summary as rows a cataloguer can sort, filter and search.
 
@@ -1927,10 +1977,13 @@ def _log_rows(result: dict, records: list, identifier_spec: str,
         rows.append(("", "", "", "Setting refused", "", problem))
 
     notes = notes or {}
+    record_853 = record_853 or {}
     by_index = {entry["index"]: entry for entry in result["summary"]}
     # A record with a note of the cataloguer's is in the log even when nothing
     # else is wrong with it -- the note is the reason to find it again.
     noted = {int(i) for i, text in notes.items() if str(text).strip()}
+    # So is one whose 853 the cataloguer set: the file carries it.
+    noted |= {int(i) for i, s in record_853.items() if record_853_summary(s)}
     for index in sorted(set(by_index) | noted):
         entry = by_index.get(index, {"index": index, "warnings": []})
         record = records[index] if index < len(records) else None
@@ -1944,6 +1997,9 @@ def _log_rows(result: dict, records: list, identifier_spec: str,
             rows.append(who + ("Your note", "", notes[str(index)].strip()))
         for note in entry.get("edited") or []:
             rows.append(who + ("Edited by you", "", note))
+        chosen = record_853_summary(record_853.get(str(index)))
+        if chosen and not entry.get("skipped"):
+            rows.append(who + ("853 set by you", "", chosen))
         if entry.get("skipped"):
             rows.append(who + ("Skipped", "", entry["warnings"][-1]))
             continue
@@ -1987,7 +2043,8 @@ def api_download_log():
         writer = csv.writer(buf)
         writer.writerow(LOG_COLUMNS)
         writer.writerows(_log_rows(result, _load_all_records(), _identifier_spec(),
-                                   decisions.get("notes")))
+                                   decisions.get("notes"),
+                                   decisions.get("record_853")))
         data = ("\ufeff" + buf.getvalue()).encode("utf-8")
         return send_file(io.BytesIO(data), mimetype="text/csv",
                          as_attachment=True,
@@ -2027,6 +2084,93 @@ def api_record_note():
         decisions["notes"].pop(str(record_index), None)
     _save_decisions(decisions)
     return jsonify({"success": True, "record_index": record_index, "note": note})
+
+
+# A caption is a word for the 853 ("v.", "no.", "Jahrg."), not a sentence; the
+# limit only keeps something pasted by mistake out of the file.
+RECORD_CAPTION_MAX = 20
+RECORD_CAPTION_LEVELS = 6     # $a-$f
+
+
+@app.route("/api/record-853", methods=["POST"])
+def api_record_853():
+    """
+    Keep the 853 settings chosen for one record, applied wherever it converts.
+
+    POST JSON: {"record_index": 3, "frequency": "q", "captions": {"0": "v."}}.
+
+    `frequency` is the record's $w: a FREQUENCY_CODES key ("" is "not
+    specified", said deliberately), or null to go back to the file's setting.
+    How often a serial is published differs from title to title and is not
+    something a holdings statement says, so it is the cataloguer's per record.
+
+    `captions` gives a word, by level counted from 0, to a level the record's
+    statements write with no caption. It fills only those: a caption a
+    statement prints is never replaced. An empty word removes one.
+
+    Kept with the session's other decisions, so a new upload forgets them.
+    """
+    data = request.get_json(force=True) or {}
+    marc_bytes = _load_file("marc_file")
+    if not marc_bytes:
+        return jsonify({"error": "No MARC file found. Please upload a file first."}), 400
+    try:
+        record_index = int(data.get("record_index"))
+    except (TypeError, ValueError):
+        return jsonify({"error": "Which record the settings are for is missing."}), 400
+    if not 0 <= record_index < len(records_from_bytes(marc_bytes)):
+        return jsonify({"error": "Record index out of range."}), 400
+
+    settings: dict = {}
+    frequency = data.get("frequency")
+    if frequency is not None:
+        frequency = str(frequency).strip().lower()
+        if frequency not in FREQUENCY_CODES:
+            return jsonify({"error": f"'{frequency}' is not a MARC 21 frequency "
+                                     "code for 853 $w."}), 400
+        settings["frequency"] = frequency
+
+    captions: dict = {}
+    for key, word in (data.get("captions") or {}).items():
+        try:
+            level = int(key)
+        except (TypeError, ValueError):
+            return jsonify({"error": f"'{key}' is not a level."}), 400
+        word = str(word or "").strip()
+        if not word:
+            continue
+        if not 0 <= level < RECORD_CAPTION_LEVELS:
+            return jsonify({"error": "An 853 has six enumeration levels, $a to $f."}), 400
+        if len(word) > RECORD_CAPTION_MAX or "$" in word:
+            return jsonify({"error": f"'{word}' is not a caption: a caption is one "
+                                     f"short word, up to {RECORD_CAPTION_MAX} "
+                                     "characters, with no $."}), 400
+        captions[str(level)] = word
+    if captions:
+        settings["captions"] = captions
+
+    decisions = _load_decisions()
+    if settings:
+        decisions["record_853"][str(record_index)] = settings
+    else:
+        decisions["record_853"].pop(str(record_index), None)
+    _save_decisions(decisions)
+    return jsonify({"success": True, "record_index": record_index,
+                    "record_853": settings})
+
+
+def record_853_summary(settings: Optional[dict]) -> str:
+    """The settings chosen for one record, as the log says them."""
+    settings = settings or {}
+    parts = []
+    if "frequency" in settings:
+        code = settings["frequency"]
+        parts.append(f"$w {code} ({FREQUENCY_CODES[code]})" if code
+                     else "$w not specified")
+    for level, word in sorted((settings.get("captions") or {}).items(),
+                              key=lambda kv: int(kv[0])):
+        parts.append(f"level {int(level) + 1} caption {word}")
+    return "; ".join(parts)
 
 
 @app.route("/api/edit-866", methods=["POST"])
