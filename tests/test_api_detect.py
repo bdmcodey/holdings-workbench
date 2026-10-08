@@ -213,4 +213,5 @@ def test_every_group_carries_a_verdict(client, example_marc_bytes):
                          json={"statements": statements}).get_json()["groups"]
     assert groups
     for group in groups:
-        assert group["decides"] in ("reading", "caption", "nothing"), group["human_label"]
+        assert group["decides"] in ("reading", "caption", "nothing", "elsewhere"), \
+            group["human_label"]

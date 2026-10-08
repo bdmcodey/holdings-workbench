@@ -409,6 +409,9 @@
     .pill.confirmed-pill { border-color: var(--ok); background: var(--ok-soft); }
     .pill.decide { border-color: var(--warn); background: var(--warn-soft); }
     .pill.attention { border-color: var(--attention); background: var(--attention-soft); }
+    /* A supplement or an index: held, but for moving to 867/868 rather than
+       for a pattern, so it does not wear the same colour as "held". */
+    .pill.elsewhere { border-color: var(--accent); background: var(--accent-soft); }
 
     /* The expression, readable without opening the card. Two lines until it is
        clicked; Copy takes the whole of it either way. */
@@ -2012,6 +2015,13 @@ function paintRecordStatus() {
   });
 }
 
+/** [tag, how many] for each field a record's held statements belong in. */
+function elsewhereCounts(tags) {
+  const counts = new Map();
+  (tags || []).forEach(tag => counts.set(tag, (counts.get(tag) || 0) + 1));
+  return [...counts.entries()].sort();
+}
+
 function paintStatusPills(slot, entry) {
   {
     if (!entry) { slot.innerHTML = ''; return; }
@@ -2037,6 +2047,10 @@ function paintStatusPills(slot, entry) {
     const bits = [];
     if (entry.converted) bits.push(`<span class="pill has-866">${entry.converted} converted</span>`);
     if (entry.held) bits.push(`<span class="pill attention">${entry.held} held</span>`);
+    elsewhereCounts(entry.elsewhere).forEach(([tag, n]) => bits.push(
+      `<span class="pill elsewhere" title="${n === 1 ? 'A statement that reads' : 'Statements that read'} as ${
+        tag === '868' ? 'an index' : 'a supplement'}: not converted, and ${n === 1 ? 'belongs' : 'belong'} in ${tag}">${
+        n} belong${n === 1 ? 's' : ''} in ${tag}</span>`));
     if (entry.flagged) bits.push(`<span class="pill attention">${entry.flagged} to check</span>`);
     if ((entry.record_notes || []).length) bits.push('<span class="pill decide">853 to check</span>');
     if ((entry.edited || []).length) bits.push('<span class="pill">866 edited</span>');
@@ -2092,6 +2106,7 @@ function recordMatchesFilter(entry, index) {
     // The notes still show when the record is opened.
     case 'held':       return !entry.skipped
                              && (entry.held > 0 || entry.flagged > 0
+                                 || (entry.elsewhere || []).length > 0
                                  || (entry.record_notes || []).length > 0);
     case 'encoding':   return !!entry.leader_note || !!entry.leader_mismatch
                              || !!entry.single_part;
@@ -2739,6 +2754,8 @@ async function autoConfirm(groups) {
     !g.too_complex &&
     g.regex &&
     g.decides !== 'reading' &&
+    // Held whatever is confirmed, so confirming one says nothing true.
+    g.decides !== 'elsewhere' &&
     !(g.suggested_roles || []).some(r => r.kind === UNRESOLVED_KIND || r.suggested) &&
     !dismissed.has(patternIdFor(g)) &&
     !library.some(p => p.id === patternIdFor(g))
@@ -2775,7 +2792,8 @@ async function autoConfirm(groups) {
  * the detection run, not its position on screen.
  */
 function partitionGroups(groups) {
-  const parts = { open: [], readable: [], confirmed: [], skipped: [], complex: [] };
+  const parts = { open: [], readable: [], elsewhere: [], confirmed: [], skipped: [],
+                  complex: [] };
   groups.forEach((group, idx) => {
     const entry = { group, idx };
     const stored = library.find(p => p.id === patternIdFor(group));
@@ -2786,6 +2804,10 @@ function partitionGroups(groups) {
     // question with no consequence. The parser reads these statements in full,
     // captions and all, so they are finished business rather than work.
     else if (group.decides === 'nothing') parts.readable.push(entry);
+    // Supplements and indexes are held whatever is answered, so there is no
+    // question here either -- but they are not "read", so they are not filed
+    // with the patterns that are.
+    else if (group.decides === 'elsewhere') parts.elsewhere.push(entry);
     else parts.open.push(entry);
   });
   return parts;
@@ -2869,6 +2891,13 @@ function renderPatterns(data) {
       `${n} pattern${n !== 1 ? 's' : ''} the standard parser reads on ${
         n !== 1 ? 'their' : 'its'} own — nothing to decide`,
       parts.readable));
+  }
+  if (parts.elsewhere.length) {
+    const n = parts.elsewhere.length;
+    area.appendChild(buildPatternFold('elsewhere',
+      `${n} pattern${n !== 1 ? 's' : ''} for supplements or indexes — held, not converted:
+       they belong in 867 or 868`,
+      parts.elsewhere));
   }
   if (parts.skipped.length) {
     const n = parts.skipped.length;
@@ -2989,6 +3018,13 @@ function decidesNote(group, skipped) {
        number, where the parser can only write &ldquo;(*)&rdquo;. Only those values can be set;
        the others are read from the statement itself and are greyed out. To correct one of
        those, edit the 866 on its record.`],
+    elsewhere: ['alert-info',
+      `${group.count !== 1 ? 'These statements read' : 'This statement reads'} as
+       ${group.belongs_in === '868' ? 'an index' : 'a supplement'}, which MARC 21 records in
+       ${escHtml(group.belongs_in || '867')}, not in 866/863. This tool does not convert
+       ${escHtml(group.belongs_in || '867')} yet, so ${group.count !== 1 ? 'they are' : 'it is'}
+       held whatever you confirm here. If ${group.count !== 1 ? 'one is' : 'it is'} really part
+       of the main run, edit ${group.count !== 1 ? 'its' : 'the'} 866 to take the word out.`],
     nothing: ['alert-info',
       `The standard parser reads ${group.count !== 1 ? 'these statements' : 'this statement'} in full,
        captions and all. Confirming this pattern is optional — it will not change what is written.
@@ -3433,6 +3469,38 @@ async function runPreview(card) {
  * says where reading stopped -- "could not account for '// 1982//'" -- which
  * is what a cataloguer cleaning up the 866 needs to see.
  */
+/**
+ * Statements held because they belong in another field: a supplement (867)
+ * or an index (868). Apart from "Held for review", because what they want is
+ * different -- not a pattern, but moving, which is the cataloguer's to do
+ * until this tool converts 867 and 868.
+ */
+function elsewhereHtml(list) {
+  if (!list.length) return '';
+  return `
+    <div class="pattern-group">
+      <div class="pg-header">
+        <div class="pg-header-meta">
+          <span class="pg-title">Belongs in another field</span>
+          <span class="pill">${list.length} statement${list.length !== 1 ? 's' : ''}</span>
+        </div>
+        <div class="dim small">Not converted. Supplements belong in 867 and indexes in
+          868, which this tool does not convert yet. A pattern will not convert these.</div>
+      </div>
+      ${list.map(pv => `
+        <div class="pair-row">
+          <div>
+            <div class="pair-col-label">866 — source</div>
+            <div class="field-display f866">${escHtml(pv.source_866)}</div>
+          </div>
+          <div>
+            <div class="pair-col-label">Belongs in ${escHtml(pv.belongs_in)}</div>
+            <div class="alert alert-info">${heldReasonHtml(pv)}</div>
+          </div>
+        </div>`).join('')}
+    </div>`;
+}
+
 function heldReasonHtml(pv) {
   const reasons = pv.warnings || [];
   if (!reasons.length) return 'Not converted.';
@@ -3449,7 +3517,9 @@ function warningHtml(pv, w, extra = 'small') {
 function renderRecordPreview(data) {
   const groups = new Map();
   const review = [];
+  const elsewhere = [];
   data.previews.forEach(pv => {
+    if (pv.belongs_in) { elsewhere.push(pv); return; }
     if (pv.needs_review || !pv.fields_863.length) { review.push(pv); return; }
     if (!groups.has(pv.link)) {
       groups.set(pv.link, { field_853: pv.field_853, existing: pv.existing,
@@ -3513,7 +3583,7 @@ function renderRecordPreview(data) {
   return `
     <div class="small dim mb-1">In <strong>${escHtml(data.record.title)}</strong> —
       every holdings statement on the record, with the linking numbers it would receive.</div>
-    ${blocks}${held}`;
+    ${blocks}${held}${elsewhereHtml(elsewhere)}`;
 }
 
 /**
@@ -4017,7 +4087,9 @@ async function renderRecordDetail(idx) {
   // for review have no 853 and are collected separately.
   const groups = new Map();
   const review = [];
+  const elsewhere = [];
   previews.forEach(pv => {
+    if (pv.belongs_in) { elsewhere.push(pv); return; }
     if (pv.needs_review || !pv.fields_863.length) { review.push(pv); return; }
     if (!groups.has(pv.link)) {
       groups.set(pv.link, { field_853: pv.field_853, existing: pv.existing,
@@ -4090,6 +4162,7 @@ async function renderRecordDetail(idx) {
     ${notesHtml}
     ${groupsHtml}
     ${reviewHtml}
+    ${elsewhereHtml(elsewhere)}
     <div class="btn-row">
       <button class="btn btn-primary" onclick="applyAllInRecord(${idx})"
               title="Linking numbers are shared across a record, so conversion applies to every 866 here">

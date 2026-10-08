@@ -1,6 +1,6 @@
 # How the Holdings Workbench Works
 
-*Written for librarians and cataloguers. Describes version 0.31.5.*
+*Written for librarians and cataloguers. Describes version 0.32.0.*
 
 The Holdings Workbench turns the free-text holdings in MARC 866 fields into structured 853 caption/pattern and 863 enumeration/chronology fields, and asks a cataloguer to confirm anything it cannot be sure of. This guide explains how, for librarians rather than programmers.
 
@@ -70,8 +70,10 @@ It's natural to picture confirmed patterns doing the conversion, with the parser
          a. the parser reads it;
          b. if it could, keep that reading, and fill in any caption the
             statement didn't print from the pattern you confirmed;
-         c. if it couldn't, build the reading from the pattern's captured
-            values and the meanings you confirmed.
+         c. if it couldn't, and the statement isn't a supplement or an
+            index, build the reading from the pattern's captured values and
+            the meanings you confirmed. Any words the pattern matched but
+            wrote nowhere are named on the record as something to check.
 2. No pattern matches: the parser reads it on its own, or nothing is written
    if "Use the standard parser" is off.
 ```
@@ -203,6 +205,7 @@ An 866 can hold more than one range, as in `v.1(1990)-v.3(1992), v.5(1994)-`. Be
 | The parser reads these in full | Every value already has a meaning | Nothing changes. Optional. |
 | What you add here is the caption | A level is a bare number, like `39 no 1 (2018)` | The 853 gets your word (`v.`) instead of `(*)` |
 | The parser writes nothing for these | Nothing in the wording says what a value is, like `?: 16` or `v.1(1990)-5(1994)` | Your answer is what converts them |
+| These read as a supplement (or an index) | The statement says `Suppl.`, `Special issue`, `Index` or the like | Nothing: they are held whatever you confirm. See "Supplements and indexes" below |
 
 ### What you decide for each value
 
@@ -215,7 +218,7 @@ The detector's guesses are shown ready-filled. A caption-less number just before
 
 ### Confirmed without asking, and never without asking
 
-A pattern where every value already has a meaning is confirmed for you when you press "Find patterns". A pattern that would decide the reading of statements the parser refused is never confirmed automatically. `v. 19 no. 2 Suppl. (1998)` is why: the pattern reads it confidently as volume 19, issue 2, and the supplement, which is the thing the library actually holds, would vanish into an ordinary 863.
+A pattern where every value already has a meaning is confirmed for you when you press "Find patterns". A pattern that would decide the reading of statements the parser refused is never confirmed automatically, and neither is a pattern of supplements or indexes. `v. 19 no. 2 Suppl. (1998)` is why: the pattern reads it confidently as volume 19, issue 2, and the supplement, which is the thing the library actually holds, would vanish into an ordinary 863. Since 0.32.0 a supplement is held even if you confirm its pattern, and a pattern that matches words it writes nowhere, like the `?` in `?: 16`, says so on the record as something to check.
 
 A pattern you remove stays removed. Running "Find patterns" again doesn't put it back.
 
@@ -247,6 +250,7 @@ flowchart TD
 ### The steps
 
 1. **Notes come out first.** Text in braces, like `{bound with v.2}`, is removed and reported as a note that wasn't encoded. The holdings around it are still read.
+   Then, if what is left reads as a supplement or an index, the statement is held, whatever else could be read from it. See "Supplements and indexes" below.
 2. **Two grammars.** Most statements put the enumeration first, as in `v.1(1990)`. Some older local records put the year first, as in `2019: (1-6 [Feb-Nov])2020: (7-12 [Jan-Dec])`. These are read by a separate reader, but only when the colon after the year is followed by a volume number or a parenthesis. A word after the colon is Z39.71's own way of writing a date, as in `1990:Jan.-1994:Dec.`, and goes to the main reader. Before version 0.28.0 the year-first reader took those too, and they converted to nothing.
 3. **Cutting into parts.** The statement is cut at commas and semicolons outside parentheses. The parser remembers which mark it cut at, because that becomes the 863's break code: a comma means a gap (`$w g`), a semicolon a break that is not a gap (`$w n`). A mark at the very end counts too, as in `1986-1988,`, which is how Alma writes a gap after the last run. A full stop at the very end, as in `v.89,pt.1(1969)-v.96,pt.3(Dec.1972).`, is only punctuation and is ignored. A full stop after a letter, as in `no.` or `Dec.`, is part of an abbreviation and is kept. The comma inside a date, as in `Dec. 16, 1887`, is never a cut.
 4. **Reading each part.** A part is read as one of three things, tried in this order:
@@ -325,9 +329,23 @@ The rule the whole tool is built around: every value in an 866 is either written
 | Converted | Every value went into an 863 | `1 converted` |
 | Converted, with something to check | It converted, but a value couldn't be placed or a note needs reading | `1 to check` |
 | Held | Nothing was written, because writing part of it would be wrong | `1 held` |
+| Belongs in another field | It reads as a supplement or an index, which belong in 867 or 868; nothing was written | `1 belongs in 867` |
 | Skipped | You chose to leave it; nothing was written | `skipped` |
 
 "To check" and "held" are different. A statement to check has been converted, and the warning tells you what to look at. A held statement hasn't been converted at all, and its 866 is left in place.
+
+### Supplements and indexes
+
+MARC 21 keeps three kinds of holdings apart: the basic run (853/863/866), supplementary material (854/864/867) and indexes (855/865/868). An 866 that says `Suppl.`, `Supplement`, `Special issue` or `Special no.` is describing a supplement, and one that says `Index` an index. Converting it into an 863 would put it in the wrong field.
+
+This tool doesn't convert 867 or 868 yet, so such a statement is held, with nothing written and its 866 left in place. It is held for its own reason, not as one more statement the parser couldn't read:
+
+- The record shows it under **Belongs in another field**, and its row says `1 belongs in 867` (or 868).
+- It is under "Needs attention", because someone has to move it.
+- The log calls it `Supplement: belongs in 867` or `Index: belongs in 868`, so you can filter the spreadsheet to the ones to move.
+- A confirmed pattern doesn't convert it, and a pattern made only of supplements or indexes is filed in its own fold on the Patterns step, with nothing to decide.
+
+Only whole words count, so `supplied` isn't a supplement, and a note in braces, like `{Index in v.5}`, is still read as a note. If a statement uses one of these words but really is part of the main run, edit the 866 to take the word out, or put it in a `$z` note.
 
 ### The notation an 866 declares
 
@@ -355,7 +373,7 @@ Each can be folded to one line with Hide. That setting is remembered in your bro
 
 ### The "Needs attention" filter
 
-This filter gathers every record with something held or to check that you haven't marked Skip. Skipping a record means you are handling it yourself, so it leaves the list. Its warnings are still shown when you open it, and it still appears in the log.
+This filter gathers every record with something held, to check, or belonging in another field that you haven't marked Skip. Skipping a record means you are handling it yourself, so it leaves the list. Its warnings are still shown when you open it, and it still appears in the log.
 
 Inside a record, the two kinds of warning look different. A warning that needs a decision from you is orange and begins "To check:", and the reason a statement was held is orange too. A warning that is only recorded for the log is yellow. So on a record marked "1 to check", the orange box shows which statement it means.
 
@@ -408,6 +426,8 @@ A setting the tool can't use, such as an indicator of 4, is refused with the rea
 | 853 to check | Something about an existing 853, or a second 853 was added |
 | Converted with a note | It converted, with something to read |
 | Not converted | Held: nothing written, 866 left in place |
+| Supplement: belongs in 867 | Held because it reads as a supplement; move it to an 867 |
+| Index: belongs in 868 | Held because it reads as an index; move it to an 868 |
 | Setting refused | A conversion setting that couldn't be used |
 
 The log is built from the same summary as the conversion, so it describes exactly the file the Download button gives you.
@@ -416,9 +436,9 @@ The log is built from the same summary as the conversion, so it describes exactl
 
 Four checks run before any change is released, and each answers a different question.
 
-| Check | Question it answers | Result as of 0.31.5 |
+| Check | Question it answers | Result as of 0.32.0 |
 | --- | --- | --- |
-| Automated tests | Does every behaviour described here still hold? | 906 passed, 8 skipped |
+| Automated tests | Does every behaviour described here still hold? | 932 passed, 8 skipped |
 | Corpus report | What do 117 real 866 statements convert to, and has any outcome changed? | 90 clean (77%), 22 converted with a warning, 5 with no fields, 0 with values lost |
 | Conversion audit | Did any number in a statement reach no field and no warning? | 0 unaccounted for: the corpus, the LC examples, the other library's catalogue, and all 1,057 statements of the 372-record test export |
 | Round trip | Convert, write the 866 as Alma would, convert again: do the same 863s come back? | Test export: 938 identical, 106 identical apart from an 853 caption, 11 not converted, **0 drift** |

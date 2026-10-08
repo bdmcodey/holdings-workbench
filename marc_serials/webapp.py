@@ -400,6 +400,9 @@ def _review_row(record, index, *, patterns, fallback, conv_opts, captions,
         "title": _record_title(record) or f"Record {index + 1}",
         "converted": 0,
         "held": 0,
+        # The fields held statements belong in instead, one entry each:
+        # "867" for a supplement, "868" for an index.
+        "elsewhere": [],
         "flagged": 0,
         "sources": [],
         "has_866": False,
@@ -472,7 +475,11 @@ def _review_row(record, index, *, patterns, fallback, conv_opts, captions,
     row["record_notes"] += rc.record_notes
 
     row["converted"] = sum(1 for p in previews if p["fields_863"])
-    row["held"] = sum(1 for p in previews if not p["fields_863"])
+    # A supplement or an index is held for a reason of its own, so it is
+    # counted apart: it wants moving to another field, not a pattern.
+    row["elsewhere"] = [p["belongs_in"] for p in previews if p.get("belongs_in")]
+    row["held"] = sum(1 for p in previews
+                      if not p["fields_863"] and not p.get("belongs_in"))
     # Converted, and the tool cannot vouch for it. Counted apart from "held"
     # because these records *do* have fields -- what they need is a look, not
     # a pattern.
@@ -505,7 +512,7 @@ def _review_row_safely(record, index, **kwargs) -> dict:
         row = {
             "index": index,
             "title": _record_title(record) or f"Record {index + 1}",
-            "converted": 0, "held": 0, "flagged": 0, "sources": [],
+            "converted": 0, "held": 0, "elsewhere": [], "flagged": 0, "sources": [],
             "has_866": bool(record.get_fields("866")),
             "skipped": bool(kwargs.get("skipped")),
             "leader_note": None, "leader_mismatch": False,
@@ -553,6 +560,7 @@ def _previews_from(rc, rejections=(), existing_853s=(), sources=(),
             "needs_review": c.needs_review,
             "flagged": c.flagged,
             "attention": c.attention,
+            "belongs_in": c.belongs_in,
             "link": link,
             "existing": bool(c.conformed and display),
             "source": source,
@@ -642,6 +650,7 @@ def _statement_origins(do_split: bool) -> dict:
 DECIDES_READING = "reading"     # the parser writes nothing for these
 DECIDES_CAPTION = "caption"     # the parser reads them; the 853 wants a word
 DECIDES_NOTHING = "nothing"     # the parser reads them, captions and all
+DECIDES_ELSEWHERE = "elsewhere"  # supplements or indexes: held whatever is said
 
 # How many of a cluster's statements to examine. Every one is parsed for a
 # cluster of ordinary size; the cap only bounds a pathological one.
@@ -663,8 +672,15 @@ def _what_confirming_decides(examples) -> str:
     for it is asking a question whose answer is discarded.
     """
     caption_slots = 0
-    for text in list(examples)[:DECISION_SAMPLE]:
-        result = parse_866(text)
+    sample = list(examples)[:DECISION_SAMPLE]
+    results = [parse_866(text) for text in sample]
+    # A supplement or an index is held whatever the cataloguer answers, so a
+    # group of nothing else has no question to ask.
+    if results and all(r.belongs_in for r in results):
+        return DECIDES_ELSEWHERE
+    for result in results:
+        if result.belongs_in:
+            continue
         if not result.ranges:
             return DECIDES_READING
         for hr in result.ranges:
@@ -706,8 +722,10 @@ def _annotate_group(group_dict: dict, origins: Optional[dict] = None) -> dict:
     # consequence.
     group_dict["needs_decision"] = (
         any(r.needs_a_decision for r in roles)
-        and group_dict["decides"] != DECIDES_NOTHING
+        and group_dict["decides"] not in (DECIDES_NOTHING, DECIDES_ELSEWHERE)
     )
+    if group_dict["decides"] == DECIDES_ELSEWHERE:
+        group_dict["belongs_in"] = parse_866(examples[0]).belongs_in
     return group_dict
 
 
@@ -974,7 +992,7 @@ def api_test_regex():
         "decides": _what_confirming_decides(statements),
         "needs_decision": (any(r.needs_a_decision for r in roles)
                            and _what_confirming_decides(statements)
-                           != DECIDES_NOTHING),
+                           not in (DECIDES_NOTHING, DECIDES_ELSEWHERE)),
     })
 
 
@@ -1118,6 +1136,7 @@ def api_pattern_preview():
             "warnings": conversion.warnings,
             "attention": conversion.attention,
             "needs_review": conversion.needs_review,
+            "belongs_in": conversion.belongs_in,
         }
 
     previews = []
@@ -1870,7 +1889,8 @@ def _rebuild_converted(decisions: dict, previews_for: Optional[int] = None):
 def _statement_report(texts, rc, fields=()) -> list:
     """Each statement a record was converted from, and what was said about it."""
     report = [{"text": text, "converted": bool(result.fields_863),
-               "warnings": list(result.warnings)}
+               "warnings": list(result.warnings),
+               "belongs_in": result.belongs_in}
               for text, result in zip(texts, rc.results)]
     # The notation each 866 declares, as the review screen says it.
     for entry, field in zip(report, fields):
@@ -1885,6 +1905,11 @@ def _statement_report(texts, rc, fields=()) -> list:
 # MarcEdit, one line per thing to look at. Its categories, in the order a
 # record's lines are written.
 LOG_COLUMNS = ("Record", "Identifier", "Title", "What", "866", "Details")
+
+# What the log calls a statement held because it belongs in another field, so
+# a cataloguer can filter the spreadsheet to the ones to move.
+ELSEWHERE_LOG = {"867": "Supplement: belongs in 867",
+                 "868": "Index: belongs in 868"}
 
 
 def _log_rows(result: dict, records: list, identifier_spec: str,
@@ -1932,7 +1957,8 @@ def _log_rows(result: dict, records: list, identifier_spec: str,
             rows.append(who + ("853 to check", "", note))
         for statement in entry.get("statements") or []:
             what = ("Converted with a note" if statement["converted"]
-                    else "Not converted")
+                    else ELSEWHERE_LOG.get(statement.get("belongs_in"),
+                                           "Not converted"))
             if statement["converted"] and not statement["warnings"]:
                 continue
             for warning in statement["warnings"] or [""]:

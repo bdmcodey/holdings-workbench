@@ -43,7 +43,8 @@ from marc_serials.parser import (
     # the parser path.  A second copy of those tables would drift.
     _chron_unit_value,
 )
-from marc_serials.detector import split_multi_range
+from marc_serials.detector import (UNKNOWN, _collapse_unknown_runs,
+                                   split_multi_range, tokenize)
 
 
 @lru_cache(maxsize=4096)
@@ -569,6 +570,12 @@ def build_parse_result(
     if parsed.ranges:
         _apply_confirmed_captions(parsed, roles)
         return parsed
+    # A supplement or an index is held whatever a pattern says it means: what
+    # a cataloguer confirmed is how to read *holdings*, and these belong in
+    # another field. Until 0.32.0 "v. 58 Suppl. (Sep 2003)" was written into an
+    # 863 as $a 58, with nothing on screen to say "Suppl." had gone.
+    if parsed.belongs_in:
+        return parsed
     return _build_from_pattern(text, compiled, roles, split, fallback,
                                defer_lists)
 
@@ -680,6 +687,7 @@ def _build_from_pattern(
         hr = _range_from_match(seg, m, roles, result.warnings, undecided)
         if hr is not None:
             result.ranges.append(hr)
+            _name_unencoded_text(seg, result)
         else:
             result.warnings.append(
                 f"The pattern matched '{seg}' but captured nothing to encode."
@@ -689,6 +697,39 @@ def _build_from_pattern(
         return None
     result.needs_review = bool(undecided)
     return result
+
+
+# Free text that is only punctuation says nothing a field could hold: the full
+# stop closing "3.1 46-62 2001-2010 .", or a stray comma.
+_PUNCTUATION_ONLY = re.compile(r"^[\s.,;:]*$")
+
+
+def _name_unencoded_text(segment: str, result: ParseResult) -> None:
+    """
+    Say what a pattern matched in `segment` and wrote nowhere.
+
+    A detected pattern spans free text with an anonymous slot -- the ‹text› in
+    its heading -- so a statement can match while words in it reach no field.
+    The parser refuses such a statement and names what it could not account
+    for; a pattern building the reading in its place has to say the same, or
+    the words are gone with nothing on screen. Measured on the three corpora
+    and the two fixtures in October 2026: of the 30 statements the parser
+    refuses, a pattern answered "enumeration" throughout could convert 18. Five
+    were supplements, now held before this is reached; 8 of the other 13 lost
+    wording this way -- "Ceased with", "Anniversary", "ed.", "//", "?".
+
+    Asked as "to check", not recorded for the log: the cataloguer confirmed
+    what the captured values mean, not what the rest of the statement says.
+    """
+    for token in _collapse_unknown_runs(tokenize(segment)):
+        text = token.raw.strip()
+        if token.kind != UNKNOWN or _PUNCTUATION_ONLY.match(text):
+            continue
+        note = (f"The pattern read '{segment}', but '{text}' in it is not "
+                "recorded in any field.")
+        if note not in result.warnings:
+            result.warnings.append(note)
+            result.attention.append(note)
 
 
 # ── Applying a library ────────────────────────────────────────────────────────

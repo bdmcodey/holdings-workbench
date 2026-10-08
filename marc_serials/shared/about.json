@@ -1,6 +1,6 @@
 {
   "name": "MARC Holdings Workbench",
-  "version": "0.31.5",
+  "version": "0.32.0",
   "released": "2026-10-08",
   "status": "Proof of concept — under active development. Check your output before loading it into the catalog.",
   "description": "One tool for MARC serials holdings. Upload a MARC file, find the patterns in its 866 statements, confirm what each part of a pattern means, and convert to structured 853 caption/pattern and 863 enumeration/chronology fields. Statements no pattern matches are converted by the standard parser.",
@@ -9,6 +9,25 @@
   "contact": "Matthew Codey, codey@usc.edu",
   "_comment": "Written for cataloging staff, not developers. Say what changed about the output or the screen, not how the code changed. Newest version first.",
   "changelog": [
+    {
+      "version": "0.32.0",
+      "date": "2026-10-08",
+      "summary": "A statement that says it is a supplement or an index is held with its own reason, naming the field it belongs in, and a pattern no longer drops words silently.",
+      "changes": [
+        {
+          "tool": "MARC Holdings Workbench",
+          "text": "An 866 that says \"Suppl.\", \"Supplement\", \"Special issue\" or \"Special no.\" describes a supplement, which MARC 21 records in 867, and one that says \"Index\" describes an index, recorded in 868. This tool does not convert 867 or 868 yet, so these statements are now held for that reason, not as one more statement it could not read. The record shows them under \"Belongs in another field\", its row says \"1 belongs in 867\" (or 868), \"Needs attention\" includes it, and the log calls it \"Supplement: belongs in 867\" or \"Index: belongs in 868\", so you can filter the spreadsheet to the ones to move. If a statement uses one of these words but is really part of the main run, edit the 866 to take the word out."
+        },
+        {
+          "tool": "MARC Holdings Workbench",
+          "text": "Confirming a pattern no longer converts a supplement. Before, confirming the pattern for \"v. 58 Suppl. (Sep 2003)\", which arrived with everything filled in, wrote \"$a 58 $i 2003 $j 09\" with nothing to say \"Suppl.\" had gone. A pattern made only of supplements or indexes now has nothing to decide, is never confirmed for you, and sits in its own fold on the Patterns step."
+        },
+        {
+          "tool": "MARC Holdings Workbench",
+          "text": "When a confirmed pattern converts a statement the standard parser could not read, any words it matched but wrote into no field are now named on the record as something to check, such as the \"?\" in \"?: 16\" or \"Ceased with\". Those records now appear under \"Needs attention\"; before, the words were dropped without a warning."
+        }
+      ]
+    },
     {
       "version": "0.31.5",
       "date": "2026-10-08",

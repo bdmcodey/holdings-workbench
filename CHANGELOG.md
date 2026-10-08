@@ -15,6 +15,14 @@ more than one release; numbering resumed with 0.6.1. Reasoning behind the
 parser and converter decisions, including the defects a real corpus exposed and
 what was done about each, is in [CORPUS-FINDINGS.md](CORPUS-FINDINGS.md).
 
+## 0.32.0 — 2026-10-08
+
+A statement that says it is a supplement or an index is held with its own reason, naming the field it belongs in, and a pattern no longer drops words silently.
+
+- **MARC Holdings Workbench** — An 866 that says "Suppl.", "Supplement", "Special issue" or "Special no." describes a supplement, which MARC 21 records in 867, and one that says "Index" describes an index, recorded in 868. This tool does not convert 867 or 868 yet, so these statements are now held for that reason, not as one more statement it could not read. The record shows them under "Belongs in another field", its row says "1 belongs in 867" (or 868), "Needs attention" includes it, and the log calls it "Supplement: belongs in 867" or "Index: belongs in 868", so you can filter the spreadsheet to the ones to move. If a statement uses one of these words but is really part of the main run, edit the 866 to take the word out.
+- **MARC Holdings Workbench** — Confirming a pattern no longer converts a supplement. Before, confirming the pattern for "v. 58 Suppl. (Sep 2003)", which arrived with everything filled in, wrote "$a 58 $i 2003 $j 09" with nothing to say "Suppl." had gone. A pattern made only of supplements or indexes now has nothing to decide, is never confirmed for you, and sits in its own fold on the Patterns step.
+- **MARC Holdings Workbench** — When a confirmed pattern converts a statement the standard parser could not read, any words it matched but wrote into no field are now named on the record as something to check, such as the "?" in "?: 16" or "Ceased with". Those records now appear under "Needs attention"; before, the words were dropped without a warning.
+
 ## 0.31.5 — 2026-10-08
 
 Confirming a pattern with its suggested caption accepted as offered now clears "needs a decision".

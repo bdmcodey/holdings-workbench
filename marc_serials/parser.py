@@ -361,6 +361,18 @@ class ParseResult:
     # and so nothing has to read it back out of a warning string.
     skipped_segments: List[str] = field(default_factory=list)
 
+    # The field a statement belongs in instead of an 866: "867" for one that
+    # reads as a supplement, "868" for an index. Such a statement is held, with
+    # nothing written, because 867/868 are out of scope for now -- but it is
+    # held for a different reason from one the parser could not read, and the
+    # screen and the log say which. See belongs_elsewhere().
+    belongs_in: Optional[str] = None
+
+    # Warnings that ask the cataloguer for a decision, which the converter
+    # flags as "to check" rather than recording for the log. For a reading
+    # whose own text can say what was not encoded; the converter adds the rest.
+    attention: List[str] = field(default_factory=list)
+
     def caption_union(self) -> dict:
         """
         Union of levels across all ranges.
@@ -1922,10 +1934,98 @@ def _parse_block_format(text: str) -> ParseResult:
 
 
 # ---------------------------------------------------------------------------
+# Supplements and indexes: holdings that belong in another field
+# ---------------------------------------------------------------------------
+
+# MARC 21 keeps three kinds of holdings apart: the basic run in 853/863/866,
+# supplementary material in 854/864/867, and indexes in 855/865/868. An 866
+# that says "Suppl." or "Index" is describing one of the other two. Converting
+# it into an 863 puts it in the wrong field -- and the pattern path did exactly
+# that, writing "v. 58 Suppl. (Sep 2003)" as $a 58 with the supplement gone.
+#
+# 867/868 are out of scope for now, so such a statement is held. It is held for
+# its own reason, not as one more statement the parser could not read, so that
+# a cataloguer can find these and move them, and so that converting them is a
+# change to make here later rather than a rule to unpick.
+#
+# Whole words only, checked outside brace notes: "{Index in v.5}" is a note,
+# and a note is reported as one and the holdings around it are read.
+_SUPPLEMENT_WORDS = re.compile(
+    r"\b(?:suppl(?:ement(?:ary|s)?|s)?\.?"
+    r"|special\s+(?:issue|iss\.|number|no\.|edition|ed\.)s?)(?![a-z])",
+    re.IGNORECASE,
+)
+_INDEX_WORDS = re.compile(r"\b(?:index(?:es)?|indices)\b", re.IGNORECASE)
+
+# The parser's last word on a statement it read nothing from. Left off a
+# statement held as a supplement or an index, which has a better reason.
+_NO_RANGES = ("No recognisable holdings ranges found. "
+              "Please check the input format.")
+
+SUPPLEMENT_FIELD = "867"
+INDEX_FIELD = "868"
+
+
+def belongs_elsewhere(text: str) -> Optional[Tuple[str, str]]:
+    """
+    The field this statement belongs in, and the word that says so, or None.
+
+    An index to a supplement is still an index, so "Index" is asked first.
+    """
+    for words, tag in ((_INDEX_WORDS, INDEX_FIELD),
+                       (_SUPPLEMENT_WORDS, SUPPLEMENT_FIELD)):
+        m = words.search(text or "")
+        if m:
+            return tag, m.group(0).strip()
+    return None
+
+
+def _hold_as_belonging_elsewhere(result: ParseResult, tag: str,
+                                 word: str) -> ParseResult:
+    """
+    Hold a reading whose statement belongs in another field.
+
+    The reading is kept for what it says and nothing else: where the parser
+    stopped is still worth knowing ("Read 'v. 58' but could not account for
+    'Suppl. (Sep 2003)'"), but nothing is written, and the reason that comes
+    first is the one a cataloguer can act on.
+    """
+    one, many, coded = (("an index", "indexes", "855/865") if tag == INDEX_FIELD
+                        else ("a supplement", "supplements", "854/864"))
+    result.ranges = []
+    result.success = False
+    result.needs_review = False
+    result.skipped_segments = []
+    result.attention = []
+    result.belongs_in = tag
+    result.warnings = [
+        f"'{word}' says this is {one}. MARC 21 records {many} in {tag} (or "
+        f"{coded} when coded), not in 866/863, and this tool does not convert "
+        f"{tag} yet, so nothing was written and the 866 is left as it is. If it "
+        "is part of the main run, edit the 866 to take the word out."
+    ] + [w for w in result.warnings if w != _NO_RANGES]
+    return result
+
+
+# ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
 
 def parse_866(text: str) -> ParseResult:
+    """
+    Parse a MARC 866 $a textual holdings string.
+
+    A statement that reads as a supplement or an index is held, whatever else
+    could be read from it: it belongs in 867 or 868. See belongs_elsewhere().
+    """
+    result = _read_866(text)
+    elsewhere = belongs_elsewhere(_excise_brace_notes(text or "")[0])
+    if elsewhere:
+        return _hold_as_belonging_elsewhere(result, *elsewhere)
+    return result
+
+
+def _read_866(text: str) -> ParseResult:
     """
     Parse a MARC 866 $a textual holdings string.
 
@@ -2150,8 +2250,5 @@ def _parse_degenerate(text: str) -> ParseResult:
             "863s by hand."
         )
         return result
-    result.warnings.append(
-        "No recognisable holdings ranges found. "
-        "Please check the input format."
-    )
+    result.warnings.append(_NO_RANGES)
     return result
