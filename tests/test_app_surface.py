@@ -430,3 +430,29 @@ def test_the_summary_says_what_the_outstanding_patterns_decide(client):
     assert "how a statement is read" in page
     assert "supply' : 'supplies'" in page or "supplies' : 'supply'" in page \
         or "supplies" in page
+
+
+def test_confirming_a_suggestion_unchanged_puts_out_needs_a_decision(client):
+    """
+    A suggested reading -- the "v." offered for the bare 39 in "39 no 1 (Spring
+    1995)" -- keeps "needs a decision" lit until it is accepted. Pressing
+    Confirm with the suggestion untouched is accepting it, but until 0.31.5 only
+    a changed row put the pill out: the pattern was saved and still said it
+    needed a decision, while typing a different caption and confirming did not.
+    Found in testing. confirmPattern now redraws the table from the roles it
+    saved, which carry no suggestions.
+    """
+    script = (TEMPLATES / "tool.html").read_text(encoding="utf-8")
+    confirm = re.search(
+        r"async function confirmPattern\(card\)\s*\{(.*?)\n\}", script, re.S)
+    assert confirm, "confirmPattern() has moved or been renamed"
+    body = confirm.group(1)
+    assert "card._roles = entry.roles;" in body and "showExample(card);" in body, (
+        "confirming has to redraw the table from what it saved, or a suggestion "
+        "accepted unchanged keeps the card saying it needs a decision")
+    assert body.index("showExample(card);") > body.index("data.rejected"), (
+        "a refused pattern was not saved, so its suggestions are still open")
+
+    collected = re.search(
+        r"function collectRoles\(card\)\s*\{(.*?)\n\}", script, re.S)
+    assert collected and "suggested: false" in collected.group(1)

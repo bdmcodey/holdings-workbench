@@ -1,7 +1,7 @@
 {
   "name": "MARC Holdings Workbench",
-  "version": "0.31.4",
-  "released": "2026-09-30",
+  "version": "0.31.5",
+  "released": "2026-10-08",
   "status": "Proof of concept — under active development. Check your output before loading it into the catalog.",
   "description": "One tool for MARC serials holdings. Upload a MARC file, find the patterns in its 866 statements, confirm what each part of a pattern means, and convert to structured 853 caption/pattern and 863 enumeration/chronology fields. Statements no pattern matches are converted by the standard parser.",
   "licensing": "No license is granted at this time; the repository is published for reference only while institutional intellectual property rights are reviewed. See NOTICE.md.",
@@ -9,6 +9,17 @@
   "contact": "Matthew Codey, codey@usc.edu",
   "_comment": "Written for cataloging staff, not developers. Say what changed about the output or the screen, not how the code changed. Newest version first.",
   "changelog": [
+    {
+      "version": "0.31.5",
+      "date": "2026-10-08",
+      "summary": "Confirming a pattern with its suggested caption accepted as offered now clears \"needs a decision\".",
+      "changes": [
+        {
+          "tool": "MARC Holdings Workbench",
+          "text": "Where a pattern offers a reading as \"likely, please confirm\", such as the caption v. for the bare 39 in \"39 no 1 (Spring 1995)\", pressing Confirm pattern accepts it. But the card went on saying \"needs a decision\", and the row stayed highlighted, unless you had first changed something in it, so accepting the suggestion as offered looked as if it had not worked. The pattern had been saved and was used when converting. Confirming now clears the highlight and the pill whether or not you changed anything. Nothing about the conversion changes."
+        }
+      ]
+    },
     {
       "version": "0.31.4",
       "date": "2026-10-01",
