@@ -2837,6 +2837,59 @@ real export gets no note on any of its 1,057 866s. The angle-bracket dates of
 D41 (`<1884:6:28>`) are not treated as the Newspaper Program's: nothing here
 says whose they are.
 
+## Supplements and indexes are held for their own field · **0.32.0**
+
+*8 October 2026.* Found in a dry run for a demo to technical services. The
+card for `v. 58 Suppl. (Sep 2003)` arrives with every value filled in and no
+"needs a decision": the detector types `v.`, the month and the year, and the
+`Suppl.` falls in an anonymous ‹text› slot. Pressing Confirm wrote `863 $a 58
+$i 2003 $j 09`. The record said "3 converted" in green, nothing on it mentioned
+`Suppl.`, and the log had no line for it. The parser had refused the statement
+since 0.6.3 (D3); the pattern built a reading in its place, and the free text
+went nowhere. A silent loss, on the most likely click in a demo.
+
+The idea was already logged under "Requested, not yet started" (15 September):
+flag a statement that belongs in another field. The cataloguer's direction, on
+seeing it: 867/868 stay out of scope for now, but supplements and indexes
+should be told apart from other free text, say which field they belong in, and
+leave the way open to converting them later.
+
+**What changed.** `parse_866()` asks `belongs_elsewhere()` of the statement
+outside brace notes. Whole words: `Suppl.`, `suppl`, `Supplement(s)`,
+`Supplementary`, `Special issue/no./number/edition` (867), `Index`, `Indexes`,
+`Indices` (868; an index to supplements is an index). A match holds the
+statement with `belongs_in` set, puts a reason naming the field first, and
+keeps the parser's own account of where reading stopped. The pattern path
+returns that held reading rather than building one. The record shows it under
+"Belongs in another field" with a `1 belongs in 867` pill, Needs attention
+includes it, and the log calls it `Supplement: belongs in 867` or `Index:
+belongs in 868`. A group made only of them decides nothing, is never
+auto-confirmed, and has its own fold.
+
+**The general case.** The same slot drops any word, not only `Suppl.`. On the
+three corpora and both fixtures, 214 statements: the parser refuses 30. With
+every undecided value answered "enumeration", a pattern converted 18 of them;
+5 are the supplements above (four `Suppl.`, one `Special Issue`), now held. Of
+the other 13, 8 lost wording with no warning -- `?` (twice), `//` (twice),
+`Ceased with`, `h Anniversary` (from `50th Anniversary Issue`, whose `50t` the
+tokeniser reads as a number), `ed.`, `in`. A pattern-built reading now names each
+stretch of free text it wrote nowhere, as "to check". Free text that is only
+full stops, commas or colons is not named; the five left unflagged carry
+nothing else.
+
+**What did not change.** No corpus outcome: 90/22/5/0, 4/1/2/0 and 33/7/23/0,
+no drift. Audit: nothing unaccounted for on any corpus or fixture. Round trip:
+identical before and after on all five. No existing test was rewritten: the
+three that use `Suppl.` as their example of a partly read unit still pass,
+because the parser's "Read 'v. 58' but could not account for…" line is kept
+beside the new reason.
+
+**Found on the way, not fixed here.** The three 863-values-as-text statements
+in the outside corpus (`2.1 54-62 1-1 1998-2006 21-21 g` and two like it)
+crash `_build_853()` with an IndexError when every value is answered
+"enumeration": eight enumeration levels against MARC's six. In the app the
+record is marked "could not check" rather than taking the file down.
+
 ## Requested, not yet started
 
 Raised 1 September 2026 alongside D15–D18, recorded here so they are not lost.
@@ -2875,8 +2928,10 @@ The first two are done; the rest are Workbench UI and are not started.
   "needs attention" showed 86 records where 8 matched. The counts now come from
   `/api/review-index`, which answers for every record, and paging walks what
   the filter shows rather than the file in order.
-- **Flag a statement that belongs in another field.** Raised 15 September 2026,
-  not started. An 866 saying `Suppl.` is describing supplementary material,
+- ~~**Flag a statement that belongs in another field.**~~ Done in 0.32.0, as a
+  hold with its own reason; see "Supplements and indexes are held for their own
+  field" above. Converting them into 867/868 is still open. Raised 15 September 2026. The
+  original request, kept for its reasoning: An 866 saying `Suppl.` is describing supplementary material,
   which MARC 21 puts in **867** with its own **864** enumeration; one saying
   `Index` belongs in **868** over **865**. The tool has no notion of this: it
   reads every 866 as basic bibliographic holdings, and the three `Suppl.`

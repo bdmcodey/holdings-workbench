@@ -660,6 +660,9 @@ class ConversionResult:
     # the two apart, because one record can carry both, on different
     # statements, and they read alike.
     attention: List[str] = field(default_factory=list)
+    # Held because the statement belongs in another field: "867" for a
+    # supplement, "868" for an index. See parser.belongs_elsewhere().
+    belongs_in: Optional[str] = None
 
     def all_fields(self) -> List[FieldData]:
         return ([self.field_853] if self.field_853 else []) + self.fields_863
@@ -674,6 +677,7 @@ class ConversionResult:
             "needs_review": self.needs_review,
             "flagged": self.flagged,
             "attention": self.attention,
+            "belongs_in": self.belongs_in,
         }
 
 
@@ -1558,6 +1562,9 @@ def convert_holdings(
         flags.add("skipped_segment")
         # The parser's own line for each passed-over part is what asks.
         flags.update(w for w in warnings if w.startswith("Could not parse segment"))
+    # What the reading itself says needs a decision: wording a confirmed
+    # pattern matched and wrote nowhere. See bridge._name_unencoded_text().
+    flags.update(parse_result.attention)
 
     levels = parse_result.caption_union()
 
@@ -1578,6 +1585,7 @@ def convert_holdings(
             linking_number=linking_number,
             warnings=warnings,
             needs_review=parse_result.needs_review,
+            belongs_in=parse_result.belongs_in,
         )
 
     # ── Conform to the record's own 853 when it covers every level found ──

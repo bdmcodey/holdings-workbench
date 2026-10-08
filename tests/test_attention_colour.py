@@ -82,6 +82,8 @@ def test_a_held_statement_shows_every_reason():
     page = (REPO_ROOT / "marc_serials" / "templates" / "tool.html").read_text(
         encoding="utf-8")
     assert "pv.warnings[0]" not in page
-    assert page.count("${heldReasonHtml(pv)}") == 2
+    # Held for review, on the record and in a pattern's preview, and
+    # "Belongs in another field" (0.32.0), which every one of them shows.
+    assert page.count("${heldReasonHtml(pv)}") == 3
     warnings = parse_866("v.1// 1982//").warnings
     assert any("could not account for '// 1982//'" in w for w in warnings)
