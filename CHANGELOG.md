@@ -15,6 +15,13 @@ more than one release; numbering resumed with 0.6.1. Reasoning behind the
 parser and converter decisions, including the defects a real corpus exposed and
 what was done about each, is in [CORPUS-FINDINGS.md](CORPUS-FINDINGS.md).
 
+## 0.33.0 — 2026-10-08
+
+Each record has its own 853 settings: its frequency ($w), and captions for the levels its statements leave blank. Frequency now starts at "not specified".
+
+- **MARC Holdings Workbench** — Frequency (853 $w) in Conversion settings now starts at "(not specified)". Before, it started at Annual, so every 853 said "$w a" unless you changed the setting, and changing it changed it for every title in the file. If you relied on Annual, choose it in Conversion settings or on each record.
+- **MARC Holdings Workbench** — Each record now has a "This record's 853" panel below its holdings. Frequency ($w) can be set for that record alone, including "(not specified)". For each level its statements write as a bare number, which the 853 would declare "(*)", a caption can be given: it fills that level on every 866 of the record, whatever its shape, and on no other record. A caption a statement prints is never replaced. This is how "34 no 3, 4 (Summer, Autumn 1990)" and "39 no 1 (Spring 1995)", one serial written two ways, come to share one 853. What you choose is used wherever the record converts, the row says "853 set", and the log lists it as "853 set by you".
+
 ## 0.32.0 — 2026-10-08
 
 A statement that says it is a supplement or an index is held with its own reason, naming the field it belongs in, and a pattern no longer drops words silently.

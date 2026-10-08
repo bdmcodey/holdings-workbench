@@ -763,7 +763,7 @@ v.6(1995)-"></textarea>
           <label for="batch-freq">Frequency (853 $w)</label>
           <select id="batch-freq">
             {% for code, label in frequency_codes.items() %}
-            <option value="{{ code }}">{{ label }}</option>
+            <option value="{{ code }}" {% if code == '' %}selected{% endif %}>{{ label }}</option>
             {% endfor %}
           </select>
         </div>
@@ -2054,6 +2054,7 @@ function paintStatusPills(slot, entry) {
     if (entry.flagged) bits.push(`<span class="pill attention">${entry.flagged} to check</span>`);
     if ((entry.record_notes || []).length) bits.push('<span class="pill decide">853 to check</span>');
     if ((entry.edited || []).length) bits.push('<span class="pill">866 edited</span>');
+    if (Object.keys(entry.record_853 || {}).length) bits.push('<span class="pill">853 set</span>');
     // No marker for the encoding level. Recording at level 3 against a file
     // of detailed holdings marked 242 of 371 rows, which is the third time
     // this shape has come up: a majority is not a signal, it is a property of
@@ -3935,6 +3936,84 @@ function fields866Html(idx) {
  * record. Saved when it loses focus as well as on the button, so a note
  * typed and walked away from is not lost.
  */
+/**
+ * This record's 853: its $w, and a caption for each level its statements
+ * leave blank.
+ *
+ * How often a serial is published differs from title to title and no holdings
+ * statement says it, so it is set here, record by record, rather than once for
+ * the file. A caption given here fills only levels the statements print none
+ * for -- the rule a confirmed pattern follows -- but reaches every statement on
+ * the record whatever its shape, so two shapes of one serial can share an 853.
+ */
+function record853Html(idx, about) {
+  const chosen = (about && about.record_853) || {};
+  const levels = (about && about.uncaptioned_levels) || [];
+  const fileFreq = document.getElementById('batch-freq');
+  const fileLabel = fileFreq.options[fileFreq.selectedIndex].text;
+  const freqOptions = [...fileFreq.options].map(o =>
+    `<option value="${escHtml(o.value)}" ${'frequency' in chosen && chosen.frequency === o.value
+      ? 'selected' : ''}>${escHtml(o.text)}</option>`).join('');
+  const captions = chosen.captions || {};
+  const captionRows = levels.map(level => `
+      <div class="form-group">
+        <label for="r853-cap-${idx}-${level}">Caption for the ${ordinal(level + 1)} level</label>
+        <input type="text" id="r853-cap-${idx}-${level}" class="r853-cap" list="caption-words"
+               data-level="${level}" maxlength="20" placeholder="(*) — none printed"
+               value="${escHtml(captions[String(level)] || '')}" />
+      </div>`).join('');
+  return `
+    <div class="record-853 mt-2">
+      <div class="pair-col-label">This record's 853 — applies to this record only</div>
+      <div class="form-row mt-1">
+        <div class="form-group">
+          <label for="r853-freq-${idx}">Frequency ($w)</label>
+          <select id="r853-freq-${idx}">
+            <option value="__file" ${'frequency' in chosen ? '' : 'selected'}>As in Conversion settings: ${escHtml(fileLabel)}</option>
+            ${freqOptions}
+          </select>
+        </div>
+        ${captionRows}
+      </div>
+      ${levels.length ? `<div class="small dim mt-1">A caption here fills a level these
+        statements print no caption for, on every 866 of this record, and nowhere else.
+        A caption a statement prints is never replaced; to correct one, edit its 866.</div>` : ''}
+      <div class="btn-row mt-1">
+        <button type="button" class="btn btn-secondary btn-sm"
+                onclick="saveRecord853(${idx})">Save for this record</button>
+        <span id="r853-status-${idx}" class="small dim" style="align-self:center;"></span>
+      </div>
+    </div>`;
+}
+
+async function saveRecord853(idx) {
+  const status = document.getElementById(`r853-status-${idx}`);
+  const freq = document.getElementById(`r853-freq-${idx}`).value;
+  const captions = {};
+  document.querySelectorAll(`.rec-row[data-index="${idx}"] .r853-cap`).forEach(box => {
+    if (box.value.trim()) captions[box.dataset.level] = box.value.trim();
+  });
+  try {
+    const data = await postJson('api/record-853', {
+      record_index: idx,
+      frequency: freq === '__file' ? null : freq,
+      captions,
+    });
+    const entry = recordIndex.get(idx);
+    if (entry) entry.record_853 = data.record_853;
+    // The record's 853 and 863s are now different: fetch them again.
+    recordPreviews.delete(idx);
+    paintRecordStatus();
+    await renderRecordDetail(idx);
+    const after = document.getElementById(`r853-status-${idx}`);
+    if (after) after.textContent = Object.keys(data.record_853).length
+      ? 'Saved. It is used whenever this record is converted, and is in the log.'
+      : 'Back to the Conversion settings.';
+  } catch (err) {
+    if (status) status.textContent = `Not saved: ${err.message}`;
+  }
+}
+
 function recordNoteHtml(idx) {
   const entry = recordIndex.get(idx) || {};
   return `
@@ -4163,6 +4242,7 @@ async function renderRecordDetail(idx) {
     ${groupsHtml}
     ${reviewHtml}
     ${elsewhereHtml(elsewhere)}
+    ${record853Html(idx, about)}
     <div class="btn-row">
       <button class="btn btn-primary" onclick="applyAllInRecord(${idx})"
               title="Linking numbers are shared across a record, so conversion applies to every 866 here">

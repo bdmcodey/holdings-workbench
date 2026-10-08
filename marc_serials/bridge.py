@@ -699,6 +699,51 @@ def _build_from_pattern(
     return result
 
 
+def uncaptioned_levels(results: Sequence[ParseResult]) -> list[int]:
+    """
+    The enumeration levels some statement in `results` writes with no caption.
+
+    These are the levels the 853 would declare as "(*)", and so the ones a
+    cataloguer can give a caption to for one record. Counted from 0, like
+    EnumChron.enum.
+    """
+    levels: set = set()
+    for result in results:
+        for hr in result.ranges:
+            for ec in (hr.start, hr.end):
+                if ec is None:
+                    continue
+                levels.update(i for i, lvl in enumerate(ec.enum) if not lvl.caption)
+    return sorted(levels)
+
+
+def fill_record_captions(results: Sequence[ParseResult],
+                         captions: dict) -> None:
+    """
+    Give captions, chosen for one record, to the levels its statements leave blank.
+
+    `captions` maps a level, counted from 0, to its word: {0: "v."}. The rule is
+    the confirmed pattern's -- see _apply_confirmed_captions() -- and for the
+    same reason: a caption the statement prints is what the piece says, and is
+    never replaced. What differs is the reach. A pattern's caption applies to
+    every statement of its shape in the file; this one to every statement on one
+    record, whatever its shape, which is what lets "34 no 3, 4 (Summer, Autumn
+    1990)" and "39 no 1 (Spring 1995)" -- two shapes, one serial -- share an 853.
+    """
+    by_level = {int(k): str(v).strip() for k, v in (captions or {}).items()
+                if str(v or "").strip()}
+    if not by_level:
+        return
+    for result in results:
+        for hr in result.ranges:
+            for ec in (hr.start, hr.end):
+                if ec is None:
+                    continue
+                for index, level in enumerate(ec.enum):
+                    if not level.caption and index in by_level:
+                        level.caption = by_level[index]
+
+
 # Free text that is only punctuation says nothing a field could hold: the full
 # stop closing "3.1 46-62 2001-2010 .", or a stray comma.
 _PUNCTUATION_ONLY = re.compile(r"^[\s.,;:]*$")

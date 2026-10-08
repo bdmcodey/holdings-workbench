@@ -1,6 +1,6 @@
 {
   "name": "MARC Holdings Workbench",
-  "version": "0.32.0",
+  "version": "0.33.0",
   "released": "2026-10-08",
   "status": "Proof of concept — under active development. Check your output before loading it into the catalog.",
   "description": "One tool for MARC serials holdings. Upload a MARC file, find the patterns in its 866 statements, confirm what each part of a pattern means, and convert to structured 853 caption/pattern and 863 enumeration/chronology fields. Statements no pattern matches are converted by the standard parser.",
@@ -9,6 +9,21 @@
   "contact": "Matthew Codey, codey@usc.edu",
   "_comment": "Written for cataloging staff, not developers. Say what changed about the output or the screen, not how the code changed. Newest version first.",
   "changelog": [
+    {
+      "version": "0.33.0",
+      "date": "2026-10-08",
+      "summary": "Each record has its own 853 settings: its frequency ($w), and captions for the levels its statements leave blank. Frequency now starts at \"not specified\".",
+      "changes": [
+        {
+          "tool": "MARC Holdings Workbench",
+          "text": "Frequency (853 $w) in Conversion settings now starts at \"(not specified)\". Before, it started at Annual, so every 853 said \"$w a\" unless you changed the setting, and changing it changed it for every title in the file. If you relied on Annual, choose it in Conversion settings or on each record."
+        },
+        {
+          "tool": "MARC Holdings Workbench",
+          "text": "Each record now has a \"This record's 853\" panel below its holdings. Frequency ($w) can be set for that record alone, including \"(not specified)\". For each level its statements write as a bare number, which the 853 would declare \"(*)\", a caption can be given: it fills that level on every 866 of the record, whatever its shape, and on no other record. A caption a statement prints is never replaced. This is how \"34 no 3, 4 (Summer, Autumn 1990)\" and \"39 no 1 (Spring 1995)\", one serial written two ways, come to share one 853. What you choose is used wherever the record converts, the row says \"853 set\", and the log lists it as \"853 set by you\"."
+        }
+      ]
+    },
     {
       "version": "0.32.0",
       "date": "2026-10-08",
