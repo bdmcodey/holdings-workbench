@@ -1207,3 +1207,22 @@ def test_the_sweep_never_ages_a_library_as_an_upload(
                 if n.endswith(store.LIBRARY_EXT)]
     assert survived == libraries, "the sweep took the pattern library"
     assert client.get("/api/patterns").get_json()["count"] == 1
+
+
+def test_the_card_shows_a_list_of_runs_with_its_caption(client):
+    """
+    A list of runs is handed to the parser when converting, with the pattern's
+    caption for the level it leaves blank; the card's preview must show that,
+    or a caption confirmed there seems to do nothing.
+    """
+    from marc_serials.detector import detect_patterns
+    from marc_serials.bridge import infer_roles
+    text = "34 no 3, 4 (Summer, Autumn 1990)"
+    group = detect_patterns([text])[0]
+    roles = [r.to_dict() for r in infer_roles(group.named_groups)]
+    body = client.post("/api/pattern-preview", json={
+        "regex": group.regex, "roles": roles, "statements": [text],
+        "split_multi_range": False}).get_json()
+    preview = body["previews"][0]
+    assert "$a v." in preview["pattern"]["field_853"]
+    assert "$a (*)" in preview["parser"]["field_853"]

@@ -1107,3 +1107,46 @@ def test_only_a_bare_numbers_settings_change_a_statement_the_parser_reads():
     assert output(start_iss=("kind", KIND_IGNORE)) == base
     assert output(start_year=("kind", KIND_IGNORE)) == base
     assert output(start_num=("caption", "pt.")) != base
+
+
+# ---------------------------------------------------------------------------
+# A list of runs keeps the caption its pattern was given
+# ---------------------------------------------------------------------------
+
+def _confirmed_pattern(statement: str):
+    group = detect_one(statement)
+    roles = infer_roles(group.named_groups)
+    for role in roles:
+        role.suggested = False
+    pattern, errors = plib.validate_pattern({
+        "id": "p-list", "label": group.human_label, "regex": group.regex,
+        "roles": [r.to_dict() for r in roles], "split": False})
+    assert pattern is not None, errors
+    return pattern
+
+
+def test_a_list_of_runs_keeps_its_patterns_caption():
+    """
+    Found in testing: "34 no 3, 4 (Summer, Autumn 1990)" is two runs, so its
+    pattern stands aside and the parser writes one 863 per run -- and until
+    0.34.0 the caption confirmed on that pattern stood aside with it, leaving
+    "$a (*)" whatever was typed. Filled by level from the pattern's start: by
+    boundary, the "no." its role list gives the second issue would have named
+    the volume of each run's end.
+    """
+    from marc_serials.converter import convert_record
+    text = "34 no 3, 4 (Summer, Autumn 1990)"
+    result, source = apply_patterns(text, [_confirmed_pattern(text)])
+    assert source == "parser"
+    conversion = convert_record([result]).results[0]
+    assert sub_of(conversion.field_853, "a") == "v."
+    assert sub_of(conversion.field_853, "b") == "no."
+    assert len(conversion.fields_863) == 2
+    assert any("caption confirmed on the pattern was used" in w
+               for w in result.warnings)
+
+
+def test_a_list_that_prints_its_captions_is_left_as_printed():
+    text = "v. 19 nos. 1, 3, 5, 7-12 (Jan, Mar, May, Jul-Dec 1915)"
+    result, _ = apply_patterns(text, [_confirmed_pattern(text)])
+    assert not any("caption confirmed on the pattern" in w for w in result.warnings)

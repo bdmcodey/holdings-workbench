@@ -2837,6 +2837,64 @@ real export gets no note on any of its 1,057 866s. The angle-bracket dates of
 D41 (`<1884:6:28>`) are not treated as the Newspaper Program's: nothing here
 says whose they are.
 
+## Left out to fit MARC · **0.34.0**
+
+*8 October 2026.* Raised in the same demo preparation. On the pasted statement
+`v. 8 no. 3-v. 10 no. 2 (1981-Fall 1983)` the cataloguer could not find the note
+that the Fall had been left out: the pattern was folded under "nothing to
+decide", and the note was a yellow line inside its preview. Their reading of it:
+this is something dropped to conform to the MARC standard, not lost in
+conversion and not missed by the parser, and it should be apparent without
+being a hold. And a file-wide option, if wanted, to write nothing where it
+happens.
+
+**Which warnings.** A value the tool read correctly and an 863 has no place for:
+one end of a range only (month, season, day, or a level -- `Only one end of …`,
+`Only the start/end of this range gives …`), a level under a range, a date
+stated once for several runs, the `?` of `2016?`, wording a coded subfield
+cannot hold, a level the record's own 853 names otherwise, a value the chosen
+convention has no subfield for. Not: brace notes, `N`/`M` markers, nested
+groups, an ambiguous `1999-05`, anything held -- those were not understood, or
+are notes.
+
+**How they are told apart.** `parser.LeftOut` is a `str` subclass. The nine
+places that write such a note make one, and `ConversionResult.left_out` is the
+warnings that are instances of it. Nothing reads a warning's wording to decide
+what it is; everywhere else it is the string it always was. Wording a coded
+subfield cannot hold stays flagged "to check" as well, as it has been since
+0.9.6 ("Late Summer" may be an issue of its own).
+
+**Measured.** Statements that convert with something left out: 19 of 112 in the
+main corpus, 1 of 5 in the LC examples, 7 of 40 in the outside catalogues, 1 in
+each fixture. Of those, 2, 1 and 2 were already "to check"; the rest were yellow
+notes among notes.
+
+**What changed.** On the record, a dashed box "Left out to fit MARC:"; on the
+row, `1 left out`; in the log, "Converted, part left out"; a "Something left
+out" filter. On the Patterns step each group carries how many of its statements
+lose something, and the card, the folded group's line and the summary say it.
+A setting, "When something would be left out to fit MARC": convert and mark
+(default), hold that statement (the record is converted again without it, so
+linking numbers run on without a gap), or leave the whole record as uploaded
+(row `left as uploaded`, under Needs attention, the log one line per value with
+its 866). It applies to pattern-read statements too, unlike strict.
+
+**Unchanged.** No corpus outcome or drift; audit "nothing unaccounted for" on
+the three corpora and both fixtures. The default converts exactly as before.
+
+**Found while this was being built: a list of runs lost its pattern's caption.**
+Reported by the cataloguer: `34 no 3, 4 (Summer, Autumn 1990)` kept `$a (*)`
+however its pattern was confirmed, suggested `v.` or typed. A list of runs is
+more than a pattern describes, so the pattern stands aside and the
+parser writes one 863 per run -- and the caption, the one thing the cataloguer
+told the pattern that the parser cannot know, stood aside with it. It is now
+filled in, blank levels only, taken by level from the pattern's start: its role
+list puts the second issue at the end's level 0 with "no.", so reading by
+boundary would have called each run's volume "no.". The card's preview, which
+had shown nothing for the pattern side, now shows what conversion writes. On
+the demo file, with both caption patterns confirmed, the record's two
+statements share one 853, `$a v. $b no.`.
+
 ## An 853's settings can be one record's · **0.33.0**
 
 *8 October 2026.* Two findings from the same afternoon, one decision.

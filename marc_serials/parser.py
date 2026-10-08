@@ -339,6 +339,24 @@ class HoldingsRange:
         return levels
 
 
+class LeftOut(str):
+    """
+    A warning that a value was read and left out because MARC cannot hold it.
+
+    "Only one end of '1981-Fall 1983' gives a month or season": the parser read
+    the Fall correctly, and a compressed 863 has no way to say a season at one
+    end of a range. That is a different thing from wording the parser could not
+    read, or a cataloguer's note set aside, and the screen and the log say it
+    differently -- "left out to fit MARC" -- and a setting can hold such a
+    statement, or leave its whole record as uploaded.
+
+    A str in every other respect, so it is a warning like any other wherever
+    warnings go; isinstance() is how the converter tells it apart, without
+    reading anything back out of the wording.
+    """
+    __slots__ = ()
+
+
 @dataclass
 class ParseResult:
     """Result of parsing a single 866 $a value."""
@@ -758,7 +776,7 @@ def _note_undistributable(warnings: Optional[List[str]], chron: str,
     """
     if warnings is None:
         return
-    note = (
+    note = LeftOut(
         f"'{chron}' was left out: it is stated once for all {runs} runs of this "
         f"statement, and it is not a single year that could be true of each of "
         f"them. Each 863 records the dates of its own run, and there is no way "
@@ -1347,7 +1365,7 @@ def _pair_or_drop(left: Optional[str], right: Optional[str], raw: str,
     if demonstrated is not None and level and demonstrates_level(level, lone):
         demonstrated.add(level)
     if warnings is not None:
-        note = (
+        note = LeftOut(
             f"Only one end of '{raw}' gives a {what} ({lone}); with nothing at "
             "the other end it cannot be recorded as a range, so it was left out."
         )
@@ -2206,10 +2224,10 @@ def _parse_degenerate(text: str) -> ParseResult:
         result.ranges.append(HoldingsRange(
             start=EnumChron(year=m.group("year")), raw=text.strip()
         ))
-        result.warnings.append(
+        result.warnings.append(LeftOut(
             f"Year '{m.group('year')}' recorded as uncertain ('?') in the source; "
             "the qualifier is not encoded."
-        )
+        ))
         return result
 
     m = re.match(r"^\s*\??\s*(?P<num>\d+)\s*$", text)
