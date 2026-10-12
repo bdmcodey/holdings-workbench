@@ -2991,6 +2991,17 @@ record is marked "could not check" rather than taking the file down.
 Raised 1 September 2026 alongside D15–D18, recorded here so they are not lost.
 The first two are done; the rest are Workbench UI and are not started.
 
+- **A range that changes from seasons to months.** Raised 12 October 2026,
+  after the technical services demo; pinned, not started. A statement whose
+  chronology runs from a season at one end to a month at the other had its
+  second chronology level left out (one-sided, as 0.34.0 now marks it) and was
+  then grouped under the record's *month* 853 -- the merge that is right when
+  one statement is merely less detailed than another. Here it is wrong: the
+  serial's chronology changes kind, season to month, and nothing records that.
+  Wanted: a check for exactly this switch, so such a statement is not merged
+  into an 853 of the other kind. The cataloguer has the real example; get it
+  before starting, and measure against the corpora for others like it.
+
 - ~~**Enumeration levels are positional, not named.**~~ Done in 0.7.0, with D6.
   `caption_slot()` used to map `no.` to `issue` and `_build_853()` put issue in
   `$b`, so the level a caption occupied was hard-coded to the word used. It is

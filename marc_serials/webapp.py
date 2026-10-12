@@ -398,21 +398,21 @@ def _parse_all(texts, patterns, fallback: bool = True) -> tuple[list, list]:
     return parsed, sources
 
 
-def _apply_record_853(parsed: list, frequency: str,
-                      settings: Optional[dict]) -> str:
+def _apply_record_853(parsed: list, settings: Optional[dict], frequency: str,
+                      units_per_higher: str) -> tuple:
     """
-    Apply the 853 settings chosen for one record, and return its $w.
+    Apply the 853 settings chosen for one record; return its ($w, $u).
 
     Captions fill only the levels the record's statements leave blank -- see
     bridge.fill_record_captions() -- and are applied to the readings, before
-    convert_record() decides which statements share an 853. A frequency chosen
-    for the record replaces the file's; one not chosen leaves it.
+    convert_record() decides which statements share an 853. A frequency or a
+    count of issues chosen for the record replaces the file's; one not chosen
+    leaves it.
     """
     settings = settings or {}
     fill_record_captions(parsed, settings.get("captions") or {})
-    if "frequency" in settings:
-        return settings["frequency"]
-    return frequency
+    return (settings.get("frequency", frequency),
+            settings.get("units_per_higher", units_per_higher))
 
 
 def _source_labels(patterns) -> dict:
@@ -533,7 +533,8 @@ def _review_row(record, index, *, patterns, fallback, conv_opts, captions,
     # Before the record's own captions fill them, or a level once given a
     # caption would stop being offered.
     row["uncaptioned_levels"] = uncaptioned_levels(parsed)
-    frequency = _apply_record_853(parsed, frequency, record_853)
+    frequency, units_per_higher = _apply_record_853(
+        parsed, record_853, frequency, units_per_higher)
     existing_853s = [] if clear_existing else list(record.get_fields("853"))
     rc, row["left_as_uploaded"] = _convert_under_policy(
         parsed, left_out_policy, existing_853s=existing_853s, captions=captions,
@@ -1195,9 +1196,9 @@ def api_pattern_preview():
             patterns = [candidate] + _load_library()
             parsed, sources = _parse_all(texts, patterns,
                                          _parser_fallback(data))
-            record_frequency = _apply_record_853(
-                parsed, frequency,
-                _load_decisions()["record_853"].get(str(record_index)))
+            record_frequency, record_units = _apply_record_853(
+                parsed, _load_decisions()["record_853"].get(str(record_index)),
+                frequency, units_per_higher)
             # A preview of what this pattern would do, so a statement the
             # setting would hold is shown held; a record it would leave as
             # uploaded is still shown, since that is what is being asked about.
@@ -1209,7 +1210,7 @@ def api_pattern_preview():
                 numbering_continuity=continuity,
                 merge_patterns=record_index not in _keep_separate(data),
                 holdings_level=holdings_level,
-                units_per_higher=units_per_higher,
+                units_per_higher=record_units,
                 **conv_opts,
             )
             previews = _previews_from(rc, rejections, existing_853s,
@@ -1783,7 +1784,12 @@ def _apply_one_decision(record, decision: dict, patterns: list,
     parsed, sources = _parse_all(texts, patterns, _parser_fallback(decision))
 
     first = specs[0] if specs else {}
-    frequency = _apply_record_853(parsed, first.get("frequency", ""), record_853)
+    # $u is read the way holdings_level is. Missing until 0.21.0, so a record
+    # converted on its own was written without the $u "Convert all" gives it.
+    frequency, units_per_higher = _apply_record_853(
+        parsed, record_853, first.get("frequency", ""),
+        resolve_units_per_higher(
+            first.get("units_per_higher", decision.get("units_per_higher"))))
     rc, left_as_uploaded = _convert_under_policy(
         parsed, _left_out_policy(decision),
         existing_853s=existing_853s,
@@ -1792,10 +1798,7 @@ def _apply_one_decision(record, decision: dict, patterns: list,
         numbering_continuity=first.get("numbering_continuity", "r"),
         holdings_level=resolve_holdings_level(
             first.get("holdings_level", decision.get("holdings_level"))),
-        # Read the way holdings_level is. Missing until 0.21.0, so a record
-        # converted on its own was written without the $u "Convert all" gives it.
-        units_per_higher=resolve_units_per_higher(
-            first.get("units_per_higher", decision.get("units_per_higher"))),
+        units_per_higher=units_per_higher,
         **conv_opts,
     )
     previews = _previews_from(rc, rejections, (), sources, patterns)
@@ -1988,16 +1991,17 @@ def _rebuild_converted(decisions: dict, previews_for: Optional[int] = None):
             for src in sources:
                 by_source[src] = by_source.get(src, 0) + 1
 
+            rec_frequency, rec_units = _apply_record_853(
+                parsed, record_853s.get(str(rec_idx)), frequency, units_per_higher)
             rc, left = _convert_under_policy(
                 parsed, left_out_policy,
                 existing_853s=existing_853s,
                 captions=captions,
-                frequency=_apply_record_853(parsed, frequency,
-                                            record_853s.get(str(rec_idx))),
+                frequency=rec_frequency,
                 numbering_continuity=continuity,
                 merge_patterns=rec_idx not in keep_separate,
                 holdings_level=holdings_level,
-                units_per_higher=units_per_higher,
+                units_per_higher=rec_units,
                 **conv_opts,
             )
             if left:
@@ -2236,12 +2240,18 @@ def api_record_853():
     """
     Keep the 853 settings chosen for one record, applied wherever it converts.
 
-    POST JSON: {"record_index": 3, "frequency": "q", "captions": {"0": "v."}}.
+    POST JSON: {"record_index": 3, "frequency": "q", "units_per_higher": "4",
+                "captions": {"0": "v."}}.
 
     `frequency` is the record's $w: a FREQUENCY_CODES key ("" is "not
     specified", said deliberately), or null to go back to the file's setting.
     How often a serial is published differs from title to title and is not
     something a holdings statement says, so it is the cataloguer's per record.
+
+    `units_per_higher` is the record's $u: a count, "var" or "und"; "none" to
+    write no $u on this record whatever the file says; null to go back to the
+    file's setting. Like frequency, how many issues make a volume is a fact
+    about one serial.
 
     `captions` gives a word, by level counted from 0, to a level the record's
     statements write with no caption. It fills only those: a caption a
@@ -2268,6 +2278,19 @@ def api_record_853():
             return jsonify({"error": f"'{frequency}' is not a MARC 21 frequency "
                                      "code for 853 $w."}), 400
         settings["frequency"] = frequency
+
+    units = data.get("units_per_higher")
+    if units is not None:
+        units = str(units).strip().lower()
+        if units == "none":
+            settings["units_per_higher"] = ""
+        elif units:
+            resolved = resolve_units_per_higher(units)
+            if not resolved:
+                return jsonify({"error": f"'{units}' is not a count of issues for "
+                                         "853 $u: give a number such as 4 or 12, "
+                                         "var, und, or none."}), 400
+            settings["units_per_higher"] = resolved
 
     captions: dict = {}
     for key, word in (data.get("captions") or {}).items():
@@ -2306,6 +2329,9 @@ def record_853_summary(settings: Optional[dict]) -> str:
         code = settings["frequency"]
         parts.append(f"$w {code} ({FREQUENCY_CODES[code]})" if code
                      else "$w not specified")
+    if "units_per_higher" in settings:
+        units = settings["units_per_higher"]
+        parts.append(f"$u {units}" if units else "$u not specified")
     for level, word in sorted((settings.get("captions") or {}).items(),
                               key=lambda kv: int(kv[0])):
         parts.append(f"level {int(level) + 1} caption {word}")

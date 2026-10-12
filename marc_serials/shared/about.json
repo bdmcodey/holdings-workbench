@@ -1,6 +1,6 @@
 {
   "name": "MARC Holdings Workbench",
-  "version": "0.34.0",
+  "version": "0.35.0",
   "released": "2026-10-08",
   "status": "Proof of concept — under active development. Check your output before loading it into the catalog.",
   "description": "One tool for MARC serials holdings. Upload a MARC file, find the patterns in its 866 statements, confirm what each part of a pattern means, and convert to structured 853 caption/pattern and 863 enumeration/chronology fields. Statements no pattern matches are converted by the standard parser.",
@@ -9,6 +9,17 @@
   "contact": "Matthew Codey, codey@usc.edu",
   "_comment": "Written for cataloging staff, not developers. Say what changed about the output or the screen, not how the code changed. Newest version first.",
   "changelog": [
+    {
+      "version": "0.35.0",
+      "date": "2026-10-12",
+      "summary": "Issues per volume (853 $u) can be set for one record, in \"This record's 853\".",
+      "changes": [
+        {
+          "tool": "MARC Holdings Workbench",
+          "text": "\"This record's 853\" now has Issues per volume ($u) beside Frequency ($w). How many issues make a volume is a fact about one serial, like its frequency, so it can be set for that record alone: a number such as 4 or 12, or var or und. Leave it empty to use Conversion settings, or type none to write no $u on this record. It follows the same rules as the file setting, and the log lists it under \"853 set by you\"."
+        }
+      ]
+    },
     {
       "version": "0.34.0",
       "date": "2026-10-08",

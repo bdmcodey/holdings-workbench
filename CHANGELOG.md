@@ -15,6 +15,12 @@ more than one release; numbering resumed with 0.6.1. Reasoning behind the
 parser and converter decisions, including the defects a real corpus exposed and
 what was done about each, is in [CORPUS-FINDINGS.md](CORPUS-FINDINGS.md).
 
+## 0.35.0 — 2026-10-12
+
+Issues per volume (853 $u) can be set for one record, in "This record's 853".
+
+- **MARC Holdings Workbench** — "This record's 853" now has Issues per volume ($u) beside Frequency ($w). How many issues make a volume is a fact about one serial, like its frequency, so it can be set for that record alone: a number such as 4 or 12, or var or und. Leave it empty to use Conversion settings, or type none to write no $u on this record. It follows the same rules as the file setting, and the log lists it under "853 set by you".
+
 ## 0.34.0 — 2026-10-08
 
 A value read correctly but left out because MARC has no place for it is now called "left out to fit MARC", shown everywhere it happens, and a setting decides whether such a statement converts, is held, or leaves its record as uploaded.

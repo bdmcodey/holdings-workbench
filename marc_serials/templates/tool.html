@@ -4006,6 +4006,7 @@ function record853Html(idx, about) {
   const levels = (about && about.uncaptioned_levels) || [];
   const fileFreq = document.getElementById('batch-freq');
   const fileLabel = fileFreq.options[fileFreq.selectedIndex].text;
+  const fileUnits = document.getElementById('batch-units').value.trim();
   const freqOptions = [...fileFreq.options].map(o =>
     `<option value="${escHtml(o.value)}" ${'frequency' in chosen && chosen.frequency === o.value
       ? 'selected' : ''}>${escHtml(o.text)}</option>`).join('');
@@ -4028,8 +4029,18 @@ function record853Html(idx, about) {
             ${freqOptions}
           </select>
         </div>
+        <div class="form-group">
+          <label for="r853-units-${idx}">Issues per volume ($u)</label>
+          <input type="text" id="r853-units-${idx}" maxlength="4"
+                 placeholder="As in Conversion settings: ${escHtml(fileUnits || 'not specified')}"
+                 value="${escHtml('units_per_higher' in chosen
+                   ? (chosen.units_per_higher || 'none') : '')}" />
+        </div>
         ${captionRows}
       </div>
+      <div class="small dim mt-1">Issues per volume: a number such as 4 or 12, or
+        <code>var</code> or <code>und</code>. Leave it empty to use Conversion settings, or
+        type <code>none</code> to write no $u on this record.</div>
       ${levels.length ? `<div class="small dim mt-1">A caption here fills a level these
         statements print no caption for, on every 866 of this record, and nowhere else.
         A caption a statement prints is never replaced; to correct one, edit its 866.</div>` : ''}
@@ -4049,9 +4060,11 @@ async function saveRecord853(idx) {
     if (box.value.trim()) captions[box.dataset.level] = box.value.trim();
   });
   try {
+    const units = document.getElementById(`r853-units-${idx}`).value.trim();
     const data = await postJson('api/record-853', {
       record_index: idx,
       frequency: freq === '__file' ? null : freq,
+      units_per_higher: units || null,
       captions,
     });
     const entry = recordIndex.get(idx);

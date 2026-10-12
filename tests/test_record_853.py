@@ -15,6 +15,8 @@ from __future__ import annotations
 import csv
 import io
 
+import pytest
+
 import pymarc
 from pymarc import Field, MARCWriter, Record, Subfield
 
@@ -152,3 +154,47 @@ def test_the_record_shows_its_853_settings():
         encoding="utf-8")
     assert "${record853Html(idx, about)}" in page
     assert "postJson('api/record-853'" in page
+
+
+# ---------------------------------------------------------------------------
+# Issues per volume ($u), one record's as much as its frequency is
+# ---------------------------------------------------------------------------
+
+def test_issues_per_volume_reaches_this_record_and_no_other(client):
+    upload_marc(client, _file())
+    response = _set(client, record_index=0, captions={"0": "v."}, units_per_higher="4")
+    assert response.get_json()["record_853"]["units_per_higher"] == "4"
+    f853 = _preview(client, 0)["previews"][0]["field_853"]
+    assert "$b no. $u 4" in f853
+    assert f853.startswith("853 21"), "a count is what compression needs"
+    assert "$u" not in _preview(client, 1)["previews"][0]["field_853"]
+
+
+def test_none_writes_no_issues_per_volume_whatever_the_file_says(client):
+    upload_marc(client, _file())
+    _set(client, record_index=0, captions={"0": "v."}, units_per_higher="none")
+    preview = client.post("/api/preview-record", json={
+        "record_index": 0, "units_per_higher": "12"}).get_json()
+    assert preview["record_853"]["units_per_higher"] == ""
+    assert "$u" not in preview["previews"][0]["field_853"]
+    other = client.post("/api/preview-record", json={
+        "record_index": 1, "units_per_higher": "12"}).get_json()
+    assert other["previews"][0]["field_853"]  # file-wide $u still applies there
+
+
+def test_issues_per_volume_is_in_the_file_and_the_log(client):
+    upload_marc(client, _file())
+    _set(client, record_index=0, captions={"0": "v."}, units_per_higher="var")
+    assert client.post("/api/batch-convert", json={}).status_code == 200
+    out = list(pymarc.MARCReader(io.BytesIO(
+        client.get("/api/download-converted").data)))
+    assert out[0].get_fields("853")[0].get("u") == "var"
+    log = list(csv.reader(io.StringIO(
+        client.get("/api/download-log").data.decode("utf-8-sig"))))
+    assert any(r[3] == "853 set by you" and "$u var" in r[5] for r in log)
+
+
+@pytest.mark.parametrize("bad", ["four", "04", "1000", "-1"])
+def test_what_is_not_a_count_of_issues_is_refused(client, bad):
+    upload_marc(client, _file())
+    assert _set(client, record_index=0, units_per_higher=bad).status_code == 400
