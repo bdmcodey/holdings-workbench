@@ -56,6 +56,9 @@ JOINED_ROUTES = {
     # The 853 settings chosen for one record: its $w, and captions for the
     # levels its statements leave blank.
     "/api/record-853",
+    # A pattern's expression, written for another tool: PCRE, JavaScript,
+    # Java, Alma's normalization rules, Oracle SQL.
+    "/api/regex-flavour",
 }
 
 

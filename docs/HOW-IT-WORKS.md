@@ -1,6 +1,6 @@
 # How the Holdings Workbench Works
 
-*Written for librarians and cataloguers. Describes version 0.35.0.*
+*Written for librarians and cataloguers. Describes version 0.36.0.*
 
 The Holdings Workbench turns the free-text holdings in MARC 866 fields into structured 853 caption/pattern and 863 enumeration/chronology fields, and asks a cataloguer to confirm anything it cannot be sure of. This guide explains how, for librarians rather than programmers.
 
@@ -230,7 +230,19 @@ Confirmed patterns form a library for the session:
 - **Skip:** a pattern can be marked "skip" to claim a shape you will handle by hand. Its statements are left exactly as they are.
 - **Export and Import:** the library can be saved as a file and loaded again next week, or on another collection. Every pattern is checked as it is loaded, and anything rejected is listed with the reason.
 - **Test expression:** each card's rule can be tried against statements before you trust it. Hand-edited rules are allowed.
-- **Copy:** each card shows its expression under the heading, with a Copy button. "Copy all expressions" copies every pattern at once, one per line: heading, number of statements, expression. It pastes into a spreadsheet as three columns. When you paste statements rather than upload a file, there is no Convert step, so the patterns stay open after Find patterns with every expression in view. With a file, the step folds to one line when nothing needs deciding. Holdings come from one or the other, never both. "Use these statements" sets a loaded file aside: it stays loaded, with your decisions and its patterns, and step 1 names it with a "Back to" button that brings it back. Uploading a file replaces it.
+- **Copy:** each card shows its expression under the heading, with a Copy button. "Copy all expressions" copies every pattern at once, one per line: heading, number of statements, expression. It pastes into a spreadsheet as three columns.
+- **Expressions for other tools:** "Write expressions for", above the patterns, chooses the tool an expression will be pasted into. Each card's expression line and both Copy buttons follow it, and a note under the menu says what the copy will and won't do there. Every tool's form ignores capitals and matches a whole statement, as the workbench does; those two settings aren't part of an expression's text, so each tool gets them in its own way.
+
+  | Tool | What you get |
+  | --- | --- |
+  | Python | `(?i)^…$`, the workbench's own form |
+  | PCRE: PHP, Perl, R, regex101 | `(?i)^…$`, with values named `(?<name>…)` |
+  | JavaScript | `/^…$/i` |
+  | Java | `(?iu)^…$`; names lose their underscores, which Java doesn't allow (`start_num` becomes `startNum`) |
+  | Alma normalization rules | The text for between the quotes after `matches`, backslashes doubled. Not yet tried in Alma |
+  | Oracle SQL, for Alma Analytics | `^…$`, for `REGEXP_LIKE(column, '…', 'i')`. Finds matching statements only: Oracle can't name values. At most 512 bytes; 62 of the 107 corpus patterns fit |
+
+  An expression a tool can't take (too long for Oracle, or a hand edit using something the tool lacks) is never cut down to fit. Its card shows the reason where the expression would be, Copy is turned off, and "Copy all expressions" gives the reason on its line. The editable box inside a card always holds the expression as the workbench runs it. When you paste statements rather than upload a file, there is no Convert step, so the patterns stay open after Find patterns with every expression in view. With a file, the step folds to one line when nothing needs deciding. Holdings come from one or the other, never both. "Use these statements" sets a loaded file aside: it stays loaded, with your decisions and its patterns, and step 1 names it with a "Back to" button that brings it back. Uploading a file replaces it.
 - **Show its records:** each card can filter the record list to "the records with this shape", and, once confirmed, to "the records it converts". The two can differ: a larger pattern may claim some statements first, and an expression may also match a similar shape. A confirmed pattern that converts nothing is a sign a larger one covers all its statements.
 
 ## The standard parser: reading one statement
@@ -481,9 +493,9 @@ The log is built from the same summary as the conversion, so it describes exactl
 
 Four checks run before any change is released, and each answers a different question.
 
-| Check | Question it answers | Result as of 0.35.0 |
+| Check | Question it answers | Result as of 0.36.0 |
 | --- | --- | --- |
-| Automated tests | Does every behaviour described here still hold? | 966 passed, 8 skipped |
+| Automated tests | Does every behaviour described here still hold? | 1,001 passed, 8 skipped |
 | Corpus report | What do 117 real 866 statements convert to, and has any outcome changed? | 90 clean (77%), 22 converted with a warning, 5 with no fields, 0 with values lost |
 | Conversion audit | Did any number in a statement reach no field and no warning? | 0 unaccounted for: the corpus, the LC examples, the other library's catalogue, and all 1,057 statements of the 372-record test export |
 | Round trip | Convert, write the 866 as Alma would, convert again: do the same 863s come back? | Test export: 938 identical, 106 identical apart from an 853 caption, 11 not converted, **0 drift** |
@@ -494,6 +506,7 @@ Four checks run before any change is released, and each answers a different ques
 - **The Library of Congress examples** are the 7 866 statements in LC's MARC holdings documentation, kept as a second, separate corpus. They're the only statements in the project written outside the collection the tool was built on. Four convert cleanly, one converts with a warning, and two are in the US Newspaper Program's own notation and are held rather than misread.
 - **Other libraries' catalogues** is a third corpus: 63 statements from outside, picked for how messy they are. 42 are from one public catalogue and 21 from several others. Some follow Z39.71, some write their dates without parentheses, some are 863 subfield values written out as text with no captions, and a few aren't holdings at all ("undefined"). As of 0.30.6, 33 convert cleanly, 7 convert with a warning, and 23 are held. None is misread, and none drifts on the round trip.
 - **The round trip** checks the circle with the library system. Holdings are exported from Alma, converted here and loaded back, and Alma regenerates every 866 from the new 853/863s. Exported and converted again, those 866s must give the same 863s; any difference is a bug. Alma can't be run from here, so the tool imitates the 866 Alma writes. The imitation was built from 48 866s that Alma generated in the test export, and it reproduces all 48 exactly. Run on a new Alma export, the check also compares the imitation with Alma's real 866s, which is how to confirm the forms those 48 didn't show: seasons, days, and date-only ranges with months.
+- **Expressions for other tools** are run in those tools' own engines where the machine has them: JavaScript in Node, PCRE in Perl, Java and the Alma rule form in Java. Every expression written for the three corpora is tried against every corpus statement, in capitals and in lower case, and must match exactly the statements the workbench's own expression matches. Oracle can't be run here, so its form is written in a part of the syntax Python reads the same way, and checked in Python.
 - **What the round trip can't close:** a level with no caption. An 866 generated from `(*)` is bare numbers, and nothing says what they count, so the parser refuses them. Five corpus statements are like this: four in the local year-first format, and "8,13,15,17,19,20-(1982-1994)". A caption confirmed on the pattern closes the loop.
 - **An 853 caption can differ, and that's expected.** A statement that names a level with no value, like the `no. 9` at one end of `v. 1 (1973)-v. 11 no. 9 (Sep 1983)`, keeps that level in its 853, and the first conversion already says the value was left out. A regenerated 866 can't name a level no 863 fills.
 

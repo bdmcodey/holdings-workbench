@@ -6,6 +6,8 @@ One installable package: every engine, and the application that serves them.
     parser     866 text            -> ParseResult (ranges, levels, chronology)
     converter  ParseResult         -> MARC 853 / 863 fields
     detector   many 866 statements -> clusters, each with a named-group regex
+    flavours   one such regex       -> the same regex for another tool: PCRE,
+               JavaScript, Java, Alma's normalization rules, Oracle SQL
     bridge     confirmed patterns   -> which statements they claim, and what
                they supply where the parser cannot settle it (a caption,
                the meaning of a bare number, or "leave this alone")
@@ -21,5 +23,5 @@ It was three applications on three ports until September 2026 -- a converter, a
 pattern detector, and a workbench that joined them up.
 """
 
-__all__ = ["parser", "converter", "detector", "bridge", "library",
+__all__ = ["parser", "converter", "detector", "flavours", "bridge", "library",
            "budget", "display", "records", "store", "webapp"]

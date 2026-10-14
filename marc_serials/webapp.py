@@ -100,6 +100,7 @@ from marc_serials.converter import (CONVENTION_LEVELS, CONVENTION_STANDARD,
                             FREQUENCY_CODES, convention_presets,
                             convert_holdings, convert_record, resolve_convention)
 from marc_serials.detector import detect_patterns
+import marc_serials.flavours as flavours
 from marc_serials.budget import (BACKTRACKING_PROBES, MatchFailed, MatchTimeout,
                           completes_within_budget, match_statements,
                           too_slow_message)
@@ -862,6 +863,8 @@ def index():
         about=_load_about(),
         preview_batch=PREVIEW_PAGE_MAX,
         indicator_values=INDICATOR_VALUES,
+        regex_flavours=flavours.choices(),
+        default_regex_flavour=flavours.DEFAULT_FLAVOUR,
     )
 
 
@@ -1032,6 +1035,33 @@ def api_detect():
     except Exception as exc:
         app.logger.exception("Request failed")
         return jsonify({"error": str(exc)}), 500
+
+
+@app.route("/api/regex-flavour", methods=["POST"])
+def api_regex_flavour():
+    """
+    Expressions, written for another tool's regex dialect.
+
+    Body: {"flavour": "pcre", "regexes": [...]}. One result per expression, in
+    order, each {"text", "error"}: an expression the flavour cannot write comes
+    back with `text` null and the reason, never shortened or half-written.
+
+    Nothing here runs an expression against text, so nothing needs the match
+    budget; reading and compiling one is bounded by its length.
+    """
+    data = request.get_json(silent=True) or {}
+    key = data.get("flavour")
+    regexes = data.get("regexes")
+    if key not in flavours.FLAVOURS:
+        return jsonify({"error": "Unknown flavour."}), 400
+    if not isinstance(regexes, list) or not all(isinstance(r, str) for r in regexes):
+        return jsonify({"error": "Send a list of expressions."}), 400
+    if len(regexes) > MAX_STATEMENTS:
+        return jsonify({"error": f"At most {MAX_STATEMENTS:,} expressions at once."}), 400
+    return jsonify({
+        "flavour": key,
+        "results": [flavours.convert(r, key).as_dict() for r in regexes],
+    })
 
 
 @app.route("/api/test-regex", methods=["POST"])

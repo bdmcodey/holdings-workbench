@@ -1,7 +1,7 @@
 {
   "name": "MARC Holdings Workbench",
-  "version": "0.35.0",
-  "released": "2026-10-08",
+  "version": "0.36.0",
+  "released": "2026-10-14",
   "status": "Proof of concept — under active development. Check your output before loading it into the catalog.",
   "description": "One tool for MARC serials holdings. Upload a MARC file, find the patterns in its 866 statements, confirm what each part of a pattern means, and convert to structured 853 caption/pattern and 863 enumeration/chronology fields. Statements no pattern matches are converted by the standard parser.",
   "licensing": "No license is granted at this time; the repository is published for reference only while institutional intellectual property rights are reviewed. See NOTICE.md.",
@@ -9,6 +9,29 @@
   "contact": "Matthew Codey, codey@usc.edu",
   "_comment": "Written for cataloging staff, not developers. Say what changed about the output or the screen, not how the code changed. Newest version first.",
   "changelog": [
+    {
+      "version": "0.36.0",
+      "date": "2026-10-14",
+      "summary": "A pattern's expression can be copied for the tool you will use it in: PCRE, JavaScript, Java, Alma normalization rules or Oracle SQL for Alma Analytics, as well as Python.",
+      "changes": [
+        {
+          "tool": "MARC Holdings Workbench",
+          "text": "Above the patterns, \"Write expressions for\" chooses the tool you will paste an expression into: Python, PCRE (PHP, Perl, R, regex101), JavaScript, Java, Alma normalization rules, or Oracle SQL for Alma Analytics. Each card's expression line, its Copy button and \"Copy all expressions\" then give the expression in that tool's form, and a note under the menu says what the copy will and will not do there. The choice is remembered on this computer. The editable box inside a card still holds the expression as the workbench runs it."
+        },
+        {
+          "tool": "MARC Holdings Workbench",
+          "text": "A copied expression now ignores capitals and matches a whole statement, as the workbench does when it uses one. Before, an expression pasted into another tool could match \"v.\" and not \"V.\", or match part of a statement. In Python form it now begins (?i)^ and ends $."
+        },
+        {
+          "tool": "MARC Holdings Workbench",
+          "text": "Oracle SQL can only find the statements that fit a pattern, not pull values out of them, and it takes at most 512 bytes. A pattern too long for it shows the reason on its card where the expression would be, with Copy turned off, and \"Copy all expressions\" gives the reason on that pattern's line. Of the 107 patterns in the project's three test collections, 62 fit."
+        },
+        {
+          "tool": "MARC Holdings Workbench",
+          "text": "The Alma normalization rule form has not yet been tried in Alma. Try it on one record before running a rule across a set."
+        }
+      ]
+    },
     {
       "version": "0.35.0",
       "date": "2026-10-12",
