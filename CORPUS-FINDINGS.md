@@ -2837,6 +2837,84 @@ real export gets no note on any of its 1,057 866s. The angle-bracket dates of
 D41 (`<1884:6:28>`) are not treated as the Newspaper Program's: nothing here
 says whose they are.
 
+## Expressions for other tools · **0.36.0**
+
+*14 October 2026.* Requested by the cataloguer: the expression on a pattern
+card is Python's, and the tools it would be pasted into are not. Alma alone
+uses two others: its normalization rules (Drools, so Java underneath) and
+Analytics (Oracle SQL).
+
+**What the expressions use.** All 107 expressions the detector writes for the
+three corpora use the same small set: `(?P<name>…)`, `(?:…)`, `\d`, `\s`,
+counted repeats and bounded lazy wildcards (`.{1,8}?`). None uses `\b`, a
+lookaround or a back-reference. The converter (`marc_serials/flavours.py`)
+still reads the whole of Python's syntax, so that a hand edit is either written
+correctly or refused with a reason; it never patches strings.
+
+**A gap in Copy as it was.** The workbench runs an expression with
+`re.IGNORECASE` and `fullmatch`, and neither is in the expression's text. A
+copy pasted anywhere else matched case-sensitively and could match part of a
+statement. Every flavour, Python included, now carries both: `(?i)^…$`,
+`/^…$/i`, `(?iu)^…$` for Java, and for Oracle `^…$` plus the `'i'` argument
+the alert asks for. A top-level alternation is grouped before anchoring.
+
+**Checked in the engines themselves.** `tests/test_flavours.py` runs every
+corpus expression, plus 20 hand-written ones covering what the detector never
+writes, in Node 22, Perl 5.38 (for PCRE) and Java 21, against every corpus
+statement in its own, upper- and lower-case forms: 623 distinct statements per
+expression. Each engine must match exactly the statements Python's `fullmatch`
+does. Java found the one real difference: `(?i)` in Java ignores case in A–Z
+only, so `é` did not match `É`; Java and the Alma form use `(?iu)`. Engines not
+installed skip visibly. One difference is left alone and documented: in
+JavaScript and Java `.` does not match a carriage return or a Unicode line
+separator, which no 866 statement holds. Oracle cannot be run here; its form is written in a
+subset Python reads the same way, and is checked in Python.
+
+**Oracle.** Oracle's regex is POSIX extended plus Perl's `\d`, `\s`, `\w` and
+lazy repeats: no `(?:`, no named groups, at most 512 bytes of pattern. The
+cataloguer chose "find matching statements" over "pull values out", which
+allows shortening that keeps what matches: groups that are only brackets go,
+`\s*\s*` becomes `\s*`, lazy repeats become greedy (under `^…$`, a match
+exists for one exactly when it does for the other). Raw, 56 of the 107 exceeded
+512; shortened, 45 do (524 to 2,052 bytes, median about 900), and 62 fit. On
+`messy_holdings.mrc`, 10 of 12 fit. The rest are refused with their size,
+never cut.
+
+**.NET and MarcEdit.** Added the same day, at the cataloguer's request. .NET
+takes the expression almost as PCRE does, `(?i)^…$`, except that it has no
+possessive repeats. MarcEdit uses .NET, but its MarcEditor shows a record as
+lines of text (`=866  41$80$av.1 (1990)-`), so `^…$` would find nothing there.
+The MarcEdit form begins with a lookbehind that requires an 866 line and the
+point just after its `$a` (.NET allows a lookbehind of any length), and ends at
+the next `$` or the end of the line, `\r\n` included. For it to match the same
+statements, nothing in the middle may reach past the subfield: `.` becomes
+`[^$\r\n]`, `\s` becomes `[\s-[\r\n]]` by .NET's class subtraction, and so on.
+Without that, `v\.\d+\s*-\s*.{1,8}?` found "v.1-" by running on through the line
+break into the next field. A `$` in data is MarcEdit's `{dollar}`; one corpus
+statement already carries MarcEdit's `{lcub}…{rcub}`, which suggests the corpus
+passed through MarcEdit at some point. Anchors and lookarounds inside the
+expression are refused for MarcEdit, because they would see `$a` or the next
+subfield rather than the ends of the statement.
+
+Checked in PowerShell 7.4 (.NET 8), which GitHub's Ubuntu runners have: every
+corpus and hand-written expression, each statement placed six ways (after
+`$8`; before `$z`; inside a whole record with `\r\n`; with `\n`; in a 245; in
+an 866 `$z`). It is found in the first four exactly when the workbench matches
+the statement, and never in the last two. All 107 corpus expressions convert
+for both.
+
+**Not verified.** The development container could not reach Ex Libris's or
+Oracle's documentation. Three points rest on memory and on search-result
+summaries, and are said so on screen where they matter: the 512-byte limit
+(Oracle's SQL reference, and a forum report); that Alma rule strings need
+backslashes doubled (Drools string literals do, and Ex Libris's article on
+escaping a pipe shows doubled backslashes); and whether Alma's `matches`
+compares the 866's `$a` or the whole field. The Alma form's alert asks for a
+one-record test, and says to add `.*` at both ends if Alma compares the whole
+field. To settle: one rule with `matches` on an 866 `$a`, run on a test record.
+Likewise MarcEdit: that its Find and Replace hands the expression to .NET
+unaltered is from memory, and the alert asks for a one-record test.
+
 ## Left out to fit MARC · **0.34.0**
 
 *8 October 2026.* Raised in the same demo preparation. On the pasted statement

@@ -15,6 +15,16 @@ more than one release; numbering resumed with 0.6.1. Reasoning behind the
 parser and converter decisions, including the defects a real corpus exposed and
 what was done about each, is in [CORPUS-FINDINGS.md](CORPUS-FINDINGS.md).
 
+## 0.36.0 — 2026-10-14
+
+A pattern's expression can be copied for the tool you will use it in: PCRE, JavaScript, Java, .NET, MarcEdit, Alma normalization rules or Oracle SQL for Alma Analytics, as well as Python.
+
+- **MARC Holdings Workbench** — Above the patterns, "Write expressions for" chooses the tool you will paste an expression into: Python, PCRE (PHP, Perl, R, regex101), JavaScript, Java, .NET (C#, PowerShell), MarcEdit, Alma normalization rules, or Oracle SQL for Alma Analytics. Each card's expression line, its Copy button and "Copy all expressions" then give the expression in that tool's form, and a note under the menu says what the copy will and will not do there. The choice is remembered on this computer. The editable box inside a card still holds the expression as the workbench runs it.
+- **MARC Holdings Workbench** — A copied expression now ignores capitals and matches a whole statement, as the workbench does when it uses one. Before, an expression pasted into another tool could match "v." and not "V.", or match part of a statement. In Python form it now begins (?i)^ and ends $.
+- **MARC Holdings Workbench** — Oracle SQL can only find the statements that fit a pattern, not pull values out of them, and it takes at most 512 bytes. A pattern too long for it shows the reason on its card where the expression would be, with Copy turned off, and "Copy all expressions" gives the reason on that pattern's line. Of the 107 patterns in the project's three test collections, 62 fit.
+- **MARC Holdings Workbench** — The MarcEdit form is for Find and Replace in the MarcEditor, where an 866 is a line such as =866 41$80$av.1 (1990)-. It finds the statement in an 866's $a, from just after $a to the next subfield or the end of the line, and never in another field or subfield. A $ in a statement is matched as MarcEdit writes it, {dollar}.
+- **MARC Holdings Workbench** — The MarcEdit and Alma normalization rule forms have not yet been tried in MarcEdit or Alma. Try each on one record before running it across a file or a set.
+
 ## 0.35.0 — 2026-10-12
 
 Issues per volume (853 $u) can be set for one record, in "This record's 853".

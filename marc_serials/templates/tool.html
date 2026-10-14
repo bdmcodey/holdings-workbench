@@ -433,6 +433,13 @@
       overflow: hidden;
     }
     .pc-expr.open { display: block; color: var(--text); }
+    /* The chosen tool has no way to write this one: the reason, in its place. */
+    .pc-expr.refused { font-family: inherit; color: var(--warn); }
+    .flavour-row {
+      display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-2);
+      margin-top: var(--sp-2);
+    }
+    .flavour-row select { width: auto; max-width: 100%; }
     .pc-records {
       display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-2);
       padding: 0 var(--sp-3) var(--sp-2);
@@ -1122,6 +1129,8 @@ const CAPTION_CHOICES    = {{ caption_choices | tojson }};
 const IGNORE_KIND        = {{ ignore_kind | tojson }};
 const IGNORE_LABEL       = {{ ignore_label | tojson }};
 const UNRESOLVED_KIND    = {{ unresolved_kind | tojson }};
+const REGEX_FLAVOURS     = {{ regex_flavours | tojson }};
+const DEFAULT_REGEX_FLAVOUR = {{ default_regex_flavour | tojson }};
 const ENUM_KIND          = 'enum';
 // 853 carries enumeration captions in $a-$f, so six levels is the deepest a
 // record can state. Anything past that has nowhere to go.
@@ -2421,7 +2430,16 @@ document.addEventListener('click', e => {
   const copy = e.target.closest('.pc-copy');
   if (copy) {
     const card = copy.closest('.pattern-card');
-    copyText(currentRegex(card._group, card), null).then(ok => {
+    flavouredText(currentRegex(card._group, card)).then(result => {
+      // The card already shows why in place of the expression.
+      if (!result.text) {
+        copy.textContent = 'Nothing to copy';
+        setTimeout(() => { copy.textContent = 'Copy'; }, 2000);
+        return null;
+      }
+      return copyText(result.text, null);
+    }).then(ok => {
+      if (ok === null) return;
       copy.textContent = ok ? 'Copied' : 'Could not copy';
       setTimeout(() => { copy.textContent = 'Copy'; }, 2000);
       if (!ok) {
@@ -2450,15 +2468,7 @@ document.addEventListener('click', e => {
     return;
   }
   if (e.target.closest('#btn-copy-all-regex')) {
-    // One line per pattern, tab-separated so it pastes into a spreadsheet as
-    // three columns. Patterns declined as too complex have no expression.
-    const cards = new Map([...document.querySelectorAll('.pattern-card')]
-      .filter(c => c._group).map(c => [patternIdFor(c._group), c]));
-    const lines = detected
-      .filter(g => !g.too_complex && (g.regex || '').length)
-      .map(g => [g.human_label, g.count,
-                 currentRegex(g, cards.get(patternIdFor(g)))].join('\t'));
-    copyText(lines.join('\n'), document.getElementById('copy-all-status'));
+    copyAllExpressions();
   }
 });
 
@@ -2471,12 +2481,151 @@ document.addEventListener('keydown', e => {
 });
 
 // The line above the card follows the box below it, so what Copy takes is
-// what the card shows.
+// what the card shows. Briefly behind while typing: it is rewritten for the
+// chosen tool on the server.
 document.addEventListener('input', e => {
   if (!e.target.classList.contains('regex-box')) return;
-  const expr = e.target.closest('.pattern-card').querySelector('.pc-expr');
-  if (expr) expr.textContent = e.target.value;
+  scheduleFlavoured(e.target.closest('.pattern-card'), 250);
 });
+
+document.addEventListener('change', e => {
+  if (e.target.id !== 'regex-flavour') return;
+  regexFlavour = e.target.value;
+  try { localStorage.setItem(FLAVOUR_KEY, regexFlavour); } catch (_) {}
+  paintFlavourAlert();
+  document.querySelectorAll('.pattern-card').forEach(c => {
+    if (c._group && !c._group.too_complex) scheduleFlavoured(c);
+  });
+});
+
+// ── The expression, written for another tool ─────────────────────────────────
+//
+// The workbench runs an expression in Python, ignoring capitals and against
+// the whole statement. The menu above the patterns rewrites it for the tool
+// the cataloguer is pasting into, with both of those settings in that tool's
+// form. The rewriting is done by the server (marc_serials/flavours.py), where
+// it is tested against the tools' own engines; this keeps what it sent back.
+
+const FLAVOUR_KEY = 'mst-regex-flavour';
+let regexFlavour = DEFAULT_REGEX_FLAVOUR;
+try {
+  const saved = localStorage.getItem(FLAVOUR_KEY);
+  if (REGEX_FLAVOURS.some(f => f.key === saved)) regexFlavour = saved;
+} catch (_) {}
+
+const flavourCache = new Map();          // flavour + "\n" + regex -> {text, error}
+
+function flavourLabel(key = regexFlavour) {
+  return (REGEX_FLAVOURS.find(f => f.key === key) || {}).label || key;
+}
+
+/** Each expression in the chosen flavour: {text} or {text: null, error}. */
+async function flavouredTexts(regexes, flavour = regexFlavour) {
+  const keyOf = r => flavour + '\n' + r;
+  const missing = [...new Set(regexes)].filter(r => r && !flavourCache.has(keyOf(r)));
+  if (missing.length) {
+    try {
+      const data = await postJson('api/regex-flavour', { flavour, regexes: missing });
+      missing.forEach((r, i) => flavourCache.set(keyOf(r), data.results[i]));
+    } catch (err) {
+      // Not kept: the next attempt should ask again.
+      return regexes.map(r => flavourCache.get(keyOf(r)) || {
+        text: null, error: `Could not be written for ${flavourLabel(flavour)}: ${err.message}`,
+      });
+    }
+  }
+  return regexes.map(r => (r ? flavourCache.get(keyOf(r))
+                             : { text: null, error: 'There is no expression.' }));
+}
+
+async function flavouredText(regex) {
+  return (await flavouredTexts([regex]))[0];
+}
+
+/** Show a card's expression as the chosen tool writes it, or why it cannot. */
+function paintFlavoured(card, result) {
+  const expr = card.querySelector('.pc-expr');
+  const copy = card.querySelector('.pc-copy');
+  if (!expr) return;
+  const refused = !result.text;
+  expr.textContent = refused ? result.error : result.text;
+  expr.classList.toggle('refused', refused);
+  expr.title = refused ? `${flavourLabel()} cannot take this expression`
+                       : 'Click to show the whole expression';
+  if (copy) {
+    copy.disabled = refused;
+    copy.title = refused ? 'Nothing to copy for this tool; the line says why'
+                         : 'Copy this expression, including any edits made below';
+  }
+}
+
+// Cards are rewritten together, one request for all of them.
+const flavourPending = new Set();
+let flavourTimer = null;
+
+function scheduleFlavoured(card, delay = 0) {
+  flavourPending.add(card);
+  clearTimeout(flavourTimer);
+  flavourTimer = setTimeout(flushFlavoured, delay);
+}
+
+async function flushFlavoured() {
+  const cards = [...flavourPending];
+  flavourPending.clear();
+  const flavour = regexFlavour;
+  const wanted = cards.map(c => currentRegex(c._group, c));
+  const results = await flavouredTexts(wanted, flavour);
+  cards.forEach((card, i) => {
+    // Edited again or another tool chosen since: a newer request is coming.
+    if (flavour !== regexFlavour || currentRegex(card._group, card) !== wanted[i]) return;
+    paintFlavoured(card, results[i]);
+  });
+}
+
+function flavourChooserHtml() {
+  return `
+    <div class="flavour-row">
+      <label for="regex-flavour" class="small">Write expressions for</label>
+      <select id="regex-flavour">${REGEX_FLAVOURS.map(f =>
+        `<option value="${escHtml(f.key)}" ${f.key === regexFlavour ? 'selected' : ''}>${
+          escHtml(f.label)}</option>`).join('')}</select>
+    </div>
+    <div id="flavour-alert" class="small mt-1"></div>`;
+}
+
+function paintFlavourAlert() {
+  const el = document.getElementById('flavour-alert');
+  const f = REGEX_FLAVOURS.find(x => x.key === regexFlavour);
+  if (!el || !f) return;
+  el.className = `alert ${f.severity === 'warn' ? 'alert-warn' : 'alert-info'} small mt-1`;
+  el.textContent = f.alert;
+}
+
+/**
+ * Every expression, one line per pattern, tab-separated so it pastes into a
+ * spreadsheet as three columns: heading, statements, expression. A pattern
+ * the chosen tool cannot take keeps its line, with the reason in place of the
+ * expression. Patterns declined as too complex have no expression at all.
+ */
+async function copyAllExpressions() {
+  const status = document.getElementById('copy-all-status');
+  const cards = new Map([...document.querySelectorAll('.pattern-card')]
+    .filter(c => c._group).map(c => [patternIdFor(c._group), c]));
+  const groups = detected.filter(g => !g.too_complex && (g.regex || '').length);
+  const results = await flavouredTexts(
+    groups.map(g => currentRegex(g, cards.get(patternIdFor(g)))));
+  const refused = results.filter(r => !r.text).length;
+  const lines = groups.map((g, i) => [g.human_label, g.count,
+    results[i].text || `(not written: ${results[i].error})`].join('\t'));
+  const ok = await copyText(lines.join('\n'), null);
+  if (!status) return;
+  status.textContent = !ok
+    ? 'Could not copy -- select the text and copy it by hand.'
+    : `Copied ${groups.length - refused} for ${flavourLabel()}.` + (refused
+      ? ` ${refused} could not be written for it; ${refused === 1 ? 'its line says' : 'their lines say'} why.`
+      : '');
+  setTimeout(() => { status.textContent = ''; }, refused ? 8000 : 2500);
+}
 
 /**
  * Open the pattern that read this statement, wherever it is on the screen.
@@ -2915,8 +3064,10 @@ function renderPatterns(data) {
             parts.readable.length
               ? ': the confirmed patterns and the standard parser between them read every statement'
               : ' — all patterns are confirmed and will be used when you convert'}.`
-    }${leftOutSentence(data.groups)}</p>`;
+    }${leftOutSentence(data.groups)}</p>
+    ${flavourChooserHtml()}`;
   area.appendChild(summary);
+  paintFlavourAlert();
 
   // A page of the cards still wanting a decision.
   //
@@ -3184,7 +3335,7 @@ function buildPatternCard(group, idx) {
       <details>
         <summary class="small">Expression and example statements</summary>
         <div class="mt-2">
-          <label for="rx-${idx}" class="small">Expression (editable)</label>
+          <label for="rx-${idx}" class="small">Expression (editable), as the workbench runs it</label>
           <textarea class="regex-box" id="rx-${idx}">${escHtml(group.regex)}</textarea>
           <div class="btn-row">
             <button type="button" class="btn btn-secondary btn-sm pc-test">Test expression</button>
@@ -3215,6 +3366,7 @@ function buildPatternCard(group, idx) {
   showExample(card);
   wireCard(card);
   paintPatternRecords(card);
+  scheduleFlavoured(card);
   return card;
 }
 
