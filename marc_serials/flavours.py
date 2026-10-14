@@ -91,6 +91,23 @@ FLAVOURS = {f.key: f for f in (
         "backslash.",
         "info"),
     Flavour(
+        "dotnet", ".NET (C#, PowerShell)",
+        ".NET's regular expressions, as C# and PowerShell use them. (?i) "
+        "ignores capitals, and ^ … $ matches a whole statement. MarcEdit uses "
+        ".NET too, but in its editor a statement sits inside a line, so for "
+        "MarcEdit choose MarcEdit.",
+        "info"),
+    Flavour(
+        "marcedit", "MarcEdit",
+        "For Find and Replace in MarcEdit's MarcEditor, with regular "
+        "expressions turned on. There an 866 is a line such as "
+        "=866  41$80$av.1 (1990)-, so the expression finds the statement in an "
+        "866's $a and nothing around it: from just after $a to the next "
+        "subfield or the end of the line. For another field, change 866 at the "
+        "start. A $ in a statement is matched as MarcEdit writes it, {dollar}. "
+        "Not yet checked in MarcEdit — try it on one record before Replace All.",
+        "warn"),
+    Flavour(
         "alma", "Alma normalization rules (Drools)",
         "For an Alma normalization rule: the text to put between the quotation "
         "marks after matches. Backslashes are already doubled, as a quoted "
@@ -513,6 +530,16 @@ def _unbracket(node: Node) -> Node:
 # ── Writing ───────────────────────────────────────────────────────────────────
 
 _META = set("\\^$.|?*+()[]{}")
+
+# In MarcEdit, what may match a line break or "$" is kept inside the subfield.
+_MARC_SHORTHAND = {"s": r"[\s-[\r\n]]", "S": r"[\S-[$]]",
+                   "D": r"[\D-[$\r\n]]", "W": r"[\W-[$\r\n]]"}
+
+# The statement as MarcEdit's editor shows it: in the $a of an 866 line,
+# "=866  41$80$a…", after any subfields before $a; up to the next subfield or
+# the end of the line, which in a Windows file is "\r\n".
+MARCEDIT_BEFORE = r"(?<=^=866  [^$\r\n]*(?:\$[^a\r\n][^$\r\n]*)*\$a)"
+MARCEDIT_AFTER = r"(?=\$|\r?$)"
 _PCRE_NAME = re.compile(r"[A-Za-z_][A-Za-z0-9_]{0,31}\Z")
 
 
@@ -566,6 +593,15 @@ class _Writer:
     def oracle(self) -> bool:
         return self.f == "oracle"
 
+    @property
+    def net(self) -> bool:
+        return self.f in ("dotnet", "marcedit")
+
+    @property
+    def marc(self) -> bool:
+        """MarcEdit: the statement is part of a line, not the whole text."""
+        return self.f == "marcedit"
+
     # Anything that is not a printable character goes in as a code, except in
     # Oracle, which has no escape for one and takes the character itself.
     def _char(self, ch: str, specials: set) -> str:
@@ -579,6 +615,11 @@ class _Writer:
         return ch
 
     def _lit(self, ch: str) -> str:
+        if self.marc:
+            if ch == "$":
+                return r"\{dollar\}"
+            if ch in "\r\n":
+                raise Unsupported("a line break, which a subfield cannot hold")
         specials = _META | ({"/"} if self.f == "javascript" else set())
         return self._char(ch, specials)
 
@@ -599,8 +640,10 @@ class _Writer:
         if isinstance(node, Lit):
             return self._lit(node.ch)
         if isinstance(node, Dot):
-            return "."
+            return r"[^$\r\n]" if self.marc else "."
         if isinstance(node, Shorthand):
+            if self.marc and node.letter in _MARC_SHORTHAND:
+                return _MARC_SHORTHAND[node.letter]
             return "\\" + node.letter
         if isinstance(node, Anchor):
             return self._anchor(node.kind)
@@ -615,6 +658,10 @@ class _Writer:
         raise Unsupported(f"{type(node).__name__}")  # pragma: no cover
 
     def _anchor(self, kind: str) -> str:
+        if self.marc:
+            # The statement begins after "$a", not at a line or word start.
+            raise Unsupported("^, $, \\b or a similar anchor inside the "
+                              "expression")
         if kind in "^$":
             return kind
         if kind in "bB":
@@ -622,11 +669,12 @@ class _Writer:
                 raise Unsupported(f"a word boundary, \\{kind}")
             return "\\" + kind
         if kind == "A":
-            return "\\A" if self.f in ("python", "pcre", "java", "alma") else "^"
-        # Python's \Z is the very end, which is \z in PCRE and Java.
+            return "\\A" if self.f in ("python", "pcre", "java", "alma",
+                                       "dotnet") else "^"
+        # Python's \Z is the very end, which is \z in PCRE, Java and .NET.
         if self.f == "python":
             return "\\Z"
-        return "\\z" if self.f in ("pcre", "java", "alma") else "$"
+        return "\\z" if self.f in ("pcre", "java", "alma", "dotnet") else "$"
 
     def _class(self, node: CharClass) -> str:
         specials = set("\\]^-[")
@@ -634,6 +682,21 @@ class _Writer:
             specials |= {"&"}           # && is intersection in a Java class
         if self.f == "javascript":
             specials |= {"/"}
+        # MarcEdit: a class must not reach "$" or a line break, or a match could
+        # run on into the next subfield or line. .NET can say so directly:
+        # [^…$\r\n], or [items-[$\r\n]] by class subtraction.
+        subtract = False
+        if self.marc:
+            if any(isinstance(i, Lit) and i.ch == "$" for i in node.items):
+                raise Unsupported("a $ inside [ ]")
+            subtract = not node.negated and any(
+                (isinstance(i, Shorthand) and i.letter in "sSDW")
+                or (isinstance(i, Range) and any(
+                    i.lo <= c <= i.hi for c in "\n\r$"))
+                or (isinstance(i, Lit) and i.ch in "\r\n")
+                for i in node.items)
+            if subtract:
+                specials = specials | {"-"}
         parts = []
         last = len(node.items) - 1
         for i, item in enumerate(node.items):
@@ -641,7 +704,7 @@ class _Writer:
                 # "-" is plain first or last, "^" anywhere but first: [-/] reads
                 # better than [\-/]. "]" and "[" are always escaped, because
                 # JavaScript reads [] as an empty class and Java [[ as a union.
-                plain = ((item.ch == "-" and i in (0, last))
+                plain = ((item.ch == "-" and i in (0, last) and not subtract)
                          or (item.ch == "^" and (i > 0 or node.negated)))
                 parts.append(item.ch if plain else self._char(item.ch, specials))
             elif isinstance(item, Range):
@@ -649,6 +712,10 @@ class _Writer:
                              + self._char(item.hi, specials))
             else:
                 parts.append("\\" + item.letter)
+        if self.marc and node.negated:
+            parts.append(r"$\r\n")
+        if subtract:
+            parts.append(r"-[$\r\n]")
         return "[" + ("^" if node.negated else "") + "".join(parts) + "]"
 
     def _oracle_class(self, node: CharClass) -> str:
@@ -719,11 +786,15 @@ class _Writer:
             return ("(" if node.kind == "capture" else "(?:") \
                 + self.write(node.body) + ")"
         if node.kind == "atomic":
-            if self.f not in ("python", "pcre", "java", "alma"):
+            if self.f not in ("python", "pcre", "java", "alma", "dotnet",
+                              "marcedit"):
                 raise Unsupported("an atomic group, (?>…)")
             return "(?>" + self.write(node.body) + ")"
         if self.oracle:
             raise Unsupported("a lookahead or lookbehind")
+        if self.marc:
+            # It would look past the statement, into "$a" or the next subfield.
+            raise Unsupported("a lookahead or lookbehind inside the expression")
         opener = {"ahead": "(?=", "not_ahead": "(?!",
                   "behind": "(?<=", "not_behind": "(?<!"}[node.kind]
         return opener + self.write(node.body) + ")"
@@ -810,8 +881,11 @@ def convert(regex: str, flavour: str) -> Converted:
         return Converted(None, "The expression could not be read for "
                                "conversion.")
 
-    if flavour in ("python", "pcre"):
+    if flavour in ("python", "pcre", "dotnet"):
         return Converted(f"(?i)^{body}$")
+    if flavour == "marcedit":
+        # m: ^ and $ are the ends of a line of the editor's text.
+        return Converted(f"(?im){MARCEDIT_BEFORE}{body}{MARCEDIT_AFTER}")
     # Java ignores case only between A and Z unless told u as well, and the
     # workbench ignores it in accented letters too: "été" matches "ÉTÉ".
     if flavour == "java":

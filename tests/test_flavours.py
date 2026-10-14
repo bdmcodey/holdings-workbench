@@ -7,8 +7,8 @@ for other tools, and the promise worth testing is that it means the same thing
 there: the same statements match, and none extra.
 
 Where the tool's own engine is on this machine -- Node for JavaScript, Perl for
-PCRE, Java for Java and Alma's Drools rules -- the expression is run in that
-engine, because a translation checked only against our idea of the target is
+PCRE, Java for Java and Alma's Drools rules, PowerShell for .NET and MarcEdit --
+the expression is run in that engine, because a translation checked only against our idea of the target is
 checked against the same mistakes that wrote it. Where the engine is missing
 the test skips, visibly. Oracle cannot be run here; its output is written in a
 subset that Python reads the same way, and is checked in Python.
@@ -187,6 +187,72 @@ def test_alma_rule_text_in_java():
     _check(_cases("alma"), run)
 
 
+@functools.lru_cache(maxsize=None)
+def _pwsh():
+    return shutil.which("pwsh")
+
+
+def _run_pwsh(texts, statements):
+    return json.loads(_run([_pwsh(), "-NoProfile", "-NonInteractive", "-File",
+                            "match.ps1"],
+                           json.dumps({"regexes": texts, "statements": statements})))
+
+
+@pytest.mark.skipif(not _pwsh(), reason="PowerShell (for .NET) is not installed")
+def test_dotnet_in_powershell():
+    _check(_cases("dotnet"), _run_pwsh)
+
+
+def _marcedit_lines(statement):
+    """
+    The statement as MarcEdit's editor shows it, in places it should and should
+    not be found, with whether the workbench's expression would be expected to.
+
+    MarcEdit writes a $ in data as {dollar}, a blank indicator as \\, and
+    Windows ends a line with \r\n.
+    """
+    m = statement.replace("$", "{dollar}")
+    return [
+        ("=866  41$80$a" + m, True),
+        ("=866  \\\\$a" + m + "$zSee note", True),
+        ("=LDR  00000ny  a22000003n 4500\r\n=866  40$a" + m
+         + "\r\n=852  01$bMAIN", True),
+        ("=866  40$a" + m + "\n=852  01$bMAIN\n", True),
+        ("=245  10$a" + m, False),
+        ("=866  40$z" + m, False),
+    ]
+
+
+@pytest.mark.skipif(not _pwsh(), reason="PowerShell (for .NET) is not installed")
+def test_marcedit_in_powershell():
+    """
+    Found in an 866's $a, exactly when the workbench matches the statement;
+    never in another field or subfield, nor running on into the next line.
+    """
+    regexes, statements = corpus()
+    statements = statements + tuple(
+        t for _, hand in HAND for s in hand for t in (s, s.upper(), s.lower()))
+    statements = tuple(dict.fromkeys(statements))
+    lines, wanted_where = [], []
+    for s in statements:
+        for line, here in _marcedit_lines(s):
+            lines.append(line)
+            wanted_where.append((s, here))
+    texts, wants = [], []
+    for regex in list(regexes) + [regex for regex, _ in HAND]:
+        result = convert(regex, "marcedit")
+        if result.text:
+            compiled = re.compile(regex, re.IGNORECASE)
+            texts.append(result.text)
+            wants.append("".join(
+                "1" if here and compiled.fullmatch(s) else "0"
+                for s, here in wanted_where))
+    got = _run_pwsh(texts, lines)
+    for text, want, bits in zip(texts, wants, got):
+        assert bits == want, (text, [l for l, w, g in zip(lines, want, bits)
+                                     if w != g][:5])
+
+
 def _oracle_as_python(text):
     """Oracle's POSIX classes, in Python's spelling; the rest is the same."""
     for posix, python in (("[:digit:]", r"\d"), ("[:space:]", r"\s"),
@@ -285,6 +351,23 @@ def test_shapes_of_each_flavour():
     assert convert(regex, "alma").text == \
         r"(?iu)v\\.(?<startNum>\\d+)/(?<endNum2>\\d+)"
     assert convert(regex, "oracle").text == r"^v\.\d+/\d+$"
+    assert convert(regex, "dotnet").text == \
+        r"(?i)^v\.(?<start_num>\d+)/(?<end_num_2>\d+)$"
+    assert convert(regex, "marcedit").text == (
+        r"(?im)(?<=^=866  [^$\r\n]*(?:\$[^a\r\n][^$\r\n]*)*\$a)"
+        r"v\.(?<start_num>\d+)/(?<end_num_2>\d+)(?=\$|\r?$)")
+
+
+def test_marcedit_keeps_inside_the_subfield():
+    # Anything that could match "$" or a line break is told not to.
+    assert convert(r"a.\s\S\D\W", "marcedit").text.endswith(
+        r"a[^$\r\n][\s-[\r\n]][\S-[$]][\D-[$\r\n]][\W-[$\r\n]](?=\$|\r?$)")
+    assert r"[^/\d$\r\n]" in convert(r"[^/\d]", "marcedit").text
+    assert r"[\s,\--[$\r\n]]" in convert(r"[\s,-]", "marcedit").text
+    assert r"\{dollar\}" in convert(r"\$5", "marcedit").text
+    for regex, what in ((r"a|^v", "anchor"), (r"\bv", "anchor"),
+                        (r"v(?=1)", "lookahead"), (r"[$]", "$ inside")):
+        assert what in convert(regex, "marcedit").error, regex
 
 
 def test_java_names_stay_distinct_and_backreferences_follow():
@@ -337,7 +420,8 @@ def test_unusable_input():
 
 def test_choices_are_the_flavours_in_order():
     keys = [c["key"] for c in choices()]
-    assert keys == ["python", "pcre", "javascript", "java", "alma", "oracle"]
+    assert keys == ["python", "pcre", "javascript", "java", "dotnet",
+                    "marcedit", "alma", "oracle"]
     assert all(c["alert"] and c["severity"] in ("info", "warn")
                for c in choices())
 

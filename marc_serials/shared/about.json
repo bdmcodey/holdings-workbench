@@ -12,11 +12,11 @@
     {
       "version": "0.36.0",
       "date": "2026-10-14",
-      "summary": "A pattern's expression can be copied for the tool you will use it in: PCRE, JavaScript, Java, Alma normalization rules or Oracle SQL for Alma Analytics, as well as Python.",
+      "summary": "A pattern's expression can be copied for the tool you will use it in: PCRE, JavaScript, Java, .NET, MarcEdit, Alma normalization rules or Oracle SQL for Alma Analytics, as well as Python.",
       "changes": [
         {
           "tool": "MARC Holdings Workbench",
-          "text": "Above the patterns, \"Write expressions for\" chooses the tool you will paste an expression into: Python, PCRE (PHP, Perl, R, regex101), JavaScript, Java, Alma normalization rules, or Oracle SQL for Alma Analytics. Each card's expression line, its Copy button and \"Copy all expressions\" then give the expression in that tool's form, and a note under the menu says what the copy will and will not do there. The choice is remembered on this computer. The editable box inside a card still holds the expression as the workbench runs it."
+          "text": "Above the patterns, \"Write expressions for\" chooses the tool you will paste an expression into: Python, PCRE (PHP, Perl, R, regex101), JavaScript, Java, .NET (C#, PowerShell), MarcEdit, Alma normalization rules, or Oracle SQL for Alma Analytics. Each card's expression line, its Copy button and \"Copy all expressions\" then give the expression in that tool's form, and a note under the menu says what the copy will and will not do there. The choice is remembered on this computer. The editable box inside a card still holds the expression as the workbench runs it."
         },
         {
           "tool": "MARC Holdings Workbench",
@@ -28,7 +28,11 @@
         },
         {
           "tool": "MARC Holdings Workbench",
-          "text": "The Alma normalization rule form has not yet been tried in Alma. Try it on one record before running a rule across a set."
+          "text": "The MarcEdit form is for Find and Replace in the MarcEditor, where an 866 is a line such as =866  41$80$av.1 (1990)-. It finds the statement in an 866's $a, from just after $a to the next subfield or the end of the line, and never in another field or subfield. A $ in a statement is matched as MarcEdit writes it, {dollar}."
+        },
+        {
+          "tool": "MARC Holdings Workbench",
+          "text": "The MarcEdit and Alma normalization rule forms have not yet been tried in MarcEdit or Alma. Try each on one record before running it across a file or a set."
         }
       ]
     },

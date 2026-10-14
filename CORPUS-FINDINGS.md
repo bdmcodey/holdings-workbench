@@ -2880,6 +2880,29 @@ exists for one exactly when it does for the other). Raw, 56 of the 107 exceeded
 `messy_holdings.mrc`, 10 of 12 fit. The rest are refused with their size,
 never cut.
 
+**.NET and MarcEdit.** Added the same day, at the cataloguer's request. .NET
+takes the expression almost as PCRE does, `(?i)^…$`, except that it has no
+possessive repeats. MarcEdit uses .NET, but its MarcEditor shows a record as
+lines of text (`=866  41$80$av.1 (1990)-`), so `^…$` would find nothing there.
+The MarcEdit form begins with a lookbehind that requires an 866 line and the
+point just after its `$a` (.NET allows a lookbehind of any length), and ends at
+the next `$` or the end of the line, `\r\n` included. For it to match the same
+statements, nothing in the middle may reach past the subfield: `.` becomes
+`[^$\r\n]`, `\s` becomes `[\s-[\r\n]]` by .NET's class subtraction, and so on.
+Without that, `v\.\d+\s*-\s*.{1,8}?` found "v.1-" by running on through the line
+break into the next field. A `$` in data is MarcEdit's `{dollar}`; one corpus
+statement already carries MarcEdit's `{lcub}…{rcub}`, which suggests the corpus
+passed through MarcEdit at some point. Anchors and lookarounds inside the
+expression are refused for MarcEdit, because they would see `$a` or the next
+subfield rather than the ends of the statement.
+
+Checked in PowerShell 7.4 (.NET 8), which GitHub's Ubuntu runners have: every
+corpus and hand-written expression, each statement placed six ways (after
+`$8`; before `$z`; inside a whole record with `\r\n`; with `\n`; in a 245; in
+an 866 `$z`). It is found in the first four exactly when the workbench matches
+the statement, and never in the last two. All 107 corpus expressions convert
+for both.
+
 **Not verified.** The development container could not reach Ex Libris's or
 Oracle's documentation. Three points rest on memory and on search-result
 summaries, and are said so on screen where they matter: the 512-byte limit
@@ -2889,6 +2912,8 @@ escaping a pipe shows doubled backslashes); and whether Alma's `matches`
 compares the 866's `$a` or the whole field. The Alma form's alert asks for a
 one-record test, and says to add `.*` at both ends if Alma compares the whole
 field. To settle: one rule with `matches` on an 866 `$a`, run on a test record.
+Likewise MarcEdit: that its Find and Replace hands the expression to .NET
+unaltered is from memory, and the alert asks for a one-record test.
 
 ## Left out to fit MARC · **0.34.0**
 
