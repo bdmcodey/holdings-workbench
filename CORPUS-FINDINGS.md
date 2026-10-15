@@ -2837,6 +2837,54 @@ real export gets no note on any of its 1,057 866s. The angle-bracket dates of
 D41 (`<1884:6:28>`) are not treated as the Newspaper Program's: nothing here
 says whose they are.
 
+## Every value as numbering · D50 · **0.37.1**
+
+*15 October 2026.* Found while measuring 0.31.x, fixed now at the
+cataloguer's request.
+
+**D50 -- a pattern read as more levels than an 853 has crashes the 853
+builder.** The 863-values-as-text statements of D33, given a pattern with
+every value answered "Enumeration", read as 9, 7 and 8 levels of numbering:
+`2.1 54-62 1-1 1998-2006 21-21 g`, `2.3 64-69 4 2008-2013 24 .`,
+`2.1 11-29 1-2 1996-2014 -21 .`. MARC 21 gives an 853 six enumeration
+subfields, `$a`-`$f`; the house convention five. `_build_853()` skipped the
+levels it had no subfield for and then looked up the last level by the full
+count, past the end of its list: IndexError, and "could not check" on the
+record. Reproduced on all three, under both conventions.
+
+Had it not crashed it would still have been wrong: the 863 builder skips a
+level with no subfield without naming its value, so the extra levels would
+have gone with only the 853's "level 7 was not recorded" to show for it.
+`convert_holdings()` now holds such a statement before building anything,
+with the counts ("read as 9 levels of numbering, and an 853 has room for 6,
+$a to $f, so 3 would have nowhere to go") and the remedy (say on the pattern
+which values are not numbering). The builder counts only the levels it placed,
+so no other caller can reach the crash. Only a confirmed pattern gets here:
+the parser reads three levels at most.
+
+Corpora, fixtures and the real export: no outcome changes, since the standard
+parser never reaches it (no drift; audit 0; round trip unchanged).
+
+### The real export, run again · 0.37.1
+
+The 372-record test export (1,057 statements) had not been run since 0.32.0.
+Measured on the parser path, as the round trip and the audit run it:
+
+- **Supplements and indexes (0.32.0): 0.** No 866 in the export says
+  `Suppl.`, `Supplement`, `Special issue` or `Index`.
+- **Months and seasons in one 866 (0.37.0): 12 held**, among them
+  `v. 32 no. 1-v. 43 no. 2 (Feb 1972-Fall 1983)` and `(Sep 1995 - Winter 1995)`.
+- **Months and seasons between 866s (0.37.0): 45 statements flagged on 15
+  records.** Read one by one on five of the records, every flag is a real
+  change: several serials go from months to seasons and back more than once
+  (an 11-statement record changes four times, a 17-statement one twice with
+  held statements between).
+- **Not converted: 23** -- those 12, and the 11 the parser cannot read, as
+  before.
+- **Audit: 0 unaccounted for. Round trip: 927 the same both times, 105 the
+  same 863s with the 853 losing a caption, 23 not converted, DRIFT 0**; 48 of
+  48 ILS-generated 866s written the same way. (At 0.31.x: 938 / 106 / 11 / 0.)
+
 ## Months and seasons · D49 · **0.37.0**
 
 *15 October 2026.* The item pinned on 12 October, now with the cataloguer's
@@ -3136,7 +3184,8 @@ beside the new reason.
 in the outside corpus (`2.1 54-62 1-1 1998-2006 21-21 g` and two like it)
 crash `_build_853()` with an IndexError when every value is answered
 "enumeration": eight enumeration levels against MARC's six. In the app the
-record is marked "could not check" rather than taking the file down.
+record is marked "could not check" rather than taking the file down. *Fixed in
+0.37.1 as D50: held, with the counts.*
 
 ## Requested, not yet started
 

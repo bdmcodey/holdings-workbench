@@ -530,6 +530,7 @@ DEFECTS = {
     "D47": "quarters written as words (1st quarter)",
     "D48": "single dates written as prose (held, named, 0.30.6)",
     "D49": "months at one end, seasons at the other (held, 0.37.0)",
+    "D50": "more levels of numbering than an 853 has (held, 0.37.1)",
 }
 
 

@@ -1,6 +1,6 @@
 {
   "name": "MARC Holdings Workbench",
-  "version": "0.37.0",
+  "version": "0.37.1",
   "released": "2026-10-15",
   "status": "Proof of concept — under active development. Check your output before loading it into the catalog.",
   "description": "One tool for MARC serials holdings. Upload a MARC file, find the patterns in its 866 statements, confirm what each part of a pattern means, and convert to structured 853 caption/pattern and 863 enumeration/chronology fields. Statements no pattern matches are converted by the standard parser.",
@@ -9,6 +9,17 @@
   "contact": "Matthew Codey, codey@usc.edu",
   "_comment": "Written for cataloging staff, not developers. Say what changed about the output or the screen, not how the code changed. Newest version first.",
   "changelog": [
+    {
+      "version": "0.37.1",
+      "date": "2026-10-15",
+      "summary": "A statement read by a pattern as more levels of numbering than an 853 has room for is held with its reason, instead of stopping the record with \"could not check\".",
+      "changes": [
+        {
+          "tool": "MARC Holdings Workbench",
+          "text": "Text that is really the values of an 863 written out, such as \"2.1 54-62 1-1 1998-2006 21-21 g\", could be given a pattern with every value answered Enumeration. That reads as eight or nine levels of numbering, and an 853 has room for six ($a to $f; five under the house convention). The record then stopped with \"could not check\". Such a statement is now held, nothing is written from it, and the reason says how many levels it read, how many have nowhere to go, and to say on the pattern which values are not numbering."
+        }
+      ]
+    },
     {
       "version": "0.37.0",
       "date": "2026-10-15",
