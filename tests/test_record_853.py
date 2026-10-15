@@ -198,3 +198,82 @@ def test_issues_per_volume_is_in_the_file_and_the_log(client):
 def test_what_is_not_a_count_of_issues_is_refused(client, bad):
     upload_marc(client, _file())
     assert _set(client, record_index=0, units_per_higher=bad).status_code == 400
+
+
+# ---------------------------------------------------------------------------
+# Numbering ($v), one record's as much as its frequency is
+# ---------------------------------------------------------------------------
+
+def test_numbering_continuity_replaces_the_files_on_this_record(client):
+    upload_marc(client, _file())
+    _set(client, record_index=0, captions={"0": "v."})
+    assert "$b no. $v r" in _preview(client, 0)["previews"][0]["field_853"]
+
+    response = _set(client, record_index=0, captions={"0": "v."},
+                    numbering_continuity="c")
+    assert response.get_json()["record_853"]["numbering_continuity"] == "c"
+    for preview in _preview(client, 0)["previews"]:
+        assert "$b no. $v c" in preview["field_853"]
+
+
+def test_not_specified_writes_no_numbering_whatever_the_file_says(client):
+    upload_marc(client, _file())
+    _set(client, record_index=0, captions={"0": "v."}, numbering_continuity="")
+    preview = client.post("/api/preview-record", json={
+        "record_index": 0, "numbering_continuity": "c"}).get_json()
+    assert preview["record_853"]["numbering_continuity"] == ""
+    assert "$v" not in preview["previews"][0]["field_853"]
+
+
+def test_going_back_to_the_files_numbering(client):
+    upload_marc(client, _file())
+    _set(client, record_index=0, captions={"0": "v."}, numbering_continuity="c")
+    _set(client, record_index=0, captions={"0": "v."}, numbering_continuity=None)
+    preview = client.post("/api/preview-record", json={
+        "record_index": 0, "numbering_continuity": "r"}).get_json()
+    assert "numbering_continuity" not in preview["record_853"]
+    assert "$v r" in preview["previews"][0]["field_853"]
+
+
+def test_numbering_is_still_never_on_the_first_level(client):
+    """MARC 21: $v is not used with $a. A record of volumes alone gets none."""
+    upload_marc(client, _file())
+    _set(client, record_index=1, numbering_continuity="c")
+    assert "$v" not in _preview(client, 1)["previews"][0]["field_853"]
+
+
+def test_numbering_is_in_the_file_and_the_log(client):
+    upload_marc(client, _file())
+    _set(client, record_index=0, captions={"0": "v."}, numbering_continuity="c")
+    assert client.post("/api/batch-convert", json={
+        "numbering_continuity": "r"}).status_code == 200
+    out = list(pymarc.MARCReader(io.BytesIO(
+        client.get("/api/download-converted").data)))
+    assert out[0].get_fields("853")[0].get("v") == "c"
+    log = list(csv.reader(io.StringIO(
+        client.get("/api/download-log").data.decode("utf-8-sig"))))
+    assert any(r[3] == "853 set by you" and "$v c (continuous)" in r[5]
+               for r in log)
+
+
+@pytest.mark.parametrize("bad", ["x", "restarts", "rc"])
+def test_what_is_not_a_numbering_continuity_is_refused(client, bad):
+    upload_marc(client, _file())
+    assert _set(client, record_index=0, numbering_continuity=bad).status_code == 400
+    assert _preview(client, 0)["record_853"] == {}
+
+
+def test_convert_this_record_uses_the_records_numbering(client):
+    """The single-record route reads the record's $v as the others do."""
+    upload_marc(client, _file())
+    _set(client, record_index=0, captions={"0": "v."}, numbering_continuity="c")
+    response = client.post("/api/convert-record", json={
+        "record_index": 0,
+        "conversions": [{"text": "34 no 3, 4 (Summer, Autumn 1990)",
+                         "numbering_continuity": "r"},
+                        {"text": "39 no 1 (Spring 1995)",
+                         "numbering_continuity": "r"}]})
+    assert response.status_code == 200, response.get_json()
+    out = list(pymarc.MARCReader(io.BytesIO(
+        client.get("/api/download-converted").data)))
+    assert [f.get("v") for f in out[0].get_fields("853")] == ["c"]

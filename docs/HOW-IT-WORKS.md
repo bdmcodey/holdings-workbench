@@ -1,6 +1,6 @@
 # How the Holdings Workbench Works
 
-*Written for librarians and cataloguers. Describes version 0.37.1.*
+*Written for librarians and cataloguers. Describes version 0.38.0.*
 
 The Holdings Workbench turns the free-text holdings in MARC 866 fields into structured 853 caption/pattern and 863 enumeration/chronology fields, and asks a cataloguer to confirm anything it cannot be sure of. This guide explains how, for librarians rather than programmers.
 
@@ -458,6 +458,7 @@ Some things about an 853 belong to one title, not to the file. Each record has a
 
 - **Frequency (`$w`).** "As in Conversion settings" until you choose. Any MARC 21 code can be chosen, and so can "(not specified)", which writes no `$w` on this record whatever the file setting says.
 - **Issues per volume (`$u`).** Empty means "as in Conversion settings". A number such as `4` or `12`, or `var` or `und`, sets it for this record; `none` writes no `$u` on this record whatever the file setting says. It is written beside the caption it describes, by the same rules as the file setting.
+- **Numbering (`$v`).** "As in Conversion settings" until you choose. "Restarts each volume" (`r`) or "Continuous" (`c`) sets it for this record, and "(not specified)" writes no `$v` on this record whatever the file setting says. Like the file setting, it never goes on the first level of numbering: a serial numbered by volume alone gets no `$v`.
 - **A caption for each level its statements leave blank.** Only levels written as a bare number, which the 853 would declare `(*)`, are offered. The caption goes into every 866 on the record that leaves that level blank, whatever its shape, and into no other record. A caption a statement prints is never replaced: to correct one, edit the 866.
 
 The caption is what joins two shapes of one serial. `34 no 3, 4 (Summer, Autumn 1990)` and `39 no 1 (Spring 1995)` are different shapes, so they are different patterns, and confirming `v.` on only one of them gave the record two 853s. Given `v.` on the record, both statements share one 853, and no other record is touched.
@@ -512,9 +513,9 @@ The log is built from the same summary as the conversion, so it describes exactl
 
 Four checks run before any change is released, and each answers a different question.
 
-| Check | Question it answers | Result as of 0.37.1 |
+| Check | Question it answers | Result as of 0.38.0 |
 | --- | --- | --- |
-| Automated tests | Does every behaviour described here still hold? | 1,041 passed, 8 skipped |
+| Automated tests | Does every behaviour described here still hold? | 1,050 passed, 8 skipped |
 | Corpus report | What do 117 real 866 statements convert to, and has any outcome changed? | 89 clean (76%), 22 converted with a warning, 6 with no fields, 0 with values lost |
 | Conversion audit | Did any number in a statement reach no field and no warning? | 0 unaccounted for: the corpus, the LC examples, the other library's catalogue, and all 1,057 statements of the 372-record test export |
 | Round trip | Convert, write the 866 as Alma would, convert again: do the same 863s come back? | Test export: 927 identical, 105 identical apart from an 853 caption, 23 not converted (12 of them months and seasons in one 866), **0 drift** |
