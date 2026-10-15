@@ -19,7 +19,7 @@ import io
 import re
 from typing import Optional
 
-from pymarc import MARCReader, MARCWriter, Subfield
+from pymarc import Field, MARCReader, MARCWriter, Subfield
 
 # The default lives with the setting it belongs to, so the two cannot drift.
 from .converter import DEFAULT_HOLDINGS_LEVEL, SubfieldData
@@ -203,6 +203,10 @@ def summarise_866(f) -> dict:
     subfield_z = f.get("z") or ""
     subfield_x = f.get("x") or ""
     return {
+        # Its place among the 866s as uploaded, and -- for a statement the
+        # cataloguer split -- which part it is: what Edit and Split send back.
+        "position": getattr(f, "original_position", None),
+        "split_part": getattr(f, "split_part", None),
         "ind1": f.indicator1,
         "ind2": f.indicator2,
         "a": subfield_a,
@@ -261,23 +265,67 @@ def notation_note(field) -> Optional[str]:
 EDITABLE_866_SUBFIELDS = ("a", "z", "x")
 
 
+class Marked866(Field):
+    """
+    An 866 that knows its place in the record as uploaded.
+
+    pymarc's Field takes no attributes of its own, so the 866s of a record a
+    cataloguer has edited are swapped for these, same tag, indicators and
+    subfields, and the marks ride on them: see apply_866_edits().
+    """
+    __slots__ = ("original_position", "split_of", "split_part")
+
+    @classmethod
+    def of(cls, field, position: int, split_of: Optional[int] = None,
+           split_part: Optional[int] = None) -> "Marked866":
+        new = cls(tag=field.tag, indicators=list(field.indicators),
+                  subfields=list(field.subfields))
+        new.original_position = position
+        new.split_of = split_of
+        new.split_part = split_part
+        return new
+
+
+# The most statements one 866 can be split into. A split says where a change
+# falls; a dozen parts would be retyping the holdings, which belongs in the ILS.
+MAX_SPLIT_PARTS = 12
+
+
 def apply_866_edits(record, edits: dict) -> None:
     """
     Put a cataloguer's corrections into a record's 866s, in place.
 
     `edits` is {field position: {subfield code: {"value": ..., "was": ...}}},
-    the position counted among the record's 866s. The corrected text replaces
-    the first occurrence of that subfield; a note the field did not have is
-    added; an emptied note is removed. The corrected field is what the
-    converted file carries, so the record goes back to the catalogue fixed.
+    the position counted among the record's 866s as uploaded. The corrected
+    text replaces the first occurrence of that subfield; a note the field did
+    not have is added; an emptied note is removed. The corrected field is what
+    the converted file carries, so the record goes back to the catalogue fixed.
+
+    A split, {"split": {"values": [...], "was": ...}}, makes one 866 into
+    several, in place and in order: the field keeps the first statement and
+    its notes, and each further statement becomes an 866 of its own right
+    after it, with the same indicators and $8. Splitting is how a cataloguer
+    says where a change falls -- months to seasons, say -- that the statement
+    itself does not show.
+
+    Every 866 is marked with `original_position`, its place as uploaded, and
+    the parts of a split with `split_of` (that same position) and `split_part`
+    (0 for the field itself), because a split moves every later 866 along and
+    the screen counts 866s as it shows them.
     """
-    fields = record.get_fields("866")
+    fields = []
+    for i, old in enumerate(record.get_fields("866")):
+        new = Marked866.of(old, i)
+        record.fields[next(k for k, f in enumerate(record.fields) if f is old)] = new
+        fields.append(new)
     for position, by_code in (edits or {}).items():
         try:
             field = fields[int(position)]
         except (ValueError, IndexError):
             continue
         for code, edit in by_code.items():
+            if code == "split":
+                continue
             if code not in EDITABLE_866_SUBFIELDS:
                 continue
             value = (edit or {}).get("value", "")
@@ -290,6 +338,29 @@ def apply_866_edits(record, edits: dict) -> None:
                 field.subfields[at] = Subfield(code, value)
             else:
                 del field.subfields[at]
+        split = by_code.get("split")
+        if split:
+            _split_866(record, field, int(position),
+                       [v for v in split.get("values", []) if v][:MAX_SPLIT_PARTS])
+
+
+def _split_866(record, field, position: int, values: list) -> None:
+    """One 866 as several: see apply_866_edits()."""
+    if len(values) < 2:
+        return
+    at = next((i for i, sf in enumerate(field.subfields) if sf.code == "a"), None)
+    if at is None:
+        return
+    field.subfields[at] = Subfield("a", values[0])
+    field.split_of, field.split_part = position, 0
+    link = [sf for sf in field.subfields if sf.code == "8"]
+    after = next(i for i, f in enumerate(record.fields) if f is field)
+    for part, value in enumerate(values[1:], start=1):
+        new = Field(tag="866", indicators=list(field.indicators),
+                    subfields=[Subfield("8", sf.value) for sf in link]
+                    + [Subfield("a", value)])
+        record.fields.insert(after + part,
+                             Marked866.of(new, position, position, part))
 
 
 def edit_notes(edits: dict) -> list:
@@ -297,6 +368,13 @@ def edit_notes(edits: dict) -> list:
     notes = []
     for position, by_code in sorted((edits or {}).items(),
                                     key=lambda kv: int(kv[0])):
+        split = by_code.get("split")
+        if split and len(split.get("values") or []) > 1:
+            parts = split["values"]
+            notes.append(
+                f"You split 866 no. {int(position) + 1}, which read "
+                f"\"{split.get('was', '')}\", into {len(parts)}: "
+                + "; ".join(f"\"{p}\"" for p in parts) + ".")
         for code in EDITABLE_866_SUBFIELDS:
             edit = by_code.get(code)
             if not edit:

@@ -76,6 +76,7 @@ from marc_serials.records import (
     apply_866_edits,
     edit_notes,
     EDITABLE_866_SUBFIELDS,
+    MAX_SPLIT_PARTS,
     summarise_866,
     carry_866_notes as _carry_866_notes,
     display_marc_field as _display_marc_field,
@@ -261,6 +262,17 @@ def _held_for_left_out(text: str, reasons: list) -> ParseResult:
         "it is. What would be left out:"
     ] + [str(w) for w in reasons]
     return held
+
+
+def _split_from(fields) -> list:
+    """
+    Which 866 each statement was split from by the cataloguer, or None.
+
+    A change between months and seasons is flagged for checking unless the
+    cataloguer put it there by splitting: see convert_record().
+    """
+    return [getattr(f, "split_of", None) if f is not None else None
+            for f in fields]
 
 
 def _convert_under_policy(parsed: list, policy: str, **kwargs) -> tuple:
@@ -539,6 +551,7 @@ def _review_row(record, index, *, patterns, fallback, conv_opts, captions,
     existing_853s = [] if clear_existing else list(record.get_fields("853"))
     rc, row["left_as_uploaded"] = _convert_under_policy(
         parsed, left_out_policy, existing_853s=existing_853s, captions=captions,
+        split_from=_split_from(source_866s),
         frequency=frequency, numbering_continuity=continuity,
         merge_patterns=merge_patterns, holdings_level=holdings_level,
         units_per_higher=units_per_higher,
@@ -653,6 +666,7 @@ def _previews_from(rc, rejections=(), existing_853s=(), sources=(),
             "attention": c.attention,
             "belongs_in": c.belongs_in,
             "left_out": c.left_out,
+            "chron_switch": c.chron_switch,
             "link": link,
             "existing": bool(c.conformed and display),
             "source": source,
@@ -1211,12 +1225,13 @@ def api_pattern_preview():
             record = all_records[record_index]
             existing_853s = list(record.get_fields("853"))
 
-            texts, field_indexes = [], []
+            texts, field_indexes, text_fields = [], [], []
             for idx, fld in enumerate(record.get_fields("866")):
                 text = fld.get("a") or ""
                 if text:
                     texts.append(text)
                     field_indexes.append(idx)
+                    text_fields.append(fld)
 
             # The candidate is about to be run against this record's
             # statements by the conversion below, which nothing could stop.
@@ -1235,6 +1250,7 @@ def api_pattern_preview():
             rc, _ = _convert_under_policy(
                 parsed, _left_out_policy(data),
                 existing_853s=existing_853s,
+                split_from=_split_from(text_fields),
                 captions=captions,
                 frequency=record_frequency,
                 numbering_continuity=continuity,
@@ -1823,6 +1839,7 @@ def _apply_one_decision(record, decision: dict, patterns: list,
     rc, left_as_uploaded = _convert_under_policy(
         parsed, _left_out_policy(decision),
         existing_853s=existing_853s,
+        split_from=_split_from(sources_866),
         captions=first.get("captions") or None,
         frequency=frequency,
         numbering_continuity=first.get("numbering_continuity", "r"),
@@ -2026,6 +2043,7 @@ def _rebuild_converted(decisions: dict, previews_for: Optional[int] = None):
             rc, left = _convert_under_policy(
                 parsed, left_out_policy,
                 existing_853s=existing_853s,
+                split_from=_split_from(sources_866),
                 captions=captions,
                 frequency=rec_frequency,
                 numbering_continuity=continuity,
@@ -2103,7 +2121,8 @@ def _statement_report(texts, rc, fields=()) -> list:
     report = [{"text": text, "converted": bool(result.fields_863),
                "warnings": list(result.warnings),
                "left_out": list(result.left_out),
-               "belongs_in": result.belongs_in}
+               "belongs_in": result.belongs_in,
+               "chron_switch": result.chron_switch}
               for text, result in zip(texts, rc.results)]
     # The notation each 866 declares, as the review screen says it.
     for entry, field in zip(report, fields):
@@ -2126,6 +2145,13 @@ LEFT_OUT_LOG = "Converted, part left out"
 
 ELSEWHERE_LOG = {"867": "Supplement: belongs in 867",
                  "868": "Index: belongs in 868"}
+
+# A change between months and seasons: inside one statement, which is held
+# until the 866 is split at the change; between two, which is converted and
+# asks to be checked; or where the cataloguer split, which is only said.
+SWITCH_LOG = {"within": "Held: months and seasons in one 866",
+              "between": "Check: months and seasons change",
+              "split": "Split by you: months and seasons"}
 
 
 def _log_rows(result: dict, records: list, identifier_spec: str,
@@ -2189,9 +2215,12 @@ def _log_rows(result: dict, records: list, identifier_spec: str,
             if statement["converted"] and not statement["warnings"]:
                 continue
             left_out = set(statement.get("left_out") or ())
+            switch = statement.get("chron_switch") or {}
             for warning in statement["warnings"] or [""]:
-                rows.append(who + (LEFT_OUT_LOG if warning in left_out else what,
-                                   statement["text"], warning))
+                label = (LEFT_OUT_LOG if warning in left_out
+                         else SWITCH_LOG.get(switch.get("where"), what)
+                         if warning == switch.get("note") else what)
+                rows.append(who + (label, statement["text"], warning))
     return rows
 
 
@@ -2368,6 +2397,118 @@ def record_853_summary(settings: Optional[dict]) -> str:
     return "; ".join(parts)
 
 
+def _locate_866(record_index: int, field_index: int):
+    """
+    The 866 the screen means, as {"position", "split_part"}, or an error reply.
+
+    The screen counts a record's 866s as it shows them, with every edit and
+    split applied; edits are stored against the 866s as uploaded. They are the
+    same until a split, after which every later 866 has moved along.
+    """
+    records = _load_all_records() or []
+    if not 0 <= record_index < len(records):
+        return jsonify({"error": "Record index out of range."}), 400
+    shown = records[record_index].get_fields("866")
+    if not 0 <= field_index < len(shown):
+        return jsonify({"error": "That record has no such 866."}), 400
+    field = shown[field_index]
+    return {"position": getattr(field, "original_position", field_index),
+            "split_part": getattr(field, "split_part", None)}
+
+
+def _866_reply(decisions: dict, record_index: int):
+    """What Edit and Split send back: the record's 866s and the file's statements."""
+    # Once anything has been converted, the file behind Download has to carry
+    # the correction too; before that there is nothing to rebuild.
+    if decisions["batch"] is not None or decisions["records"]:
+        _rebuild_converted(decisions)
+    records = _load_all_records()
+    record = records[record_index]
+    return jsonify({
+        "success": True,
+        "record_index": record_index,
+        "fields_866": [summarise_866(f) for f in record.get_fields("866")],
+        "edited": edit_notes(decisions["edits"].get(str(record_index))),
+        "statements": [f.get("a").strip() for r in records
+                       for f in r.get_fields("866")
+                       if (f.get("a") or "").strip()],
+    })
+
+
+@app.route("/api/split-866", methods=["POST"])
+def api_split_866():
+    """
+    Make one 866 into several statements, or put it back as one.
+
+    POST JSON: {"record_index": 4, "field_index": 0,
+                "parts": ["v. 19 no. 3-6 (Sept.-Dec. 1986)",
+                          "v. 20 no. 1-4 (Winter-Fall 1987)"]}
+               or {..., "revert": true}.
+
+    How a cataloguer says where a change falls that the statement does not
+    show: months to seasons inside one range, above all, which is held until
+    then. Stored like any edit and applied where records are read, so every
+    screen, both conversions and the downloaded file carry the parts as 866s
+    of their own; see records.apply_866_edits(). `field_index` is the 866 as
+    the screen shows it, any part of an earlier split included.
+    """
+    if not HAS_PYMARC:
+        return jsonify({"error": "pymarc is not installed on the server."}), 500
+    data = request.get_json(force=True) or {}
+    marc_bytes = _load_file("marc_file")
+    if not marc_bytes:
+        return jsonify({"error": "No MARC file found. Please upload a file first."}), 400
+    original = records_from_bytes(marc_bytes)
+    try:
+        record_index = int(data.get("record_index"))
+        field_index = int(data.get("field_index"))
+    except (TypeError, ValueError):
+        return jsonify({"error": "Which record and which 866 to split is missing."}), 400
+    if not 0 <= record_index < len(original):
+        return jsonify({"error": "Record index out of range."}), 400
+    located = _locate_866(record_index, field_index)
+    if isinstance(located, tuple):
+        return located
+    position = located["position"]
+    was = original[record_index].get_fields("866")[position].get("a") or ""
+
+    decisions = _load_decisions()
+    by_record = decisions["edits"].setdefault(str(record_index), {})
+    by_field = by_record.setdefault(str(position), {})
+    if data.get("revert"):
+        by_field.pop("split", None)
+    else:
+        raw = data.get("parts")
+        if not isinstance(raw, list):
+            return jsonify({"error": "Send the statements to split into."}), 400
+        parts = [" ".join(str(p).split()) for p in raw]
+        parts = [p for p in parts if p]
+        if len(parts) < 2:
+            return jsonify({"error": "A split needs at least two statements. "
+                                     "To change one, use Edit."}), 400
+        if len(parts) > MAX_SPLIT_PARTS:
+            return jsonify({"error": f"At most {MAX_SPLIT_PARTS} statements: "
+                                     "more than that is retyping the holdings, "
+                                     "which is better done in the ILS."}), 400
+        if any(len(p) > MAX_STATEMENT_CHARS for p in parts):
+            return jsonify({"error": f"A statement can be at most "
+                                     f"{MAX_STATEMENT_CHARS} characters."}), 400
+        # The split's first statement is the field's $a, so a correction to
+        # the $a it replaces would only be overwritten.
+        by_field.pop("a", None)
+        by_field["split"] = {"values": parts, "was": was}
+    if not by_field:
+        by_record.pop(str(position), None)
+    if not by_record:
+        decisions["edits"].pop(str(record_index), None)
+    _save_decisions(decisions)
+    try:
+        return _866_reply(decisions, record_index)
+    except Exception as exc:
+        app.logger.exception("Request failed")
+        return jsonify({"error": str(exc)}), 500
+
+
 @app.route("/api/edit-866", methods=["POST"])
 def api_edit_866():
     """
@@ -2398,13 +2539,19 @@ def api_edit_866():
         return jsonify({"error": "Which record and which 866 to edit is missing."}), 400
     if not 0 <= record_index < len(original):
         return jsonify({"error": "Record index out of range."}), 400
+    located = _locate_866(record_index, field_index)
+    if isinstance(located, tuple):
+        return located
+    field_index, split_part = located["position"], located["split_part"]
     fields = original[record_index].get_fields("866")
-    if not 0 <= field_index < len(fields):
-        return jsonify({"error": "That record has no such 866."}), 400
     code = str(data.get("code", "a"))
     if code not in EDITABLE_866_SUBFIELDS:
         return jsonify({"error": f"${code} cannot be edited here; "
                                  "$a, $z and $x can."}), 400
+    if split_part is not None and (code == "a" or split_part > 0):
+        return jsonify({"error": "This 866 was split by you. Change its "
+                                 "statements with Split, or undo the split "
+                                 "there."}), 400
 
     # Against the field as uploaded, so "was" is always the original text and
     # reverting is simply forgetting the correction.
@@ -2428,21 +2575,7 @@ def api_edit_866():
     _save_decisions(decisions)
 
     try:
-        # Once anything has been converted, the file behind Download has to
-        # carry the correction too; before that there is nothing to rebuild.
-        if decisions["batch"] is not None or decisions["records"]:
-            _rebuild_converted(decisions)
-        records = _load_all_records()
-        record = records[record_index]
-        return jsonify({
-            "success": True,
-            "record_index": record_index,
-            "fields_866": [summarise_866(f) for f in record.get_fields("866")],
-            "edited": edit_notes(decisions["edits"].get(str(record_index))),
-            "statements": [f.get("a").strip() for r in records
-                           for f in r.get_fields("866")
-                           if (f.get("a") or "").strip()],
-        })
+        return _866_reply(decisions, record_index)
     except Exception as exc:
         app.logger.exception("Request failed")
         return jsonify({"error": str(exc)}), 500

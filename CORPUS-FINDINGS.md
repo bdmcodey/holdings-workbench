@@ -2837,6 +2837,80 @@ real export gets no note on any of its 1,057 866s. The angle-bracket dates of
 D41 (`<1884:6:28>`) are not treated as the Newspaper Program's: nothing here
 says whose they are.
 
+## Months and seasons · D49 · **0.37.0**
+
+*15 October 2026.* The item pinned on 12 October, now with the cataloguer's
+real statement: `v. 19 no. 3-v. 20 no. 4 (September 1986-Winter 1987)`.
+
+**D49 -- a change between months and seasons is written as one pattern.**
+Three shapes of one defect, all reproduced on synthetic records run through
+the application before anything changed:
+
+```
+inside one statement   v. 19 no. 3-v. 20 no. 4 (September 1986-Winter 1987)
+                       853 $j (season)   863 $j 09-24        <- September under (season)
+season left out,       v. 1-3 (1981-Fall 1983)  |  v. 4 no. 1-v. 6 no. 12 (Jan. 1984-Dec. 1986)
+then months            853 $8 1 ... $j (month)  863 $8 1.1 $a 1-3 $i 1981-1983
+                                                863 $8 1.2 ... $j 01-12      <- one 853 for both
+an 853 already on the  v. 1 (1981)-v. 3 (Fall 1983) with 853 $8 1 ... $j (month)
+record of the other    863 $8 1.1 $a 1-3 $i 1981-1983                         <- filed under it
+kind
+```
+
+None was held, flagged or warned about. The second is the case the cataloguer
+remembered and could not find again; the project's own fixture record
+`exmpl0003` in `example_holdings.mrc` is exactly it, and has been merging the
+Fall run into the April run's month 853 all along. A season written beside its
+own year, `v. 3 (Fall 1983)`, was never affected: the value stays in the parse
+and the 853 is built `(season)`. It is the chronology written once for the
+whole range, `(1981-Fall 1983)`, where the parser drops the lone season and
+with it every sign that the statement counts by season.
+
+**Checked against the standard** (`docs/marc/`). 863-865: months are 01-12
+and seasons 21-24, and the 853's `$j` caption, `(month)` or `(season)`, says
+which. 853-855, Field Repeatability: *"Single 853-855 Captions and Pattern
+field may apply to more than one 863-865 ... if the contents of the subfields
+remain constant. The 853-855 fields are repeated when the contents of the
+subfields varies."* So a change of kind is a second 853, and an 863 -- linked
+to one 853 by `$8` -- cannot straddle it. The same paragraph allows keeping the
+866: *"For items that have continually varying captions and pattern, an
+organization may choose to use the Textual Holdings (866-868) fields."*
+
+**Decided by the cataloguer.** A change inside one statement is held: where
+it falls is not in the statement. A change between statements converts, an 853
+each, and is flagged for the cataloguer to confirm it falls there. A split of
+one 866 into several, on the Workbench, is how they say where; a change at
+their own split is said and not asked again.
+
+**What changed.** The parser keeps a lone month or season it leaves out, on
+`EnumChron.left_out_chron`, and `chronology_kinds()` lists every month and
+season a statement gives, in order, those included. `convert_holdings()` holds
+a statement that changes kind (`chron_switch` "within"), builds `$j (season)`
+from any season including a left-out one, and does not conform to an 853
+already on the record whose `$j` is the other kind. `convert_record()` flags
+the statement where the kind changes from the last statement that had one
+("between"; a years-only statement is no evidence and is stepped over), or
+where it differs from the record's own 853, unless both sides come from one
+866 the cataloguer split ("split"). Splits are stored as edits
+(`{"split": {"values", "was"}}`), applied in `apply_866_edits()` as 866s of
+their own after the field, and marked on the field so Edit and Split can find
+the 866 as uploaded once a split has moved the later ones along.
+
+**Measured.** Corpora: 4 statements change kind inside themselves, all
+untagged (counted clean) before and `fail:D49` now -- 1 main
+(`v. 94 no. 1 - v. 101 no. 4 (Jan 1988 - Fall 1995)`), 3 from other
+catalogues, 0 LC. Main corpus 90/22/5/0 -> 89/22/6/0; other catalogues
+33/7/23/0 -> 30/7/26/0; LC unchanged. Fixtures: `exmpl0003` now has two 853s
+and its April statement flagged; nothing else on either fixture moves. Audit:
+nothing missing. Round trip: DRIFT 5 and 6, unchanged. One test rewritten: the
+D39 full-stop case used the outside corpus's `(fall 1969)-...(June 1983).`,
+pinned as `$j 23-06`; the statement is now held, and the case is the same
+statement ending `(Summer 1983).`, which still tests the full stop.
+
+**Left alone.** `Nov/Dec 1994 - Late Summer 2002` changes kind too, but `Late
+Summer` is not a season MARC codes; the statement is already warned under D5
+and no `$j` is written from it.
+
 ## Expressions for other tools · **0.36.0**
 
 *14 October 2026.* Requested by the cataloguer: the expression on a pattern
@@ -3069,16 +3143,9 @@ record is marked "could not check" rather than taking the file down.
 Raised 1 September 2026 alongside D15–D18, recorded here so they are not lost.
 The first two are done; the rest are Workbench UI and are not started.
 
-- **A range that changes from seasons to months.** Raised 12 October 2026,
-  after the technical services demo; pinned, not started. A statement whose
-  chronology runs from a season at one end to a month at the other had its
-  second chronology level left out (one-sided, as 0.34.0 now marks it) and was
-  then grouped under the record's *month* 853 -- the merge that is right when
-  one statement is merely less detailed than another. Here it is wrong: the
-  serial's chronology changes kind, season to month, and nothing records that.
-  Wanted: a check for exactly this switch, so such a statement is not merged
-  into an 853 of the other kind. The cataloguer has the real example; get it
-  before starting, and measure against the corpora for others like it.
+- ~~**A range that changes from seasons to months.**~~ Done in 0.37.0, as
+  D49: with the cataloguer's real statement, three shapes of the defect, a
+  hold inside a statement, a flag between statements, and a Split button.
 
 - ~~**Enumeration levels are positional, not named.**~~ Done in 0.7.0, with D6.
   `caption_slot()` used to map `no.` to `issue` and `_build_853()` put issue in

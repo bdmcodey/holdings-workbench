@@ -25,7 +25,8 @@ except ImportError:
 
 from marc_serials.parser import (ParseResult, HoldingsRange, EnumChron,
                              LeftOut, SEASON_CODES, MARC_CHRON_CODES,
-                             is_codeable)
+                             is_codeable, chronology_kinds, chronology_switch,
+                             statement_chron_kind, chron_name)
 
 # The converter's own name for it, kept so the call sites below read as they
 # always did.
@@ -582,15 +583,41 @@ def read_853_captions(existing_853) -> List[str]:
 
 
 def _uses_season_chronology(parse_result: ParseResult) -> bool:
-    """True if any parsed month value is a MARC season code (21-24)."""
-    for r in parse_result.ranges:
-        for ec in (r.start, r.end):
-            if ec is None or not ec.month:
-                continue
-            for token in ec.month.replace("/", "-").split("-"):
-                if token.strip() in SEASON_CODES:
-                    return True
-    return False
+    """
+    True if the statement gives a season (21-24) anywhere.
+
+    Including a season left out because only one end of a range gave it:
+    "v. 1-3 (1981-Fall 1983)" counts by season, and its 853 has to say so, or
+    it reads as the same pattern as the months beside it and is filed under
+    their 853. A statement giving both kinds is held before this is asked.
+    """
+    return any(kind == "season" for kind, _ in chronology_kinds(parse_result))
+
+
+def _853_chron_kind(field_853) -> Optional[str]:
+    """
+    Whether an 853 already on the record counts by month or by season.
+
+    Read from its second-level chronology caption, "(month)" or "(season)";
+    None when it has neither word, so an 853 captioned some other way is not
+    second-guessed.
+    """
+    for sf in getattr(field_853, "subfields", []):
+        value = (getattr(sf, "value", "") or "").lower()
+        if getattr(sf, "code", None) in _ALLOWED_SUBFIELDS \
+                and caption_slot(getattr(sf, "value", "")) == "month":
+            if "season" in value:
+                return "season"
+            if "month" in value:
+                return "month"
+    return None
+
+
+def _switch_note(from_kind: str, from_code: str, to_kind: str, to_code: str,
+                 where: str) -> str:
+    """The sentence that says a statement's chronology changes kind."""
+    return (f"The chronology changes from {from_kind}s to {to_kind}s {where} "
+            f"({chron_name(from_code)} … {chron_name(to_code)}).")
 
 
 # ---------------------------------------------------------------------------
@@ -668,6 +695,11 @@ class ConversionResult:
     # this convention or the record's own 853 has no place for it. See
     # parser.LeftOut.
     left_out: List[str] = field(default_factory=list)
+    # The chronology changes between months and seasons: "within" this
+    # statement, which is held, or "between" it and the statement or 853 before,
+    # which is flagged. {"where": ..., "note": the warning that says so}, so the
+    # log can label that one line without reading the wording back.
+    chron_switch: Optional[Dict[str, str]] = None
 
     def all_fields(self) -> List[FieldData]:
         return ([self.field_853] if self.field_853 else []) + self.fields_863
@@ -684,6 +716,7 @@ class ConversionResult:
             "attention": self.attention,
             "belongs_in": self.belongs_in,
             "left_out": self.left_out,
+            "chron_switch": self.chron_switch,
         }
 
 
@@ -1599,6 +1632,28 @@ def convert_holdings(
             belongs_in=parse_result.belongs_in,
         )
 
+    # Months at one end and seasons at the other: one 853 says one or the
+    # other, and one 863 links to one 853, so this statement needs two of each
+    # -- and where the change falls is not in the statement. Held rather than
+    # flagged, because flagged still writes the fields, and these would be
+    # wrong: "$j 09-24" under "(season)" pairs September with nothing.
+    switch = chronology_switch(parse_result)
+    if switch:
+        note = (_switch_note(*switch, where="within this statement")
+                + " An 853 gives one or the other, so this needs two 853s and "
+                "two 863s, and only you can say which issue the change falls "
+                "at. Split this 866 at the change, or leave it as it is; "
+                "nothing was written from it.")
+        return ConversionResult(
+            field_853=None,
+            fields_863=[],
+            linking_number=linking_number,
+            warnings=[note] + warnings,
+            needs_review=True,
+            attention=[note],
+            chron_switch={"where": "within", "note": note},
+        )
+
     # ── Conform to the record's own 853 when it covers every level found ──
     # An existing 853 covers the data when it declares at least as many
     # enumeration levels as the statements use, and a subfield for every
@@ -1611,6 +1666,13 @@ def convert_holdings(
     chron_declared = {lvl for lvl in _CHRON_LEVELS if lvl in declared}
     covers = (depth_declared >= depth_needed
               and chron_needed <= chron_declared)
+    # Months and seasons share $j, so a slot for it is not enough: an 853 that
+    # counts by month does not describe a statement that counts by season. The
+    # caller says so when it writes the 853 this statement gets instead.
+    stated_kind = statement_chron_kind(parse_result)
+    existing_kind = _853_chron_kind(existing_853) if declared else None
+    if stated_kind and existing_kind and stated_kind != existing_kind:
+        covers = False
 
     if declared and covers:
         # The 863s belong to the existing 853, so they must carry *its* $8 —
@@ -1635,7 +1697,9 @@ def convert_holdings(
             left_out=_left_out(warnings),
         )
 
-    if declared:
+    if declared and stated_kind and existing_kind and stated_kind != existing_kind:
+        pass    # said by convert_record(), which knows which 853 it was
+    elif declared:
         missing = sorted(chron_needed - chron_declared)
         if depth_declared < depth_needed:
             missing.append(
@@ -1767,6 +1831,74 @@ def _same_publication_pattern(a: Dict[str, str], b: Dict[str, str]) -> bool:
     return a.keys() <= b.keys() or b.keys() <= a.keys()
 
 
+def _flag(cr: ConversionResult, note: str, where: str) -> None:
+    """Ask the cataloguer about a converted statement, in the usual way."""
+    cr.flagged = True
+    if note not in cr.warnings:
+        cr.warnings.append(note)
+    if note not in cr.attention:
+        cr.attention.append(note)
+    cr.chron_switch = {"where": where, "note": note}
+
+
+def _flag_chronology_changes(parse_results: List[ParseResult],
+                             results: List[ConversionResult],
+                             existing_853s: List,
+                             split_from: Optional[List[Optional[int]]] = None,
+                             ) -> None:
+    """
+    Flag each statement where the record's chronology changes kind.
+
+    Months in one statement and seasons in the next already get an 853 each,
+    which is what MARC 21 asks; but the statements only show the change falls
+    somewhere between them, and a serial that switched once may have switched
+    back or wavered, so the cataloguer confirms it rather than the tool. The
+    same goes for a statement whose kind differs from the 853 already on the
+    record: it gets an 853 of its own beside that one.
+
+    A statement with no month or season (years only) is no evidence either way
+    and is stepped over; one held for review wrote nothing to check.
+    """
+    prev = None                      # (index, kind, last code)
+    for i, (pr, cr) in enumerate(zip(parse_results, results)):
+        if cr.needs_review or not cr.fields_863:
+            continue
+        kind = statement_chron_kind(pr)
+        if not kind:
+            continue
+        seen = chronology_kinds(pr)
+        if prev is not None and prev[1] != kind:
+            j, prev_kind, prev_code = prev
+            note = _switch_note(prev_kind, prev_code, kind, seen[0][1],
+                                where="between the statement before and this one")
+            if (split_from and split_from[i] is not None
+                    and split_from[i] == split_from[j]):
+                # The cataloguer split one 866 here to say where it falls:
+                # said for the log, and not asked again.
+                note += " You split the 866 at this change, so each part has its own 853."
+                if note not in cr.warnings:
+                    cr.warnings.append(note)
+                cr.chron_switch = {"where": "split", "note": note}
+            else:
+                note += (" Each has its own 853. Check that the change falls "
+                         "here: split an 866 if it falls inside one.")
+                _flag(cr, note, "between")
+        elif not cr.conformed:
+            kinds_on_record = {_853_chron_kind(f) for f in existing_853s}
+            other = next((k for k in kinds_on_record if k and k != kind), None)
+            if other and kind not in kinds_on_record:
+                links = sorted((f.get("8") or "").strip() for f in existing_853s
+                               if _853_chron_kind(f) == other)
+                which = (f" ($8 {', '.join(l for l in links if l)})"
+                         if any(links) else "")
+                note = (f"The 853 already on this record{which} gives {other}s, "
+                        f"and this statement gives {kind}s, so it has an 853 of "
+                        f"its own. Check where the change from one to the "
+                        f"other falls.")
+                _flag(cr, note, "between")
+        prev = (i, kind, seen[-1][1])
+
+
 def convert_record(
     parse_results: List[ParseResult],
     existing_853s: Optional[List] = None,
@@ -1777,6 +1909,7 @@ def convert_record(
     convention_spec: Optional[Dict[str, Any]] = None,
     merge_patterns: bool = True,
     holdings_level: str = DEFAULT_HOLDINGS_LEVEL,
+    split_from: Optional[List[Optional[int]]] = None,
 ) -> RecordConversion:
     """
     Convert every 866 statement on one record, sharing 853s across statements
@@ -1813,7 +1946,12 @@ def convert_record(
     reported in `links_written` so the caller can drop superseded 863s.
 
     `merge_patterns` False requires runs to agree exactly, so statements
-    recording different amounts of detail stay apart.  Whether "v.5(1994)" beside
+    recording different amounts of detail stay apart.
+
+    `split_from`, beside `parse_results`, names the 866 each statement was
+    split from by the cataloguer, or None. A change between months and seasons
+    is flagged for checking, except where the cataloguer put it, by splitting
+    one 866 at the change. See _flag_chronology_changes().  Whether "v.5(1994)" beside
     "v.1:no.1(1990)" is one publication or two is a judgement about the serial,
     not about the strings, so a cataloguer who knows it is two can say so.
     """
@@ -1886,6 +2024,8 @@ def convert_record(
 
         group["members"].append(cr)
         open_group = group
+
+    _flag_chronology_changes(parse_results, out.results, existing, split_from)
 
     # Allocate link numbers in run order, stepping around every 853 already on
     # the record -- not only the ones a statement conformed to. Stepping around

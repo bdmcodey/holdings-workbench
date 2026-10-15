@@ -1,6 +1,6 @@
 # How the Holdings Workbench Works
 
-*Written for librarians and cataloguers. Describes version 0.36.0.*
+*Written for librarians and cataloguers. Describes version 0.37.0.*
 
 The Holdings Workbench turns the free-text holdings in MARC 866 fields into structured 853 caption/pattern and 863 enumeration/chronology fields, and asks a cataloguer to confirm anything it cannot be sure of. This guide explains how, for librarians rather than programmers.
 
@@ -294,7 +294,7 @@ Once a statement is read, the converter writes one 853 for its shape and one 863
 ### The 853: captions
 
 - **Enumeration captions** go in `$a`, `$b`, `$c`… in order of level, using the words the statement printed or you confirmed. A level with no caption anywhere gets `(*)`, which is the standard's "asterisk in place of data". It is never a guessed `v.`.
-- **Chronology captions** are `$i (year)`, `$j (month)` or `(season)`, and `$k (day)`.
+- **Chronology captions** are `$i (year)`, `$j (month)` or `(season)`, and `$k (day)`. A statement that gives a season anywhere gets `(season)`, even where the season had to be left out of its 863, as in `v. 1-3 (1981-Fall 1983)`. See "Months and seasons" below.
 - **Indicators** default to `3` (compressibility unknown) and `1` (captions verified; all levels may not be present). When you declare how many issues make a volume (`$u`), the first indicator becomes `2`, meaning the holdings can be compressed or expanded. Only the values 0-3 are accepted. Anything else is refused and explained, not written.
 - **`$u` and `$w`** (units per higher level, frequency) are written only when you declare them. They are facts about how the serial is published. For example, `v.1-5 (1990-1994)` is just as true of a monthly as of a quarterly. Frequency differs from title to title, so it is set on each record (see "This record's 853" below); the file-wide setting starts at "(not specified)". Before 0.33.0 it started at Annual, and every 853 said `$w a` unless you changed it.
 - **`$v`** (numbering continuity) is written as `r`, numbering restarts each volume, unless you choose "Continuous" or "not specified" in the settings.
@@ -374,7 +374,20 @@ What happens to such a statement is a Conversion setting, "When something would 
 
 Unlike strict, this setting applies to statements your patterns read too.
 
-In the corpora, 19 of the 112 statements that convert in the main corpus leave something out, 1 of 5 in the LC examples, and 7 of 40 from other libraries' catalogues.
+In the corpora, 19 of the 111 statements that convert in the main corpus leave something out, 1 of 5 in the LC examples, and 7 of 37 from other libraries' catalogues.
+
+### Months and seasons
+
+An 853's `$j` says whether the serial is numbered by month or by season, and the codes in the 863s under it mean one or the other: `09` is September, and nothing at all under `(season)`. MARC 21 says the 853 is repeated when what its subfields say changes, so a serial that changes from months to seasons needs a second 853 from the change on. One 863 can't straddle the change, because each 863 links to one 853.
+
+- **A change inside one statement is held.** `v. 19 no. 3-v. 20 no. 4 (September 1986-Winter 1987)` changes somewhere inside, and only you can say which issue the change falls at. Nothing is written, the 866 stays, and the record shows a **Split this 866 at the change** button beside the reason. Before 0.37.0 it converted to `$j 09-24` under `(season)`, with no warning.
+- **A change between statements is converted and marked to check.** Seasons in one 866 and months in the next each get their own 853, and the statement where the new kind starts says "To check: The chronology changes from seasons to months between the statement before and this one (Fall … January)". The change falls somewhere between the two, and you confirm it falls there. A statement giving only years is no evidence either way and is stepped over.
+- **An 853 already on the record of the other kind** isn't used for the statement. A season statement on a record whose 853 says `(month)` gets an 853 of its own beside it, marked to check. Before 0.37.0 a statement whose season had been left out was filed under the month 853.
+- **Where you split an 866** at the change, the two parts each get their 853 and nothing asks again: the record says the chronology changes where you split it.
+
+**Splitting an 866.** Every 866 on a record has a **Split** button beside Edit. Write each part as a statement of its own, dividing where the change falls: `v. 19 no. 3-6 (Sept.-Dec. 1986)` and `v. 20 no. 1-4 (Winter-Fall 1987)`. The first part keeps the 866's notes; each other part becomes an 866 of its own right after it, with the same indicators and `$8`. Like an edit, the split is what the downloaded file carries, it is listed on the record and in the log as "Edited by you", and **Undo the split**, from any part, puts the 866 back as uploaded. A part of a split is changed with Split, not Edit. Up to 12 parts.
+
+In the corpora, 4 statements change kind inside themselves: 1 in the main corpus and 3 from other libraries' catalogues. All 4 used to convert with no warning, and all 4 are now held.
 
 ### Supplements and indexes
 
@@ -433,6 +446,7 @@ Everything you decide is kept for the session and applied every time the file is
 | **Keep patterns separate** | Gives each shape of holdings on the record its own 853, even where one records less detail than another. Normally statements that are one publication written with more or less detail share an 853 |
 | **Reviewed** | Marks the record as looked at, for the "Not yet reviewed" filter. It changes nothing in the output |
 | **Edit an 866** | Corrects a typo before conversion, such as `(Fal 1995-Fall 1999)`. The corrected text goes into the file, and "Put back as uploaded" undoes it |
+| **Split an 866** | Makes one 866 into several statements, to say where a change falls that it doesn't show, such as months to seasons. See "Months and seasons" |
 | **Your note** | A reminder for you or a colleague. It goes into the log, never into the record |
 | **This record's 853** | The record's frequency (`$w`), and a caption for each level its statements print none for. See below |
 
@@ -475,7 +489,7 @@ A setting the tool can't use, such as an indicator of 4, is refused with the rea
 | What | When |
 | --- | --- |
 | Your note | You wrote a note on the record. Always its first line |
-| Edited by you | You changed an 866 |
+| Edited by you | You changed or split an 866 |
 | 853 set by you | You set this record's frequency or captions, as in `$w q (Quarterly); level 1 caption v.` |
 | Skipped | You marked the record Skip |
 | Could not check | The record couldn't be read, and was left as uploaded |
@@ -487,6 +501,9 @@ A setting the tool can't use, such as an indicator of 4, is refused with the rea
 | Not converted | Held: nothing written, 866 left in place |
 | Supplement: belongs in 867 | Held because it reads as a supplement; move it to an 867 |
 | Index: belongs in 868 | Held because it reads as an index; move it to an 868 |
+| Held: months and seasons in one 866 | Held because the statement changes between months and seasons; split it at the change |
+| Check: months and seasons change | Converted, and the chronology changes kind here; confirm the change falls here |
+| Split by you: months and seasons | Converted; the chronology changes kind where you split the 866 |
 | Setting refused | A conversion setting that couldn't be used |
 
 The log is built from the same summary as the conversion, so it describes exactly the file the Download button gives you.
@@ -495,10 +512,10 @@ The log is built from the same summary as the conversion, so it describes exactl
 
 Four checks run before any change is released, and each answers a different question.
 
-| Check | Question it answers | Result as of 0.36.0 |
+| Check | Question it answers | Result as of 0.37.0 |
 | --- | --- | --- |
-| Automated tests | Does every behaviour described here still hold? | 1,004 passed, 8 skipped |
-| Corpus report | What do 117 real 866 statements convert to, and has any outcome changed? | 90 clean (77%), 22 converted with a warning, 5 with no fields, 0 with values lost |
+| Automated tests | Does every behaviour described here still hold? | 1,034 passed, 8 skipped |
+| Corpus report | What do 117 real 866 statements convert to, and has any outcome changed? | 89 clean (76%), 22 converted with a warning, 6 with no fields, 0 with values lost |
 | Conversion audit | Did any number in a statement reach no field and no warning? | 0 unaccounted for: the corpus, the LC examples, the other library's catalogue, and all 1,057 statements of the 372-record test export |
 | Round trip | Convert, write the 866 as Alma would, convert again: do the same 863s come back? | Test export: 938 identical, 106 identical apart from an 853 caption, 11 not converted, **0 drift** |
 
@@ -506,7 +523,7 @@ Four checks run before any change is released, and each answers a different ques
 - **The corpus report** runs a collection of real statements (enumeration and chronology text only, with no identifiers) through both the detector and the parser. Each statement's expected outcome is recorded, so the report can say exactly what a change moved.
 - **The audit** compares what went in with what came out, and it can be run on a real file. It found two silent losses that the corpus couldn't, because their shapes weren't in it. It reads the file where it lies and writes nothing.
 - **The Library of Congress examples** are the 7 866 statements in LC's MARC holdings documentation, kept as a second, separate corpus. They're the only statements in the project written outside the collection the tool was built on. Four convert cleanly, one converts with a warning, and two are in the US Newspaper Program's own notation and are held rather than misread.
-- **Other libraries' catalogues** is a third corpus: 63 statements from outside, picked for how messy they are. 42 are from one public catalogue and 21 from several others. Some follow Z39.71, some write their dates without parentheses, some are 863 subfield values written out as text with no captions, and a few aren't holdings at all ("undefined"). As of 0.30.6, 33 convert cleanly, 7 convert with a warning, and 23 are held. None is misread, and none drifts on the round trip.
+- **Other libraries' catalogues** is a third corpus: 63 statements from outside, picked for how messy they are. 42 are from one public catalogue and 21 from several others. Some follow Z39.71, some write their dates without parentheses, some are 863 subfield values written out as text with no captions, and a few aren't holdings at all ("undefined"). As of 0.37.0, 30 convert cleanly, 7 convert with a warning, and 26 are held; the 3 more held change between months and seasons inside one statement. None is misread, and none drifts on the round trip.
 - **The round trip** checks the circle with the library system. Holdings are exported from Alma, converted here and loaded back, and Alma regenerates every 866 from the new 853/863s. Exported and converted again, those 866s must give the same 863s; any difference is a bug. Alma can't be run from here, so the tool imitates the 866 Alma writes. The imitation was built from 48 866s that Alma generated in the test export, and it reproduces all 48 exactly. Run on a new Alma export, the check also compares the imitation with Alma's real 866s, which is how to confirm the forms those 48 didn't show: seasons, days, and date-only ranges with months.
 - **Expressions for other tools** are run in those tools' own engines where the machine has them: JavaScript in Node, PCRE in Perl, Java and the Alma rule form in Java, .NET and the MarcEdit form in PowerShell. Every expression written for the three corpora is tried against every corpus statement, in capitals and in lower case, and must match exactly the statements the workbench's own expression matches. The MarcEdit form is tried on each statement set in MarcEdit's text: in an 866's `$a` with other subfields before or after it, inside a whole record with Windows line endings, and in a 245 or an 866 `$z`, where it must find nothing. Oracle can't be run here, so its form is written in a part of the syntax Python reads the same way, and checked in Python.
 - **What the round trip can't close:** a level with no caption. An 866 generated from `(*)` is bare numbers, and nothing says what they count, so the parser refuses them. Five corpus statements are like this: four in the local year-first format, and "8,13,15,17,19,20-(1982-1994)". A caption confirmed on the pattern closes the loop.
