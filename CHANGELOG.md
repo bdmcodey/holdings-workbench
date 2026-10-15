@@ -15,6 +15,12 @@ more than one release; numbering resumed with 0.6.1. Reasoning behind the
 parser and converter decisions, including the defects a real corpus exposed and
 what was done about each, is in [CORPUS-FINDINGS.md](CORPUS-FINDINGS.md).
 
+## 0.37.1 — 2026-10-15
+
+A statement read by a pattern as more levels of numbering than an 853 has room for is held with its reason, instead of stopping the record with "could not check".
+
+- **MARC Holdings Workbench** — Text that is really the values of an 863 written out, such as "2.1 54-62 1-1 1998-2006 21-21 g", could be given a pattern with every value answered Enumeration. That reads as eight or nine levels of numbering, and an 853 has room for six ($a to $f; five under the house convention). The record then stopped with "could not check". Such a statement is now held, nothing is written from it, and the reason says how many levels it read, how many have nowhere to go, and to say on the pattern which values are not numbering.
+
 ## 0.37.0 — 2026-10-15
 
 A serial that changes from months to seasons, or back, gets a second 853 from the change, and you say where the change falls: a change inside one 866 is held until you split it, and a change between 866s is marked to check.

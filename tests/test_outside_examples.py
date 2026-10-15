@@ -111,6 +111,58 @@ def test_863_values_written_as_text_are_named_as_such(statement):
     assert "could not account for" not in " ".join(warnings)
 
 
+@pytest.mark.parametrize("statement, levels", [
+    ("2.1 54-62 1-1 1998-2006 21-21 g", 9),
+    ("2.3 64-69 4 2008-2013 24 .", 7),
+    ("2.1 11-29 1-2 1996-2014 -21 .", 8),
+])
+@pytest.mark.parametrize("convention, room", [("standard", 6), ("house", 5)])
+def test_every_value_confirmed_as_numbering_is_held_not_a_crash(
+        statement, levels, convention, room):
+    """
+    D50. A pattern on these with every value answered "Enumeration" reads more
+    levels of numbering than an 853 has subfields for. _build_853() reached
+    past the end of its list and raised IndexError, and the app marked the
+    record "could not check". Held now, with the counts and what to do.
+    """
+    from marc_serials import bridge
+    from marc_serials.converter import convert_record, resolve_convention
+    from marc_serials.detector import detect_patterns
+    from marc_serials.library import ConfirmedPattern
+
+    group = detect_patterns([statement])[0]
+    roles = bridge.infer_roles(group.named_groups)
+    for role in roles:
+        role.kind, role.suggested = bridge.KIND_ENUM, False
+    pattern = ConfirmedPattern(id="all-enum", label="all-enum", regex=group.regex,
+                               roles=bridge.assign_levels(roles))
+    parsed, _ = bridge.apply_patterns(statement, [pattern])
+    spec, _ = resolve_convention(convention)
+
+    rc = convert_record([parsed], convention_spec=spec)
+    result = rc.results[0]
+    assert result.needs_review and not rc.fields_853 and not rc.fields_863
+    note = result.warnings[0]
+    assert note in result.attention
+    assert f"read as {levels} levels of numbering" in note
+    assert f"room for {room}" in note and f"so {levels - room} would" in note
+
+
+def test_the_853_builder_counts_only_the_levels_it_placed():
+    """The builder's own guard, for a caller that does not hold first."""
+    from marc_serials.converter import _build_853, resolve_convention
+    from marc_serials.parser import EnumChron, EnumLevel, HoldingsRange, ParseResult
+
+    levels = [EnumLevel(caption=c, value="1") for c in
+              ("v.", "no.", "pt.", "sect.", "ser.", "bk.", "ch.")]
+    result = ParseResult(ranges=[HoldingsRange(start=EnumChron(enum=levels))])
+    spec, _ = resolve_convention("standard")
+    warnings = []
+    field = _build_853(result, convention_spec=spec, warnings=warnings)
+    assert [sf.code for sf in field.subfields][:7] == ["8", "a", "b", "c", "d", "e", "f"]
+    assert any("level 7 was not recorded" in w for w in warnings)
+
+
 @pytest.mark.parametrize("statement", ["2016?", "?: 16", "undefined", "2.1 v.3"])
 def test_other_refusals_keep_their_own_messages(statement):
     _, warnings = _fields(statement)

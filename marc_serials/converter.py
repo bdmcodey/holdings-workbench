@@ -844,13 +844,17 @@ def _build_853(
     #
     # Order within the level follows the standard's examples, which read
     # "$bno.$u12$vr": the caption, then $u, then $v.
-    last_enum_code = planned[len(declared) - 1][0] if declared else None
-    if len(declared) < 2:
-        last_enum_code = None
+    # From the levels actually placed: a level the convention has no subfield
+    # for is not in `planned`, and counting `declared` instead reached past the
+    # end of it (D50). convert_holdings() holds such a statement before it gets
+    # here; this keeps the builder safe for any other caller.
+    placed = sum(1 for i in range(len(declared))
+                 if enum_subfield(convention_spec, i) is not None)
+    last_enum_code = planned[placed - 1][0] if placed >= 2 else None
 
     # "Not used with subfield $a or $g", so the guard is on the code and not
     # only on the count of levels.
-    second_enum_code = planned[1][0] if len(declared) >= 2 else None
+    second_enum_code = planned[1][0] if placed >= 2 else None
     if second_enum_code in ("a", "g"):
         second_enum_code = None
 
@@ -990,6 +994,9 @@ def _note_unplaceable(warnings: Optional[List[str]], which: str,
     if note not in warnings:
         warnings.append(note)
 
+
+# MARC 21 853-855: enumeration captions $a-$f, six levels.
+MARC_ENUM_LEVELS = 6
 
 # How deep a serial is plausibly numbered.  MARC 21 gives enumeration $a-$f, so
 # six levels are *allowed*; two or three are what serials actually use --
@@ -1715,6 +1722,36 @@ def convert_holdings(
 
     # ── Regenerate a complete 853 in the requested convention ──
     smap = convention_spec["subfields"]
+
+    # More levels of numbering than an 853 has subfields for: the values of
+    # the levels past the last would have nowhere to go in the 863s either,
+    # and a statement the tool can write only part of is held, not cut. Only
+    # a confirmed pattern reaches this -- the parser reads three levels at
+    # most -- typically "2.1 54-62 1-1 1998-2006 21-21 g", 863 values written
+    # out as text, with every value answered "Enumeration" (D50).
+    depth = len(levels.get("enum_captions", []))
+    room = len(smap["enum"])
+    if depth > room:
+        codes = smap["enum"]
+        # Six is MARC's own limit; fewer is the convention's.
+        where = (f"an 853 has room for {room}, ${codes[0]} to ${codes[-1]}"
+                 if room >= MARC_ENUM_LEVELS else
+                 f"this convention has room for {room}, ${codes[0]} to "
+                 f"${codes[-1]}")
+        note = (f"This statement is read as {depth} levels of numbering, and "
+                f"{where}, so {depth - room} would have nowhere to go. Nothing "
+                f"was written from it rather than leave "
+                f"{'it' if depth - room == 1 else 'them'} out. If some of these "
+                f"values are not numbering (a year, a season, a code), say "
+                f"so on the pattern that read it.")
+        return ConversionResult(
+            field_853=None,
+            fields_863=[],
+            linking_number=linking_number,
+            warnings=[note] + warnings,
+            needs_review=True,
+            attention=[note],
+        )
 
     field_853 = _build_853(
         parse_result,

@@ -1,6 +1,6 @@
 # How the Holdings Workbench Works
 
-*Written for librarians and cataloguers. Describes version 0.37.0.*
+*Written for librarians and cataloguers. Describes version 0.37.1.*
 
 The Holdings Workbench turns the free-text holdings in MARC 866 fields into structured 853 caption/pattern and 863 enumeration/chronology fields, and asks a cataloguer to confirm anything it cannot be sure of. This guide explains how, for librarians rather than programmers.
 
@@ -285,7 +285,7 @@ flowchart TD
 
 ### What it refuses to do
 
-The parser would rather write nothing than write part of a statement. If it reads the first part of a unit and can't account for the rest, it converts nothing from that statement and says exactly where it stopped. For example: "Read 'v. 5 (1990)' but could not account for 'Suppl.'" A caption it doesn't know, like `Bd.`, means "No recognisable holdings ranges found", and the record is held for you to look at. Text that is really the values of an 863 with its subfield codes gone, like `2.1 54-62 1-1 1998-2006 21-21 g`, is held with a message saying so. The numbers could be lined up with subfields, but what each one counts was in an 853 that isn't in the text, and the parser doesn't guess captions.
+The parser would rather write nothing than write part of a statement. If it reads the first part of a unit and can't account for the rest, it converts nothing from that statement and says exactly where it stopped. For example: "Read 'v. 5 (1990)' but could not account for 'Suppl.'" A caption it doesn't know, like `Bd.`, means "No recognisable holdings ranges found", and the record is held for you to look at. Text that is really the values of an 863 with its subfield codes gone, like `2.1 54-62 1-1 1998-2006 21-21 g`, is held with a message saying so. The numbers could be lined up with subfields, but what each one counts was in an 853 that isn't in the text, and the parser doesn't guess captions. If you confirm a pattern for such text with every value as Enumeration, it reads as more levels of numbering than an 853 has room for (six, `$a` to `$f`, or five under the house convention). That statement is held too, saying how many levels it read and how many have nowhere to go, rather than converted with some left out.
 
 ## Writing the 853 and 863s
 
@@ -512,12 +512,12 @@ The log is built from the same summary as the conversion, so it describes exactl
 
 Four checks run before any change is released, and each answers a different question.
 
-| Check | Question it answers | Result as of 0.37.0 |
+| Check | Question it answers | Result as of 0.37.1 |
 | --- | --- | --- |
-| Automated tests | Does every behaviour described here still hold? | 1,034 passed, 8 skipped |
+| Automated tests | Does every behaviour described here still hold? | 1,041 passed, 8 skipped |
 | Corpus report | What do 117 real 866 statements convert to, and has any outcome changed? | 89 clean (76%), 22 converted with a warning, 6 with no fields, 0 with values lost |
 | Conversion audit | Did any number in a statement reach no field and no warning? | 0 unaccounted for: the corpus, the LC examples, the other library's catalogue, and all 1,057 statements of the 372-record test export |
-| Round trip | Convert, write the 866 as Alma would, convert again: do the same 863s come back? | Test export: 938 identical, 106 identical apart from an 853 caption, 11 not converted, **0 drift** |
+| Round trip | Convert, write the 866 as Alma would, convert again: do the same 863s come back? | Test export: 927 identical, 105 identical apart from an 853 caption, 23 not converted (12 of them months and seasons in one 866), **0 drift** |
 
 - **The tests** are small worked examples, each saying what should happen to a particular statement or record. Many are named after a real mistake the tool once made, so it can't come back unnoticed. The 8 skipped tests need real library files that aren't kept in the project.
 - **The corpus report** runs a collection of real statements (enumeration and chronology text only, with no identifiers) through both the detector and the parser. Each statement's expected outcome is recorded, so the report can say exactly what a change moved.
