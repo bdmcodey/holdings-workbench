@@ -187,6 +187,14 @@ class EnumChron:
     # serial has none.
     demonstrated: Set[str] = field(default_factory=set)
 
+    # The month or season codes that boundary's wording gave and _pair_or_drop()
+    # left out, "23" from "(1981-Fall 1983)". Kept because whether a serial
+    # counts its issues by month or by season decides which 853 it belongs
+    # under, and that is true however little of it the 863 can record:
+    # without this a statement whose only season was left out read as having
+    # no kind at all, and was filed under the record's month 853.
+    left_out_chron: List[str] = field(default_factory=list)
+
     def level(self, index: int) -> Optional[EnumLevel]:
         """The enumeration level at `index`, or None when there is none."""
         return self.enum[index] if index < len(self.enum) else None
@@ -416,6 +424,86 @@ class ParseResult:
             union["enum_depth"] = len(captions)
             union["enum_captions"] = captions
         return union
+
+
+# ---------------------------------------------------------------------------
+# Months or seasons: which kind of chronology a statement counts by
+# ---------------------------------------------------------------------------
+#
+# An 853's second level of chronology is "(month)" or "(season)", and the
+# codes under it mean one or the other: 09 is September, and nothing under
+# "(season)". A serial that changes from one to the other needs a second 853
+# from the change on (MARC 21, 853-855, Field Repeatability: "The 853-855
+# fields are repeated when the contents of the subfields varies"), and one 863
+# cannot straddle the change, because it links to one 853.
+
+MONTH_CODES = {f"{m:02d}" for m in range(1, 13)}
+
+# For saying which values a statement gave, in the words a cataloguer uses.
+CHRON_CODE_NAMES = {
+    "01": "January", "02": "February", "03": "March", "04": "April",
+    "05": "May", "06": "June", "07": "July", "08": "August",
+    "09": "September", "10": "October", "11": "November", "12": "December",
+    "21": "Spring", "22": "Summer", "23": "Fall", "24": "Winter",
+}
+
+
+def chron_kind(code: str) -> Optional[str]:
+    """"month" for 01-12, "season" for 21-24, None for anything else."""
+    code = (code or "").strip()
+    if code in MONTH_CODES:
+        return "month"
+    if code in SEASON_CODES:
+        return "season"
+    return None
+
+
+def chronology_kinds(parse_result: "ParseResult") -> List[Tuple[str, str]]:
+    """
+    Every month or season the statement gives, in order, as (kind, code).
+
+    Includes the values left out because only one end of a range gave them:
+    "v. 1-3 (1981-Fall 1983)" counts by season even though no 863 can say so.
+    Wording that is not a code ("Late Summer") has no kind and is not listed;
+    it is named elsewhere as wording a coded subfield cannot hold.
+    """
+    out: List[Tuple[str, str]] = []
+    for hr in parse_result.ranges:
+        for ec in (hr.start, hr.end):
+            if ec is None:
+                continue
+            values = re.split(r"[-/,]", ec.month) if ec.month else []
+            for value in list(values) + list(ec.left_out_chron):
+                for code in re.split(r"[-/,]", value):
+                    kind = chron_kind(code)
+                    if kind:
+                        out.append((kind, code.strip()))
+    return out
+
+
+def statement_chron_kind(parse_result: "ParseResult") -> Optional[str]:
+    """"month" or "season" when the statement gives only that kind, else None."""
+    kinds = {kind for kind, _ in chronology_kinds(parse_result)}
+    return kinds.pop() if len(kinds) == 1 else None
+
+
+def chronology_switch(parse_result: "ParseResult") -> Optional[Tuple[str, str, str, str]]:
+    """
+    Where a statement changes between months and seasons, if it does.
+
+    (from kind, last code of it, to kind, first code of that) at the first
+    change, or None when the statement keeps to one kind.
+    """
+    seen = chronology_kinds(parse_result)
+    for (kind_a, code_a), (kind_b, code_b) in zip(seen, seen[1:]):
+        if kind_a != kind_b:
+            return kind_a, code_a, kind_b, code_b
+    return None
+
+
+def chron_name(code: str) -> str:
+    """09 -> September, 24 -> Winter; anything else as it is."""
+    return CHRON_CODE_NAMES.get((code or "").strip(), code)
 
 
 # ---------------------------------------------------------------------------
@@ -976,12 +1064,13 @@ def _parse_distributed_list(text: str,
             # is the only enumeration level there is, and the 853 writes "(*)"
             # for a level with no caption rather than guessing at one.
             shown: Set[str] = set()
-            year, month, day = (_parse_chron(chron, warnings, shown) if chron
-                                else (None, None, None))
+            lost: List[str] = []
+            year, month, day = (_parse_chron(chron, warnings, shown, lost)
+                                if chron else (None, None, None))
             hr = HoldingsRange(
                 start=EnumChron(enum=[EnumLevel(value=item)],
                                 year=year, month=month, day=day,
-                                demonstrated=shown),
+                                demonstrated=shown, left_out_chron=lost),
                 open_ended=last and open_ended,
                 raw=item,
             )
@@ -1250,6 +1339,7 @@ def _expand_abbreviated_end_year(raw: str,
 def _parse_chron(raw: str,
                  warnings: Optional[List[str]] = None,
                  demonstrated: Optional[Set[str]] = None,
+                 left_out: Optional[List[str]] = None,
                  ) -> Tuple[Optional[str], Optional[str], Optional[str]]:
     """
     Parse a chronology string, including ranges within a single group:
@@ -1302,7 +1392,7 @@ def _parse_chron(raw: str,
             year = l_year or r_year
 
         month = _pair_or_drop(l_month, r_month, raw, "month or season", warnings,
-                              demonstrated, "month")
+                              demonstrated, "month", left_out)
         # The day follows exactly the same rule, and for the same reason: a
         # lone '18' in $k pairs positionally with whatever $i and $j hold, so
         # it would claim a precision the other end of the range never gave.
@@ -1336,7 +1426,8 @@ def _parse_chron(raw: str,
 def _pair_or_drop(left: Optional[str], right: Optional[str], raw: str,
                   what: str, warnings: Optional[List[str]],
                   demonstrated: Optional[Set[str]] = None,
-                  level: Optional[str] = None) -> Optional[str]:
+                  level: Optional[str] = None,
+                  left_out: Optional[List[str]] = None) -> Optional[str]:
     """
     Join the two ends of one chronology level, or drop a value only one gives.
 
@@ -1364,6 +1455,8 @@ def _pair_or_drop(left: Optional[str], right: Optional[str], raw: str,
     # this range can record, and the 853 has to say so.
     if demonstrated is not None and level and demonstrates_level(level, lone):
         demonstrated.add(level)
+    if left_out is not None:
+        left_out.append(lone)
     if warnings is not None:
         note = LeftOut(
             f"Only one end of '{raw}' gives a {what} ({lone}); with nothing at "
@@ -1472,7 +1565,8 @@ def _parse_unit(text: str,
 
     if chron:
         ec.year, ec.month, ec.day = _parse_chron(
-            chron.group("chron_raw"), warnings, ec.demonstrated)
+            chron.group("chron_raw"), warnings, ec.demonstrated,
+            ec.left_out_chron)
 
     # A boundary whose chronology was entirely dropped still demonstrates the
     # levels it named, so it is not empty even though every value went.

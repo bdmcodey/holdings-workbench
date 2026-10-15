@@ -255,6 +255,7 @@
     .edit866 { flex: 1; border: 2px solid var(--focus); border-radius: var(--radius); padding: var(--sp-2); }
     .edit866 textarea { min-height: 3.5rem; font-family: var(--font-mono); }
     .edit866 select { width: auto; }
+    .edit866 .split-part + .split-part { margin-top: var(--sp-2); }
     #batch-ind1.invalid, #batch-ind2.invalid { border-color: var(--danger); background: var(--danger-soft); }
 
     #drop-zone {
@@ -4125,12 +4126,18 @@ function fields866Html(idx) {
   if (!fields.length) return '';
   return `
     <div class="f866-list">
-      <div class="pair-col-label">866 fields — edit one to correct a typo and check it again</div>
+      <div class="pair-col-label">866 fields — edit one to correct a typo and check it again,
+        or split one to say where a change falls</div>
       ${fields.map((f, fi) => `
         <div class="f866-row" id="f866-${idx}-${fi}">
-          <div class="field-display">${highlightField(escHtml(f.display))}</div>
-          <button type="button" class="btn btn-secondary btn-sm"
-                  onclick="openEdit866(${idx}, ${fi})">Edit</button>
+          <div class="field-display">${highlightField(escHtml(f.display))}${
+            f.split_part != null ? ` <span class="pill" title="You split one 866 into
+              these statements">split ${f.split_part + 1}</span>` : ''}</div>
+          ${f.split_part == null ? `<button type="button" class="btn btn-secondary btn-sm"
+                  onclick="openEdit866(${idx}, ${fi})">Edit</button>` : ''}
+          <button type="button" class="btn btn-ghost btn-sm"
+                  title="Make this 866 into two or more statements, to say where a change falls that it does not show, such as months to seasons"
+                  onclick="openSplit866(${idx}, ${fi})">Split</button>
         </div>`).join('')}
     </div>`;
 }
@@ -4302,6 +4309,91 @@ function openEdit866(idx, fi) {
 }
 
 /**
+ * Split one 866 into several statements.
+ *
+ * How a cataloguer says where a change falls that the statement does not show:
+ * "v. 19 no. 3-v. 20 no. 4 (September 1986-Winter 1987)" changes from months
+ * to seasons somewhere inside, which is held until it is split there. Opened on
+ * any part of an earlier split, it shows all the parts, to change or undo.
+ */
+function openSplit866(idx, fi) {
+  const fields = allRecords[idx].fields_866;
+  const f = fields[fi];
+  // A part of an earlier split edits the whole split, from its first part.
+  let first = fi;
+  let parts = [f.a || '', f.a || ''];
+  if (f.split_part != null) {
+    const mine = fields.map((g, gi) => ({ g, gi }))
+      .filter(({ g }) => g.split_part != null && g.position === f.position);
+    first = mine[0].gi;
+    parts = mine.map(({ g }) => g.a || '');
+    mine.slice(1).forEach(({ gi }) => {
+      const row = document.getElementById(`f866-${idx}-${gi}`);
+      if (row) row.remove();
+    });
+  }
+  const row = document.getElementById(`f866-${idx}-${first}`);
+  const id = `${idx}-${first}`;
+  row.innerHTML = `
+    <div class="edit866">
+      <div class="small">Write each part as a statement of its own, dividing where the
+        change falls: for example <code>v. 19 no. 3-6 (Sept.-Dec. 1986)</code> and
+        <code>v. 20 no. 1-4 (Winter-Fall 1987)</code>. The first keeps this 866's notes;
+        each other part becomes an 866 of its own right after it.</div>
+      <div id="s866-parts-${id}" class="mt-1">
+        ${parts.map((p, i) => splitPartHtml(id, i, p)).join('')}
+      </div>
+      <div class="btn-row mt-1">
+        <button type="button" class="btn btn-primary btn-sm"
+                onclick="saveSplit866(${idx}, ${first}, false)">Save and check again</button>
+        <button type="button" class="btn btn-ghost btn-sm"
+                onclick="addSplitPart('${id}')">Add another part</button>
+        <button type="button" class="btn btn-ghost btn-sm"
+                onclick="renderRecordDetail(${idx})">Cancel</button>
+        ${f.split_part != null ? `<button type="button" class="btn btn-ghost btn-sm"
+                title="Put this 866 back as one statement, as uploaded"
+                onclick="saveSplit866(${idx}, ${first}, true)">Undo the split</button>` : ''}
+      </div>
+      <div id="s866-status-${id}"></div>
+    </div>`;
+  row.querySelector('textarea').focus();
+}
+
+function splitPartHtml(id, i, text) {
+  return `<div class="split-part">
+    <label class="small" for="s866-${id}-${i}">Part ${i + 1}</label>
+    <textarea id="s866-${id}-${i}" rows="2" class="s866-part">${escHtml(text)}</textarea>
+  </div>`;
+}
+
+function addSplitPart(id) {
+  const box = document.getElementById(`s866-parts-${id}`);
+  const n = box.querySelectorAll('.s866-part').length;
+  box.insertAdjacentHTML('beforeend', splitPartHtml(id, n, ''));
+  box.querySelectorAll('.s866-part')[n].focus();
+}
+
+async function saveSplit866(idx, fi, revert) {
+  const id = `${idx}-${fi}`;
+  const parts = [...document.querySelectorAll(`#s866-parts-${id} .s866-part`)]
+    .map(t => t.value);
+  const status = document.getElementById(`s866-status-${id}`);
+  status.innerHTML = '<span class="spinner"></span>';
+  try {
+    const data = await postJson('api/split-866', {
+      record_index: idx, field_index: fi, parts, revert });
+    allRecords[idx].fields_866 = data.fields_866;
+    allStatements = data.statements;
+    recordPreviews.delete(idx);
+    await reloadReview();
+    await renderRecordDetail(idx);
+    if (detected && detected.length) runDetect();
+  } catch (err) {
+    showAlert(status, err.message, 'err');
+  }
+}
+
+/**
  * Store the correction, then redraw everything that read the old text: this
  * record's preview, the list the filters run on, and -- when the holdings
  * statement changed and patterns have been found -- pattern detection.
@@ -4440,14 +4532,19 @@ async function renderRecordDetail(idx) {
           <span class="pg-title">Held for review</span>
           <span class="pill">${review.length} statement${review.length !== 1 ? 's' : ''}</span>
         </div>
-        <div class="dim small">Not converted. Finding a pattern for these and
-          confirming it is how they get converted.</div>
+        <div class="dim small">${review.every(pv => pv.chron_switch)
+          ? 'Not converted. Splitting the 866 where the change falls is how it gets converted.'
+          : 'Not converted. Finding a pattern for these and confirming it is how they get converted.'}</div>
       </div>
       ${review.map(pv => `
         <div class="pair-row">
           <div>
             <div class="pair-col-label">866 — source</div>
             <div class="field-display f866">${escHtml(pv.source_866)}</div>
+            ${pv.chron_switch && pv.chron_switch.where === 'within' && pv.field_index != null
+              ? `<button type="button" class="btn btn-secondary btn-sm mt-1"
+                   onclick="openSplit866(${idx}, ${pv.field_index})">Split this 866 at the change</button>`
+              : ''}
           </div>
           <div>
             <div class="pair-col-label">Reason</div>

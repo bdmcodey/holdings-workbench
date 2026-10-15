@@ -529,6 +529,7 @@ DEFECTS = {
     "D45": "a caption run into the value before it (v.27no.2)",
     "D47": "quarters written as words (1st quarter)",
     "D48": "single dates written as prose (held, named, 0.30.6)",
+    "D49": "months at one end, seasons at the other (held, 0.37.0)",
 }
 
 

@@ -15,6 +15,15 @@ more than one release; numbering resumed with 0.6.1. Reasoning behind the
 parser and converter decisions, including the defects a real corpus exposed and
 what was done about each, is in [CORPUS-FINDINGS.md](CORPUS-FINDINGS.md).
 
+## 0.37.0 — 2026-10-15
+
+A serial that changes from months to seasons, or back, gets a second 853 from the change, and you say where the change falls: a change inside one 866 is held until you split it, and a change between 866s is marked to check.
+
+- **MARC Holdings Workbench** — A statement whose chronology changes between months and seasons, such as "v. 19 no. 3-v. 20 no. 4 (September 1986-Winter 1987)", is now held, with nothing written and its 866 left in place. It used to convert to $j 09-24 under $j (season), which pairs September with nothing, and say nothing. An 853 gives months or seasons, not both, so the statement needs two 853s and two 863s, and only you know which issue the change falls at. 4 statements in the test collections are like this.
+- **MARC Holdings Workbench** — Every 866 on a record now has a Split button beside Edit, and a held statement like the one above has "Split this 866 at the change". Write each part as a statement of its own, dividing where the change falls. The first part keeps the 866's notes; the others become 866s of their own right after it. The split is what the downloaded file carries, it is listed on the record and in the log as "Edited by you", and Undo the split puts the 866 back as uploaded.
+- **MARC Holdings Workbench** — Where one 866 gives seasons and the next months, each still gets its own 853, and the statement where the new kind starts is now marked "To check", for you to confirm the change falls there. Where you made the change yourself by splitting an 866, it is said and not asked again. The log calls these "Held: months and seasons in one 866", "Check: months and seasons change" and "Split by you: months and seasons".
+- **MARC Holdings Workbench** — A statement whose only season was left out to fit MARC, such as "v. 1-3 (1981-Fall 1983)", now gets an 853 with $j (season). It used to look like a month statement with less detail, and was filed under the next statement's month 853, or under a month 853 already on the record. Neither happens now: it has its own 853, marked to check.
+
 ## 0.36.0 — 2026-10-14
 
 A pattern's expression can be copied for the tool you will use it in: PCRE, JavaScript, Java, .NET, MarcEdit, Alma normalization rules or Oracle SQL for Alma Analytics, as well as Python.

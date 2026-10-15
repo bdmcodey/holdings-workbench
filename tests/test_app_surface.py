@@ -59,6 +59,9 @@ JOINED_ROUTES = {
     # A pattern's expression, written for another tool: PCRE, JavaScript,
     # Java, Alma's normalization rules, Oracle SQL.
     "/api/regex-flavour",
+    # One 866 made into several, to say where a change falls that the
+    # statement does not show: months to seasons, above all.
+    "/api/split-866",
 }
 
 

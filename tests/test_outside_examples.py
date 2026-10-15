@@ -141,8 +141,11 @@ def test_a_month_written_against_its_year_is_read(statement, fields):
 # ── A full stop ending the statement (D39, 0.30.5) ───────────────────────────
 
 @pytest.mark.parametrize("statement, fields", [
-    ("Vol. 3, no. 1 (fall 1969)-v. 16, no. 6 (June 1983).",
-     ["$a 3-16 $b 1-6 $i 1969-1983 $j 23-06"]),
+    # The outside corpus's own example ends "(June 1983)." and is held since
+    # 0.37.0, Fall at one end and June at the other (D49); the full stop is
+    # the point here, so the end is a season.
+    ("Vol. 3, no. 1 (fall 1969)-v. 16, no. 6 (Summer 1983).",
+     ["$a 3-16 $b 1-6 $i 1969-1983 $j 23-22"]),
     ("v.5,no.17(Summer 1964)-v.8,no.30(Winter 1967/68).",
      ["$a 5-8 $b 17-30 $i 1964-1967/1968 $j 22-24"]),
     ("v.1-5.", ["$a 1-5"]),
