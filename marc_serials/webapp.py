@@ -798,22 +798,72 @@ def _what_confirming_decides(examples) -> str:
     return DECIDES_CAPTION if caption_slots else DECIDES_NOTHING
 
 
-def _statements_leaving_out(examples) -> int:
-    """
-    How many of a group's statements would convert with something left out to
-    fit MARC, as the standard parser reads them.
+# What one statement does when converted on its own, as the standard parser
+# reads it. The order is the order a cataloguer would want to hear it in: a
+# statement that is held is held first, whatever else is true of it.
+OUTCOME_ELSEWHERE = "elsewhere"  # a supplement or index: belongs in 867/868
+OUTCOME_UNREAD = "unread"        # the parser writes nothing; the card decides it
+OUTCOME_HELD = "held"            # read, and deliberately not converted
+OUTCOME_TO_CHECK = "to_check"    # converted, with something to look at first
+OUTCOME_LEFT_OUT = "left_out"    # converted, with a value MARC has no place for
+OUTCOME_NOTED = "noted"          # converted, with a note for the log
+OUTCOME_CLEAN = "clean"
 
-    Said on the Patterns step because a group can have nothing to decide and
-    still lose a value -- "v. 8 no. 3-v. 10 no. 2 (1981-Fall 1983)" was folded
-    away as "nothing to decide", and its Fall was only to be found by opening
-    the card and reading the preview.
+
+def _statement_outcome(text: str) -> dict:
     """
-    count = 0
-    for text in list(examples)[:DECISION_SAMPLE]:
-        result = parse_866(text)
-        if result.ranges and convert_holdings(result).left_out:
-            count += 1
-    return count
+    What converting one statement on its own would do, and why.
+
+    The Patterns step said only how many statements lose a value, so a
+    statement that is held -- "v. 94 no. 1 - v. 101 no. 4 (Jan 1988 - Fall
+    1995)", months changing to seasons inside it -- sat folded away under
+    "nothing to decide", and with pasted statements there is no Convert step
+    where it would have shown up.
+    """
+    result = parse_866(text)
+    if result.belongs_in:
+        return {"outcome": OUTCOME_ELSEWHERE, "belongs_in": result.belongs_in,
+                "warnings": list(result.warnings), "attention": [], "left_out": [],
+                "chron_switch": None}
+    if not result.ranges:
+        return {"outcome": OUTCOME_UNREAD, "belongs_in": None,
+                "warnings": list(result.warnings), "attention": [], "left_out": [],
+                "chron_switch": None}
+    converted = convert_holdings(result)
+    if converted.needs_review:
+        outcome = OUTCOME_HELD
+    elif converted.flagged:
+        outcome = OUTCOME_TO_CHECK
+    elif converted.left_out:
+        outcome = OUTCOME_LEFT_OUT
+    elif converted.warnings:
+        outcome = OUTCOME_NOTED
+    else:
+        outcome = OUTCOME_CLEAN
+    return {"outcome": outcome, "belongs_in": None,
+            "warnings": [str(w) for w in converted.warnings],
+            "attention": [str(w) for w in converted.attention],
+            "left_out": [str(w) for w in converted.left_out],
+            "chron_switch": converted.chron_switch}
+
+
+def _outcome_counts(outcomes) -> dict:
+    """
+    How many of a group's statements are held, to check, or lose a value.
+
+    Counted separately, as the record list counts them, because one statement
+    can be two of these: "v. 15 (1998 Buyers Guide)" converts, is to be
+    checked, and leaves "Buyers Guide" out.
+    """
+    return {
+        "held": sum(1 for o in outcomes if o["outcome"] == OUTCOME_HELD),
+        "to_check": sum(1 for o in outcomes if o["outcome"] == OUTCOME_TO_CHECK),
+        # Said on the Patterns step because a group can have nothing to decide
+        # and still lose a value -- "v. 8 no. 3-v. 10 no. 2 (1981-Fall 1983)"
+        # was folded away as "nothing to decide", and its Fall was only to be
+        # found by opening the card and reading the preview.
+        "left_out": sum(1 for o in outcomes if o["left_out"]),
+    }
 
 
 def _annotate_group(group_dict: dict, origins: Optional[dict] = None) -> dict:
@@ -851,7 +901,13 @@ def _annotate_group(group_dict: dict, origins: Optional[dict] = None) -> dict:
     )
     if group_dict["decides"] == DECIDES_ELSEWHERE:
         group_dict["belongs_in"] = parse_866(examples[0]).belongs_in
-    group_dict["left_out"] = _statements_leaving_out(examples)
+    # Every statement of the group, up to the cap, converted as the standard
+    # parser reads it on its own; the ones on screen keep their own outcome,
+    # which is all pasted statements have in place of a Convert step.
+    sample = list(examples)[:DECISION_SAMPLE]
+    outcomes = [_statement_outcome(text) for text in sample]
+    group_dict.update(_outcome_counts(outcomes))
+    group_dict["example_outcomes"] = outcomes[:len(shown)]
     return group_dict
 
 

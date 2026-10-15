@@ -1,6 +1,6 @@
 {
   "name": "MARC Holdings Workbench",
-  "version": "0.38.0",
+  "version": "0.39.0",
   "released": "2026-10-15",
   "status": "Proof of concept — under active development. Check your output before loading it into the catalog.",
   "description": "One tool for MARC serials holdings. Upload a MARC file, find the patterns in its 866 statements, confirm what each part of a pattern means, and convert to structured 853 caption/pattern and 863 enumeration/chronology fields. Statements no pattern matches are converted by the standard parser.",
@@ -9,6 +9,17 @@
   "contact": "Matthew Codey, codey@usc.edu",
   "_comment": "Written for cataloging staff, not developers. Say what changed about the output or the screen, not how the code changed. Newest version first.",
   "changelog": [
+    {
+      "version": "0.39.0",
+      "date": "2026-10-15",
+      "summary": "The Patterns step says which statements are held or to check, and no longer folds them away under \"nothing to decide\".",
+      "changes": [
+        {
+          "tool": "MARC Holdings Workbench",
+          "text": "Each pattern card now counts its statements that are held (nothing written, the 866 kept) and to check (converted, with something to look at first), beside the count of those with something left out to fit MARC; the sentence under the pattern count gives the totals. A pattern with a statement held or to check is no longer folded away under \"nothing to decide\": it goes in its own group, which starts open. Supplements and indexes keep their own group. With pasted statements, where there is no Convert step, each statement that doesn't simply convert is listed on its card with what happens to it and why, and one held for changing from months to seasons has a Split button there: the parts take its place in the pasted text."
+        }
+      ]
+    },
     {
       "version": "0.38.0",
       "date": "2026-10-15",

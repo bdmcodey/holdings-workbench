@@ -1,6 +1,6 @@
 # How the Holdings Workbench Works
 
-*Written for librarians and cataloguers. Describes version 0.38.0.*
+*Written for librarians and cataloguers. Describes version 0.39.0.*
 
 The Holdings Workbench turns the free-text holdings in MARC 866 fields into structured 853 caption/pattern and 863 enumeration/chronology fields, and asks a cataloguer to confirm anything it cannot be sure of. This guide explains how, for librarians rather than programmers.
 
@@ -246,6 +246,7 @@ Confirmed patterns form a library for the session:
 
   An expression a tool can't take (too long for Oracle, or a hand edit using something the tool lacks) is never cut down to fit. Its card shows the reason where the expression would be, Copy is turned off, and "Copy all expressions" gives the reason on its line. The editable box inside a card always holds the expression as the workbench runs it. When you paste statements rather than upload a file, there is no Convert step, so the patterns stay open after Find patterns with every expression in view. With a file, the step folds to one line when nothing needs deciding. Holdings come from one or the other, never both. "Use these statements" sets a loaded file aside: it stays loaded, with your decisions and its patterns, and step 1 names it with a "Back to" button that brings it back. Uploading a file replaces it.
 - **Show its records:** each card can filter the record list to "the records with this shape", and, once confirmed, to "the records it converts". The two can differ: a larger pattern may claim some statements first, and an expression may also match a similar shape. A confirmed pattern that converts nothing is a sign a larger one covers all its statements.
+- **What its statements do:** each card counts how many of its statements are `held` (nothing written, the 866 kept), `to check` (converted, with something to look at first), and `left out` (converted, with a value MARC has no place for). They are counted as the standard parser reads each statement on its own, and one statement can be counted twice: `v. 15 (1998 Buyers Guide)` is both to check and left out. The sentence under the pattern count gives the totals. A pattern with a statement held or to check is never filed with "nothing to decide": it goes in a group of its own, "with nothing to decide, and statements held or to check", which starts open. Supplements and indexes keep their own group. With pasted statements, where there is no Convert step, each statement that doesn't simply convert is listed on its card with what happens to it and why, and one held for changing from months to seasons has a **Split** button there. See "Months and seasons".
 
 ## The standard parser: reading one statement
 
@@ -360,7 +361,7 @@ Some values are read correctly and still can't be written, because an 863 has no
 - Wording a coded subfield can't hold, like `Late Summer`. This one is also orange "To check", because it may be an issue of its own.
 - A level the record's own 853 calls something else, or a value the chosen subfield convention has no place for.
 
-None of these is a value lost in conversion or misread by the parser. Each is named on the record with a dashed box beginning "Left out to fit MARC:", the row says `1 left out`, and the log calls it "Converted, part left out". The "Something left out" filter gathers these records. On the Patterns step, a card whose statements lose something says `left out`, and so does the line a folded group shows, so a pasted statement no longer hides it under "nothing to decide".
+None of these is a value lost in conversion or misread by the parser. Each is named on the record with a dashed box beginning "Left out to fit MARC:", the row says `1 left out`, and the log calls it "Converted, part left out". The "Something left out" filter gathers these records. On the Patterns step, a card whose statements lose something says `left out`, and so does the line a folded group shows, so a pasted statement no longer hides it under "nothing to decide". Cards say `held` and `to check` the same way (see "What its statements do").
 
 Notes in braces, unexplained markers like `N`, and anything the parser couldn't read are not in this group. They stay yellow notes for the log, or holds.
 
@@ -386,6 +387,8 @@ An 853's `$j` says whether the serial is numbered by month or by season, and the
 - **Where you split an 866** at the change, the two parts each get their 853 and nothing asks again: the record says the chronology changes where you split it.
 
 **Splitting an 866.** Every 866 on a record has a **Split** button beside Edit. Write each part as a statement of its own, dividing where the change falls: `v. 19 no. 3-6 (Sept.-Dec. 1986)` and `v. 20 no. 1-4 (Winter-Fall 1987)`. The first part keeps the 866's notes; each other part becomes an 866 of its own right after it, with the same indicators and `$8`. Like an edit, the split is what the downloaded file carries, it is listed on the record and in the log as "Edited by you", and **Undo the split**, from any part, puts the 866 back as uploaded. A part of a split is changed with Split, not Edit. Up to 12 parts.
+
+With pasted statements there is no record to split on, so the **Split** button is on the pattern card, beside the held statement. The parts take its place in the pasted text, one to a line, and the patterns are found again. Before 0.39.0 a pasted statement held this way was folded away under "nothing to decide", and nothing said it was held.
 
 In the corpora, 4 statements change kind inside themselves: 1 in the main corpus and 3 from other libraries' catalogues. All 4 used to convert with no warning, and all 4 are now held.
 
@@ -513,9 +516,9 @@ The log is built from the same summary as the conversion, so it describes exactl
 
 Four checks run before any change is released, and each answers a different question.
 
-| Check | Question it answers | Result as of 0.38.0 |
+| Check | Question it answers | Result as of 0.39.0 |
 | --- | --- | --- |
-| Automated tests | Does every behaviour described here still hold? | 1,050 passed, 8 skipped |
+| Automated tests | Does every behaviour described here still hold? | 1,058 passed, 8 skipped |
 | Corpus report | What do 117 real 866 statements convert to, and has any outcome changed? | 89 clean (76%), 22 converted with a warning, 6 with no fields, 0 with values lost |
 | Conversion audit | Did any number in a statement reach no field and no warning? | 0 unaccounted for: the corpus, the LC examples, the other library's catalogue, and all 1,057 statements of the 372-record test export |
 | Round trip | Convert, write the 866 as Alma would, convert again: do the same 863s come back? | Test export: 927 identical, 105 identical apart from an 853 caption, 23 not converted (12 of them months and seasons in one 866), **0 drift** |
