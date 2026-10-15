@@ -1,6 +1,6 @@
 {
   "name": "MARC Holdings Workbench",
-  "version": "0.37.1",
+  "version": "0.38.0",
   "released": "2026-10-15",
   "status": "Proof of concept — under active development. Check your output before loading it into the catalog.",
   "description": "One tool for MARC serials holdings. Upload a MARC file, find the patterns in its 866 statements, confirm what each part of a pattern means, and convert to structured 853 caption/pattern and 863 enumeration/chronology fields. Statements no pattern matches are converted by the standard parser.",
@@ -9,6 +9,17 @@
   "contact": "Matthew Codey, codey@usc.edu",
   "_comment": "Written for cataloging staff, not developers. Say what changed about the output or the screen, not how the code changed. Newest version first.",
   "changelog": [
+    {
+      "version": "0.38.0",
+      "date": "2026-10-15",
+      "summary": "Numbering ($v) can be set for one record, in \"This record's 853\".",
+      "changes": [
+        {
+          "tool": "MARC Holdings Workbench",
+          "text": "\"This record's 853\" now has Numbering ($v) beside Frequency ($w) and Issues per volume ($u). Whether issue numbers start again with each volume or run straight through is a fact about one serial, so it can be set for that record alone: Restarts each volume (r), Continuous (c), or (not specified) to write no $v on this record. Leave it at \"As in Conversion settings\" to use the file setting. As before, $v never goes on the first level of numbering, and the log lists it under \"853 set by you\"."
+        }
+      ]
+    },
     {
       "version": "0.37.1",
       "date": "2026-10-15",

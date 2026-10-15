@@ -4166,6 +4166,11 @@ function record853Html(idx, about) {
   const fileFreq = document.getElementById('batch-freq');
   const fileLabel = fileFreq.options[fileFreq.selectedIndex].text;
   const fileUnits = document.getElementById('batch-units').value.trim();
+  const fileCont = document.getElementById('batch-continuity');
+  const fileContLabel = fileCont.options[fileCont.selectedIndex].text;
+  const contOptions = [...fileCont.options].map(o =>
+    `<option value="${escHtml(o.value)}" ${'numbering_continuity' in chosen
+      && chosen.numbering_continuity === o.value ? 'selected' : ''}>${escHtml(o.text)}</option>`).join('');
   const freqOptions = [...fileFreq.options].map(o =>
     `<option value="${escHtml(o.value)}" ${'frequency' in chosen && chosen.frequency === o.value
       ? 'selected' : ''}>${escHtml(o.text)}</option>`).join('');
@@ -4195,6 +4200,13 @@ function record853Html(idx, about) {
                  value="${escHtml('units_per_higher' in chosen
                    ? (chosen.units_per_higher || 'none') : '')}" />
         </div>
+        <div class="form-group">
+          <label for="r853-cont-${idx}">Numbering ($v)</label>
+          <select id="r853-cont-${idx}">
+            <option value="__file" ${'numbering_continuity' in chosen ? '' : 'selected'}>As in Conversion settings: ${escHtml(fileContLabel)}</option>
+            ${contOptions}
+          </select>
+        </div>
         ${captionRows}
       </div>
       <div class="small dim mt-1">Issues per volume: a number such as 4 or 12, or
@@ -4214,6 +4226,7 @@ function record853Html(idx, about) {
 async function saveRecord853(idx) {
   const status = document.getElementById(`r853-status-${idx}`);
   const freq = document.getElementById(`r853-freq-${idx}`).value;
+  const cont = document.getElementById(`r853-cont-${idx}`).value;
   const captions = {};
   document.querySelectorAll(`.rec-row[data-index="${idx}"] .r853-cap`).forEach(box => {
     if (box.value.trim()) captions[box.dataset.level] = box.value.trim();
@@ -4224,6 +4237,7 @@ async function saveRecord853(idx) {
       record_index: idx,
       frequency: freq === '__file' ? null : freq,
       units_per_higher: units || null,
+      numbering_continuity: cont === '__file' ? null : cont,
       captions,
     });
     const entry = recordIndex.get(idx);

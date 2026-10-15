@@ -3132,6 +3132,9 @@ replaced. The log says "853 set by you"; the row says `853 set`.
 
 $v and $u stay file-wide for now. They are the next candidates for the same
 panel: issues per volume is as much one title's fact as frequency is.
+*$u joined the panel in 0.35.0 and $v in 0.38.0, each with "as in Conversion
+settings", the file setting's own choices and "not specified"; $v still never
+goes on the first level (0.12.3).*
 
 ## Supplements and indexes are held for their own field · **0.32.0**
 

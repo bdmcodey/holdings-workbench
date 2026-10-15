@@ -15,6 +15,12 @@ more than one release; numbering resumed with 0.6.1. Reasoning behind the
 parser and converter decisions, including the defects a real corpus exposed and
 what was done about each, is in [CORPUS-FINDINGS.md](CORPUS-FINDINGS.md).
 
+## 0.38.0 — 2026-10-15
+
+Numbering ($v) can be set for one record, in "This record's 853".
+
+- **MARC Holdings Workbench** — "This record's 853" now has Numbering ($v) beside Frequency ($w) and Issues per volume ($u). Whether issue numbers start again with each volume or run straight through is a fact about one serial, so it can be set for that record alone: Restarts each volume (r), Continuous (c), or (not specified) to write no $v on this record. Leave it at "As in Conversion settings" to use the file setting. As before, $v never goes on the first level of numbering, and the log lists it under "853 set by you".
+
 ## 0.37.1 — 2026-10-15
 
 A statement read by a pattern as more levels of numbering than an 853 has room for is held with its reason, instead of stopping the record with "could not check".

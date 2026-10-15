@@ -412,20 +412,21 @@ def _parse_all(texts, patterns, fallback: bool = True) -> tuple[list, list]:
 
 
 def _apply_record_853(parsed: list, settings: Optional[dict], frequency: str,
-                      units_per_higher: str) -> tuple:
+                      units_per_higher: str, continuity: str) -> tuple:
     """
-    Apply the 853 settings chosen for one record; return its ($w, $u).
+    Apply the 853 settings chosen for one record; return its ($w, $u, $v).
 
     Captions fill only the levels the record's statements leave blank -- see
     bridge.fill_record_captions() -- and are applied to the readings, before
-    convert_record() decides which statements share an 853. A frequency or a
-    count of issues chosen for the record replaces the file's; one not chosen
-    leaves it.
+    convert_record() decides which statements share an 853. A frequency, a
+    count of issues or a numbering continuity chosen for the record replaces
+    the file's; one not chosen leaves it.
     """
     settings = settings or {}
     fill_record_captions(parsed, settings.get("captions") or {})
     return (settings.get("frequency", frequency),
-            settings.get("units_per_higher", units_per_higher))
+            settings.get("units_per_higher", units_per_higher),
+            settings.get("numbering_continuity", continuity))
 
 
 def _source_labels(patterns) -> dict:
@@ -546,8 +547,8 @@ def _review_row(record, index, *, patterns, fallback, conv_opts, captions,
     # Before the record's own captions fill them, or a level once given a
     # caption would stop being offered.
     row["uncaptioned_levels"] = uncaptioned_levels(parsed)
-    frequency, units_per_higher = _apply_record_853(
-        parsed, record_853, frequency, units_per_higher)
+    frequency, units_per_higher, continuity = _apply_record_853(
+        parsed, record_853, frequency, units_per_higher, continuity)
     existing_853s = [] if clear_existing else list(record.get_fields("853"))
     rc, row["left_as_uploaded"] = _convert_under_policy(
         parsed, left_out_policy, existing_853s=existing_853s, captions=captions,
@@ -1241,9 +1242,9 @@ def api_pattern_preview():
             patterns = [candidate] + _load_library()
             parsed, sources = _parse_all(texts, patterns,
                                          _parser_fallback(data))
-            record_frequency, record_units = _apply_record_853(
+            record_frequency, record_units, record_continuity = _apply_record_853(
                 parsed, _load_decisions()["record_853"].get(str(record_index)),
-                frequency, units_per_higher)
+                frequency, units_per_higher, continuity)
             # A preview of what this pattern would do, so a statement the
             # setting would hold is shown held; a record it would leave as
             # uploaded is still shown, since that is what is being asked about.
@@ -1253,7 +1254,7 @@ def api_pattern_preview():
                 split_from=_split_from(text_fields),
                 captions=captions,
                 frequency=record_frequency,
-                numbering_continuity=continuity,
+                numbering_continuity=record_continuity,
                 merge_patterns=record_index not in _keep_separate(data),
                 holdings_level=holdings_level,
                 units_per_higher=record_units,
@@ -1832,17 +1833,18 @@ def _apply_one_decision(record, decision: dict, patterns: list,
     first = specs[0] if specs else {}
     # $u is read the way holdings_level is. Missing until 0.21.0, so a record
     # converted on its own was written without the $u "Convert all" gives it.
-    frequency, units_per_higher = _apply_record_853(
+    frequency, units_per_higher, continuity = _apply_record_853(
         parsed, record_853, first.get("frequency", ""),
         resolve_units_per_higher(
-            first.get("units_per_higher", decision.get("units_per_higher"))))
+            first.get("units_per_higher", decision.get("units_per_higher"))),
+        first.get("numbering_continuity", "r"))
     rc, left_as_uploaded = _convert_under_policy(
         parsed, _left_out_policy(decision),
         existing_853s=existing_853s,
         split_from=_split_from(sources_866),
         captions=first.get("captions") or None,
         frequency=frequency,
-        numbering_continuity=first.get("numbering_continuity", "r"),
+        numbering_continuity=continuity,
         holdings_level=resolve_holdings_level(
             first.get("holdings_level", decision.get("holdings_level"))),
         units_per_higher=units_per_higher,
@@ -2038,15 +2040,16 @@ def _rebuild_converted(decisions: dict, previews_for: Optional[int] = None):
             for src in sources:
                 by_source[src] = by_source.get(src, 0) + 1
 
-            rec_frequency, rec_units = _apply_record_853(
-                parsed, record_853s.get(str(rec_idx)), frequency, units_per_higher)
+            rec_frequency, rec_units, rec_continuity = _apply_record_853(
+                parsed, record_853s.get(str(rec_idx)), frequency,
+                units_per_higher, continuity)
             rc, left = _convert_under_policy(
                 parsed, left_out_policy,
                 existing_853s=existing_853s,
                 split_from=_split_from(sources_866),
                 captions=captions,
                 frequency=rec_frequency,
-                numbering_continuity=continuity,
+                numbering_continuity=rec_continuity,
                 merge_patterns=rec_idx not in keep_separate,
                 holdings_level=holdings_level,
                 units_per_higher=rec_units,
@@ -2294,13 +2297,20 @@ RECORD_CAPTION_MAX = 20
 RECORD_CAPTION_LEVELS = 6     # $a-$f
 
 
+# 853 $v, as the file's setting offers it. MARC 21 853-855: "r" restarts at
+# the completion of the next higher unit, "c" continues; nothing written is
+# "not specified".
+NUMBERING_CONTINUITY = {"r": "restarts each volume", "c": "continuous",
+                        "": "not specified"}
+
+
 @app.route("/api/record-853", methods=["POST"])
 def api_record_853():
     """
     Keep the 853 settings chosen for one record, applied wherever it converts.
 
     POST JSON: {"record_index": 3, "frequency": "q", "units_per_higher": "4",
-                "captions": {"0": "v."}}.
+                "numbering_continuity": "c", "captions": {"0": "v."}}.
 
     `frequency` is the record's $w: a FREQUENCY_CODES key ("" is "not
     specified", said deliberately), or null to go back to the file's setting.
@@ -2311,6 +2321,12 @@ def api_record_853():
     write no $u on this record whatever the file says; null to go back to the
     file's setting. Like frequency, how many issues make a volume is a fact
     about one serial.
+
+    `numbering_continuity` is the record's $v: "r" (restarts each volume),
+    "c" (continuous), "" (not specified, said deliberately), or null to go
+    back to the file's setting. Whether no. 1 comes round again with each
+    volume or the issues are numbered straight through is, again, one
+    serial's.
 
     `captions` gives a word, by level counted from 0, to a level the record's
     statements write with no caption. It fills only those: a caption a
@@ -2350,6 +2366,15 @@ def api_record_853():
                                          "853 $u: give a number such as 4 or 12, "
                                          "var, und, or none."}), 400
             settings["units_per_higher"] = resolved
+
+    continuity = data.get("numbering_continuity")
+    if continuity is not None:
+        continuity = str(continuity).strip().lower()
+        if continuity not in NUMBERING_CONTINUITY:
+            return jsonify({"error": f"'{continuity}' is not a numbering "
+                                     "continuity for 853 $v: r (restarts each "
+                                     "volume), c (continuous), or empty."}), 400
+        settings["numbering_continuity"] = continuity
 
     captions: dict = {}
     for key, word in (data.get("captions") or {}).items():
@@ -2391,6 +2416,10 @@ def record_853_summary(settings: Optional[dict]) -> str:
     if "units_per_higher" in settings:
         units = settings["units_per_higher"]
         parts.append(f"$u {units}" if units else "$u not specified")
+    if "numbering_continuity" in settings:
+        code = settings["numbering_continuity"]
+        parts.append(f"$v {code} ({NUMBERING_CONTINUITY[code]})" if code
+                     else "$v not specified")
     for level, word in sorted((settings.get("captions") or {}).items(),
                               key=lambda kv: int(kv[0])):
         parts.append(f"level {int(level) + 1} caption {word}")
