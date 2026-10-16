@@ -2839,6 +2839,64 @@ real export gets no note on any of its 1,057 866s. The angle-bracket dates of
 D41 (`<1884:6:28>`) are not treated as the Newspaper Program's: nothing here
 says whose they are.
 
+## A list with a mistake in it, and the pattern that would convert part of it · **0.41.0**
+
+*16 October 2026.* Reported by the cataloguer on 0.40.0, with a statement from
+the real export: a list of volume runs and year runs with three mistakes in
+it -- a comma missing between two volume runs, a hyphen after a closed last
+run, and a year run out of order. The parser refused it, rightly. The card for
+it said "100% matched".
+
+**What confirming that card would have done.** With splitting off, the
+detector's expression spans the whole statement and its roles place one run:
+the first volume run, with the first year and the last. Everything between went
+to "Not encoded", which writes a warning per value and nothing else -- so one
+863, with the wrong end year, and four runs set aside. With
+splitting on, the auto-confirmed pattern for the first piece (a plain run
+such as "v. 21-26") converted that piece alone, and the other pieces said only "matched
+neither the pattern nor the standard parser". Neither was held, and "Remove
+each 866" removes an 866 once anything is written from it.
+
+`is_more_than_one_run()` already keeps a pattern off a list -- but by asking
+the parser how many runs there are, and the parser could not read this one. So
+`_build_from_pattern()` now holds, writing nothing, where a pattern would set
+aside values of a segment written as a list of runs (a top-level comma with a
+bare number after it; "Vol. 1, No. 1" is one run's levels and is not), and
+where any segment matched neither reader. The reason says what would have been
+set aside and what to look for.
+
+Measured with every detected pattern confirmed as suggested (as a cataloguer
+accepting each card would), split on and off: 1 export statement and 8 from
+other libraries' catalogues move from converted to held, and nothing else
+changes. All 8 were wrong before -- `$a 27n-2`, a volume without its issue,
+`no.28,693` cut at its thousands comma (D37).
+
+**The three mistakes, read.** With the comma put back, the parser now says
+what stops the list: the run refused inside it gives its own reason ("gives a
+run and then leaves it open"), where before only "could not account for" the
+rest was said. With the hyphen gone too, the list converts, and because the
+second year run is later than the third, it is marked to check, naming both
+runs: positional pairing is the only reading, and a year typed wrong is the
+likeliest cause. And the last run of a list can now be left open in its years,
+`v. 1-3, 5-(1990-92, 1994-)`; it could already be in its volumes.
+
+Parser path on the three corpora and the real export: no 863 differs, no
+drift, audit 0, round trip unchanged (938 / 103 / 14, DRIFT 0).
+
+**Edit on the Patterns step.** Raised with the report: the mistake is seen on
+the card, and correcting it meant finding the record again in step 3. The card
+now has Edit beside its example, saving the same edit step 3 makes. Decided by
+the cataloguer: it edits this record; a box, unticked, makes the same change
+on every other record whose 866 reads exactly the same, each as an edit of its
+own. Pasted statements are edited in the pasted text.
+
+Building it found a gap: `_statement_origins()`, which ties a card's examples
+to their records, read the file as uploaded, so a statement already corrected
+with Edit had no record behind it on its card -- "show its records" missed it,
+and it could not have been edited again. It reads the records as every other
+screen does now, edits and splits applied, and so does `/api/detect` when the
+statements are not sent.
+
 ## Lists of months, lists of volumes and years, and the library on a fresh page · **0.40.0**
 
 *16 October 2026.* Requested by the cataloguer after 0.39.0, from the real

@@ -721,15 +721,30 @@ def _statement_origins(do_split: bool) -> dict:
 
     First occurrence wins: the same holdings string can appear on two records,
     and either one previews the numbering equally well.
+
+    Read with the cataloguer's edits and splits applied, as every other screen
+    reads records. Until 0.41.0 this read the file as uploaded, so a statement
+    corrected with Edit no longer led back to its record: its card could not
+    show the record, and could not have edited it again.
     """
-    stored = _load_file("marc_file")
-    if not stored:
+    records = _load_all_records()
+    if not records:
         return {}
 
+    # How many records carry each whole 866 word for word, for Edit's "also
+    # on the other records with exactly this 866". A part of a split is
+    # changed with Split, so it is not counted.
+    same_text: dict = {}
+    for index, record in enumerate(records):
+        for fld in record.get_fields("866"):
+            text = (fld.get("a") or "").strip()
+            if text and getattr(fld, "split_part", None) is None:
+                same_text.setdefault(text, set()).add(index)
+
     origins: dict = {}
-    for record in _read_marc_file(io.BytesIO(stored)):
-        for field_index, fld in enumerate(record["fields_866"]):
-            text = (fld["a"] or "").strip()
+    for index, record in enumerate(records):
+        for field_index, fld in enumerate(record.get_fields("866")):
+            text = (fld.get("a") or "").strip()
             if not text:
                 continue
             pieces = split_statement(text) if do_split else [text]
@@ -739,16 +754,19 @@ def _statement_origins(do_split: bool) -> dict:
                     continue
                 if key not in origins:
                     origins[key] = {
-                        "record_index": record["index"],
+                        "record_index": index,
                         "field_index": field_index,
                         "source_866": text,
+                        "split_part": getattr(fld, "split_part", None),
+                        "same_866": len(same_text.get(text, ())) - 1
+                                    if getattr(fld, "split_part", None) is None else 0,
                         "records": [],
                     }
                 # Every record, not only the first: "show the records with this
                 # shape" has to find all of them.
                 seen = origins[key]["records"]
-                if not seen or seen[-1] != record["index"]:
-                    seen.append(record["index"])
+                if not seen or seen[-1] != index:
+                    seen.append(index)
     return origins
 
 
@@ -1068,10 +1086,10 @@ def api_detect():
     do_split = bool(data.get("split_multi_range", True))
 
     if not raw:
-        stored = _load_file("marc_file")
-        records = _read_marc_file(io.BytesIO(stored)) if stored else []
-        raw = [fld["a"].strip() for rec in records
-               for fld in rec["fields_866"] if (fld["a"] or "").strip()]
+        # As edited and split, the way every screen reads the file.
+        records = _load_all_records() or []
+        raw = [fld.get("a").strip() for rec in records
+               for fld in rec.get_fields("866") if (fld.get("a") or "").strip()]
 
     if not raw:
         return jsonify({"error": "No statements provided."}), 400
@@ -2594,6 +2612,21 @@ def api_split_866():
         return jsonify({"error": str(exc)}), 500
 
 
+def _store_edit(decisions: dict, record_index: int, position: int, code: str,
+                value: str, was: str, revert: bool = False) -> None:
+    """Keep one 866 correction, or forget it when it puts the text back."""
+    by_record = decisions["edits"].setdefault(str(record_index), {})
+    by_field = by_record.setdefault(str(position), {})
+    if revert or value == was:
+        by_field.pop(code, None)
+    else:
+        by_field[code] = {"value": value, "was": was}
+    if not by_field:
+        by_record.pop(str(position), None)
+    if not by_record:
+        decisions["edits"].pop(str(record_index), None)
+
+
 @app.route("/api/edit-866", methods=["POST"])
 def api_edit_866():
     """
@@ -2602,6 +2635,9 @@ def api_edit_866():
     POST JSON: {"record_index": 12, "field_index": 0, "code": "a",
                 "value": "v. 5 no. 1-v. 8 no. 2 (Fall 1995-Fall 1999)"}
                or {..., "revert": true} to undo that subfield's correction.
+               With {"same_text": true}, an $a correction is made as well on
+               every other record whose 866 reads exactly as this one did;
+               they come back under "also".
 
     The correction is a decision like any other: stored with the session's
     decisions, gone with a new upload, and applied where records are read, so
@@ -2647,20 +2683,45 @@ def api_edit_866():
                                  "original back with Revert instead."}), 400
 
     decisions = _load_decisions()
-    by_record = decisions["edits"].setdefault(str(record_index), {})
-    by_field = by_record.setdefault(str(field_index), {})
-    if data.get("revert") or value == was:
-        by_field.pop(code, None)
-    else:
-        by_field[code] = {"value": value, "was": was}
-    if not by_field:
-        by_record.pop(str(field_index), None)
-    if not by_record:
-        decisions["edits"].pop(str(record_index), None)
+    # "Also on the other records with exactly this 866", from the Patterns
+    # step: every other record whose 866 reads, as it now stands, word for
+    # word what this one did. Each gets the same edit, stored against its own
+    # 866 as uploaded, so each is listed, logged and put back on its own.
+    also: list[int] = []
+    if data.get("same_text") and code == "a" and not data.get("revert"):
+        shown = _load_all_records() or []
+        before = (shown[record_index].get_fields("866")[
+            int(data.get("field_index"))].get("a") or "").strip()
+        for other, record in enumerate(shown):
+            if other == record_index:
+                continue
+            for shown_index, fld in enumerate(record.get_fields("866")):
+                if getattr(fld, "split_part", None) is not None \
+                        or (fld.get("a") or "").strip() != before:
+                    continue
+                # As _locate_866() counts: the same until a split moves it.
+                position = getattr(fld, "original_position", shown_index)
+                other_was = original[other].get_fields("866")[position].get("a") or ""
+                _store_edit(decisions, other, position, code, value, other_was)
+                if not also or also[-1] != other:
+                    also.append(other)
+    _store_edit(decisions, record_index, field_index, code,
+                "" if data.get("revert") else value, was,
+                revert=bool(data.get("revert")))
     _save_decisions(decisions)
 
     try:
-        return _866_reply(decisions, record_index)
+        reply = _866_reply(decisions, record_index)
+        if also:
+            records = _load_all_records()
+            payload = reply.get_json()
+            payload["also"] = [{
+                "record_index": other,
+                "fields_866": [summarise_866(f) for f in records[other].get_fields("866")],
+                "edited": edit_notes(decisions["edits"].get(str(other))),
+            } for other in also]
+            return jsonify(payload)
+        return reply
     except Exception as exc:
         app.logger.exception("Request failed")
         return jsonify({"error": str(exc)}), 500

@@ -3404,7 +3404,10 @@ function buildPatternCard(group, idx) {
         <button type="button" class="btn btn-ghost btn-sm ex-next"
                 aria-label="Next example">›</button>
         <span class="example-count small dim"></span>
+        <button type="button" class="btn btn-secondary btn-sm ex-edit"
+                title="Correct this statement here: the 866 on its record, or the line you pasted">Edit</button>
       </div>
+      <div class="ex-edit-slot"></div>
 
       <div class="role-scroll">
         <table class="role-table">
@@ -3487,10 +3490,100 @@ function showExample(card) {
                   : `${i + 1} of ${total}`;
   card.querySelector('.ex-prev').disabled = shown <= 1;
   card.querySelector('.ex-next').disabled = shown <= 1;
+  // Edit is for the statement on screen: one from a file can be edited where
+  // the file says it came from; one pasted, in the pasted text.
+  card.querySelector('.ex-edit').hidden =
+    !(sourceMode === 'paste' || exampleSource(card));
+  card.querySelector('.ex-edit-slot').innerHTML = '';
 
   renderRoleRows(card, card._roles, (group.example_values || [])[i] || {});
   updateCardWarnings(card);
   refreshPreview(card);
+}
+
+/**
+ * Correct the statement on screen, from the card.
+ *
+ * The Patterns step is where a mistake in a statement is seen -- a comma
+ * missing between runs, a stray hyphen -- and until 0.41.0 correcting it
+ * meant finding the record again in step 3. The edit is the same one step 3
+ * makes, stored the same way: listed on the record, logged as "Edited by you",
+ * and put back from there. An example that is one part of a longer 866 opens
+ * the whole 866, since that is what is stored.
+ */
+function openCardEdit(card) {
+  const slot = card.querySelector('.ex-edit-slot');
+  const example = (card._group.examples || [])[card._example] || '';
+  const src = exampleSource(card);
+  if (sourceMode !== 'paste' && src && src.split_part != null) {
+    slot.innerHTML = `<div class="alert alert-info small">This statement is a part of an
+      866 you split. Change it with Split, on its record in step 3.</div>`;
+    return;
+  }
+  const text = sourceMode === 'paste' ? example : (src ? src.source_866 : example);
+  const rec = src && allRecords[src.record_index];
+  const where = sourceMode === 'paste'
+    ? 'The line you pasted. Saving changes it in the pasted text.'
+    : `The 866 on ${escHtml(rec ? rec.title : `record ${src.record_index + 1}`)}`
+      + (text !== example ? ', of which the example is one part' : '')
+      + '. Saved as an edit to that record, as in step 3.';
+  const same = sourceMode === 'paste' ? 0 : (src.same_866 || 0);
+  slot.innerHTML = `
+    <div class="edit866 mt-1">
+      <div class="small">${where}</div>
+      <textarea rows="2" class="mt-1 ex-edit-text"
+                aria-label="Corrected holdings statement">${escHtml(text)}</textarea>
+      ${same ? `<div class="check-row mt-1">
+        <input type="checkbox" class="ex-edit-same" id="ex-edit-same-${card.dataset.idx}" />
+        <label for="ex-edit-same-${card.dataset.idx}">Also make this change on the
+          ${same} other record${same !== 1 ? 's' : ''} with exactly this 866</label>
+      </div>` : ''}
+      <div class="btn-row mt-1">
+        <button type="button" class="btn btn-primary btn-sm ex-edit-save">Save and find patterns again</button>
+        <button type="button" class="btn btn-ghost btn-sm ex-edit-cancel">Cancel</button>
+      </div>
+      <div class="ex-edit-status"></div>
+    </div>`;
+  slot.querySelector('.ex-edit-cancel').addEventListener('click', () => { slot.innerHTML = ''; });
+  slot.querySelector('.ex-edit-save').addEventListener('click', () => saveCardEdit(card, text));
+  slot.querySelector('textarea').focus();
+}
+
+async function saveCardEdit(card, was) {
+  const slot = card.querySelector('.ex-edit-slot');
+  const status = slot.querySelector('.ex-edit-status');
+  const value = slot.querySelector('.ex-edit-text').value.split(/\s+/).join(' ').trim();
+  if (!value) {
+    showAlert(status, 'An 866 needs its holdings statement.', 'warn');
+    return;
+  }
+  if (sourceMode === 'paste') {
+    const box = document.getElementById('stmt-input');
+    box.value = box.value.split('\n')
+      .map(line => line.trim() === was ? value : line).join('\n');
+    showPastedSummary();
+    runDetect();
+    return;
+  }
+  const src = exampleSource(card);
+  const same = slot.querySelector('.ex-edit-same');
+  status.innerHTML = '<span class="spinner"></span>';
+  try {
+    const data = await postJson('api/edit-866', {
+      record_index: src.record_index, field_index: src.field_index, code: 'a',
+      value, same_text: !!(same && same.checked) });
+    const changed = [{ record_index: src.record_index, fields_866: data.fields_866 }]
+      .concat(data.also || []);
+    changed.forEach(r => {
+      if (allRecords[r.record_index]) allRecords[r.record_index].fields_866 = r.fields_866;
+      recordPreviews.delete(r.record_index);
+    });
+    allStatements = data.statements;
+    if (allRecords.length) await reloadReview();
+    runDetect();
+  } catch (err) {
+    showAlert(status, err.message, 'err');
+  }
 }
 
 /** Where the example on screen came from, when it came from a file at all. */
@@ -3784,6 +3877,8 @@ function wireCard(card) {
     card._roles = card._group.suggested_roles;
     showExample(card);
   });
+
+  card.querySelector('.ex-edit').addEventListener('click', () => openCardEdit(card));
 
   card.querySelector('.ex-prev').addEventListener('click', () => {
     const shown = card._group.examples_shown ?? (card._group.examples || []).length;
