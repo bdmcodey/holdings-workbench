@@ -106,6 +106,9 @@
     }
     .library > summary:hover { color: var(--accent); }
     .library-body { padding-top: var(--sp-2); }
+    /* Under step 1, outside the part that folds, so it stays in view. */
+    .step-library { padding: 0 var(--sp-4) var(--sp-2); }
+    .step-library .library { margin-top: 0; }
 
     /* Records: a row per record, expanding in place. Nothing can be pushed
        out of view, which is what made the old two-pane arrangement fail. */
@@ -696,6 +699,34 @@ v.6(1995)-"></textarea>
     </div>
 
     <div id="source-summary" class="step-summary" hidden></div>
+
+    <!-- The library outlives any one file or paste, so it is here, not in
+         step 2: step 2 appears only once there are statements, and a library
+         kept from earlier in the visit -- or one to import before uploading --
+         had no way onto the screen until something else was done first. -->
+    <div class="step-library" id="library-wrap">
+      <details id="library-bar" class="library">
+        <summary class="small"><span id="library-summary">Pattern library</span></summary>
+        <div class="library-body">
+          <p class="small dim" id="library-about">
+            Every pattern confirmed so far, kept for this visit. They are tried
+            in turn before the standard parser, so what is listed here is what
+            will read your holdings. Remove any that should not be used, or
+            export them to load again next time.
+          </p>
+          <div class="btn-row" style="margin-top:0;">
+            <a class="btn btn-secondary btn-sm" href="api/patterns/export" id="btn-export-library"
+               title="Save these patterns to a file you can load again later">Export</a>
+            <button type="button" class="btn btn-secondary btn-sm" id="btn-import"
+                    title="Load patterns from a file exported earlier">Import</button>
+            <button type="button" class="btn btn-ghost btn-sm" id="btn-clear-library">Clear</button>
+          </div>
+          <div id="library-list" class="mt-1"></div>
+          <input type="file" id="import-input" accept=".json,application/json" />
+          <div id="library-status" class="mt-1"></div>
+        </div>
+      </details>
+    </div>
   </section>
 
   <!-- ── 2 · Patterns ──────────────────────────────────────────────────── -->
@@ -730,27 +761,6 @@ v.6(1995)-"></textarea>
       </div>
       <div id="detect-error" class="mt-1"></div>
 
-      <details id="library-bar" class="library" hidden>
-        <summary class="small"><span id="library-summary"></span></summary>
-        <div class="library-body">
-          <p class="small dim">
-            Every pattern confirmed so far, kept for this visit. They are tried
-            in turn before the standard parser, so what is listed here is what
-            will read your holdings. Remove any that should not be used, or
-            export them to load again next time.
-          </p>
-          <div class="btn-row" style="margin-top:0;">
-            <a class="btn btn-secondary btn-sm" href="api/patterns/export"
-               title="Save these patterns to a file you can load again later">Export</a>
-            <button type="button" class="btn btn-secondary btn-sm" id="btn-import"
-                    title="Load patterns from a file exported earlier">Import</button>
-            <button type="button" class="btn btn-ghost btn-sm" id="btn-clear-library">Clear</button>
-          </div>
-          <div id="library-list" class="mt-1"></div>
-          <input type="file" id="import-input" accept=".json,application/json" />
-          <div id="library-status" class="mt-1"></div>
-        </div>
-      </details>
 
       <div id="patterns-area"></div>
 
@@ -4206,9 +4216,19 @@ function renderLibrary() {
   const list    = document.getElementById('library-list');
   revealSteps();          // the confirmed count is shown on step 3's header
 
-  if (!library.length) {
-    document.getElementById('library-bar').hidden = true;
-    summary.textContent = '';
+  // Empty, it still says so and offers Import: a library exported last week
+  // can be loaded before any file is.
+  const empty = !library.length;
+  document.getElementById('btn-export-library').hidden = empty;
+  document.getElementById('btn-clear-library').hidden = empty;
+  document.getElementById('library-about').textContent = empty
+    ? 'No patterns confirmed yet. Patterns you confirm are kept here for this visit; '
+      + 'import a library exported earlier to use it again.'
+    : 'Every pattern confirmed so far, kept for this visit. They are tried in turn '
+      + 'before the standard parser, so what is listed here is what will read your '
+      + 'holdings. Remove any that should not be used, or export them to load again next time.';
+  if (empty) {
+    summary.textContent = 'Pattern library — empty';
     list.innerHTML = '';
     refreshPatternsSummary();
     return;
@@ -4219,9 +4239,8 @@ function renderLibrary() {
   summary.textContent =
     `Pattern library — ${n - set_aside} confirmed pattern${n - set_aside !== 1 ? 's' : ''} in use`
     + (set_aside ? `, ${set_aside} skipped` : '');
-  // Only the visibility is touched, never `open`: a cataloguer who opened it to
-  // remove something should not have it fold up under them on the next render.
-  document.getElementById('library-bar').hidden = false;
+  // `open` is never touched: a cataloguer who opened it to remove something
+  // should not have it fold up under them on the next render.
   list.innerHTML = library.map(p => `
     <div class="lib-item${p.skip ? ' skipped' : ''}">
       <span class="lib-label">${escHtml(p.label)}
@@ -4251,6 +4270,11 @@ function redrawPatterns() {
 }
 
 document.getElementById('btn-clear-library').addEventListener('click', async () => {
+  // Reachable now on a fresh page, with nothing else in view, and not undone
+  // except by importing an export.
+  const n = library.length;
+  if (!confirm(`Clear all ${n} pattern${n !== 1 ? 's' : ''} from the library? `
+               + 'Export first if you want to load them again.')) return;
   // Clearing is as deliberate as removing one, so nothing cleared comes back on
   // the next detection run. Confirming a card by hand undoes that for it.
   library.forEach(p => dismissed.add(p.id));

@@ -82,10 +82,16 @@ def test_a_date_range_at_one_end_no_longer_costs_the_other_end(statement, chrono
     assert rc.flagged
 
 
-def test_a_list_of_month_runs_is_still_held():
-    """Two runs with a gap between are not one range; nothing is invented."""
+def test_a_list_of_month_runs_is_two_runs_not_one_range():
+    """
+    Two runs with a gap between are not one range; nothing is invented.
+
+    Held until 0.40.0, which reads the year stated once at the end as the year
+    of both runs: two 863s with a gap between, never "$j 01-11".
+    """
     fields, rc = _convert("(Jan-May, Sep-Nov 1983)")
-    assert fields == [] and rc.needs_review
+    assert fields == ["$i 1983 $j 01-05 $w g", "$i 1983 $j 09-11"]
+    assert not rc.needs_review and not rc.flagged
 
 
 def test_the_reported_statement_now_closes_the_loop():
