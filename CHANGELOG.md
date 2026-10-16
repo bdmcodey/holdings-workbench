@@ -17,9 +17,11 @@ what was done about each, is in [CORPUS-FINDINGS.md](CORPUS-FINDINGS.md).
 
 ## 0.44.0 — 2026-10-16
 
-An open record in step 3 can be closed from its foot, beside Reviewed and Skip.
+An open record in step 3 can be closed from its foot, and stays on screen while you work on it; every edit or split says whether it fixed the statement.
 
-- **MARC Holdings Workbench** — An open record in step 3 has a Close button at its foot, beside Reviewed, Keep patterns separate and Skip. It folds the record back to its line and keeps that line in view, so after writing a note or ticking Reviewed there is no need to scroll back up to the top of a long record to close it.
+- **MARC Holdings Workbench** — An open record in step 3 has a Close button at its foot, beside Reviewed, Keep patterns separate and Skip. It folds the record back to its line and brings that line to the top of the screen, so after writing a note or ticking Reviewed there is no need to scroll back up, and the next record is right below.
+- **MARC Holdings Workbench** — A record you are working on in step 3 no longer disappears under you. Fixing it, skipping it or ticking Reviewed while a filter such as Needs attention is on used to take it off the list at once; it now stays open, says it no longer matches, and leaves the list when you close it, with the next record taking its place at the top of the screen. Editing an 866 in step 3 also no longer folds step 2 above it, which moved the whole page.
+- **MARC Holdings Workbench** — After any edit or split, on a pattern card or in step 3, a message at the bottom right says whether it worked: "Fixed", with how many 863s the 866 now converts to; "Saved. It converts, with something to check", with what; or "Saved, but still held", with the reason.
 
 ## 0.43.0 — 2026-10-16
 
