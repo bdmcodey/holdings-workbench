@@ -1,6 +1,6 @@
 {
   "name": "MARC Holdings Workbench",
-  "version": "0.42.0",
+  "version": "0.43.0",
   "released": "2026-10-16",
   "status": "Proof of concept — under active development. Check your output before loading it into the catalog.",
   "description": "One tool for MARC serials holdings. Upload a MARC file, find the patterns in its 866 statements, confirm what each part of a pattern means, and convert to structured 853 caption/pattern and 863 enumeration/chronology fields. Statements no pattern matches are converted by the standard parser.",
@@ -9,6 +9,21 @@
   "contact": "Matthew Codey, codey@usc.edu",
   "_comment": "Written for cataloging staff, not developers. Say what changed about the output or the screen, not how the code changed. Newest version first.",
   "changelog": [
+    {
+      "version": "0.43.0",
+      "date": "2026-10-16",
+      "summary": "Each pattern card lists its statements to look at, every one, with its record and Edit and Split; buttons by kind, with counts, narrow the Patterns step to the held, to check, not read or left out.",
+      "changes": [
+        {
+          "tool": "MARC Holdings Workbench",
+          "text": "Each pattern card now lists the statements that are held, to check or not read — every one, not only the 25 examples — each with the record it is on, what happens to it and why, and Edit and Split beside it. A fixed statement leaves the list. \"Show the records to look at\" narrows step 3 to their records. Before, a card from a file only counted them, and every statement of a card is now counted, not the first 200."
+        },
+        {
+          "tool": "MARC Holdings Workbench",
+          "text": "Under the pattern count, \"Statements to look at\" has a button for each kind, with how many statements and patterns: Held, To check, Not read, Left out. One shows only the patterns with that kind, each listing only those statements; \"Show all patterns\" goes back. They replace the sentence that gave these totals."
+        }
+      ]
+    },
     {
       "version": "0.42.0",
       "date": "2026-10-16",

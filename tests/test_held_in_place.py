@@ -40,7 +40,10 @@ def test_a_card_counts_what_the_parser_cannot_read(client):
 
 def test_the_folded_card_says_it_and_where_reading_stopped():
     assert "${group.unread} not read</span>" in PAGE
-    assert "${unreadNoteHtml(group)}" in PAGE
+    # Since 0.43.0 in the card's list of statements to look at, which shows
+    # folded: each statement not read, with where reading stopped.
+    assert "${lookAtHtml(group, idx)}" in PAGE
+    assert "reasons = unreadReasonHtml(r);" in PAGE
     assert "such as a comma missing '" in PAGE
 
 

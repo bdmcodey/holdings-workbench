@@ -781,6 +781,14 @@ DECIDES_ELSEWHERE = "elsewhere"  # supplements or indexes: held whatever is said
 # cluster of ordinary size; the cap only bounds a pathological one.
 DECISION_SAMPLE = 200
 
+# How many of a cluster's statements are converted to count what each does.
+# 200 until 0.43.0, which left the last 24 of a 224-statement card uncounted;
+# a whole real export (1,057 statements) converts in well under a second.
+OUTCOME_SAMPLE = 5000
+
+# The statements a card lists to look at, at most; the counts cover them all.
+LOOK_AT_LIMIT = 200
+
 
 def _what_confirming_decides(examples) -> str:
     """
@@ -925,13 +933,46 @@ def _annotate_group(group_dict: dict, origins: Optional[dict] = None) -> dict:
     if group_dict["decides"] == DECIDES_ELSEWHERE:
         group_dict["belongs_in"] = parse_866(examples[0]).belongs_in
     # Every statement of the group, up to the cap, converted as the standard
-    # parser reads it on its own; the ones on screen keep their own outcome,
-    # which is all pasted statements have in place of a Convert step.
-    sample = list(examples)[:DECISION_SAMPLE]
+    # parser reads it on its own; the ones on screen keep their own outcome.
+    sample = list(examples)[:OUTCOME_SAMPLE]
     outcomes = [_statement_outcome(text) for text in sample]
     group_dict.update(_outcome_counts(outcomes))
     group_dict["example_outcomes"] = outcomes[:len(shown)]
+    group_dict["to_look_at"], group_dict["look_at_records"] = _to_look_at(
+        sample, outcomes, _origin)
     return group_dict
+
+
+def _to_look_at(texts, outcomes, origin):
+    """
+    The statements of a card that are held, to check, not read, or lose a
+    value -- every one, not only the examples on screen -- each with the
+    record it is on, for the card to list with Edit and Split beside it.
+
+    Until 0.43.0 a card from a file only counted them: "224 statements, 6
+    held", and the six could be found only if they happened to be among the
+    25 examples shown, or by going to step 3. A card that calls something out
+    has to let it be fixed where it is called out.
+    """
+    rows: dict = {}
+    for text, outcome in zip(texts, outcomes):
+        kinds = []
+        if outcome["outcome"] in (OUTCOME_HELD, OUTCOME_TO_CHECK, OUTCOME_UNREAD):
+            kinds.append(outcome["outcome"])
+        if outcome["left_out"]:
+            kinds.append(OUTCOME_LEFT_OUT)
+        if not kinds:
+            continue
+        key = (text or "").strip()
+        if key in rows:
+            continue                      # the same words twice: one row
+        found = origin(text)
+        rows[key] = dict(outcome, text=key, kinds=kinds, source=(
+            {k: v for k, v in found.items() if k != "records"} if found else None),
+            records=list(found.get("records", ())) if found else [])
+    listed = list(rows.values())
+    records = sorted({i for row in listed for i in row["records"]})
+    return listed[:LOOK_AT_LIMIT], records
 
 
 # ---------------------------------------------------------------------------
