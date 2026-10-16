@@ -43,7 +43,10 @@ def test_the_folded_card_says_it_and_where_reading_stopped():
     # Since 0.43.0 in the card's list of statements to look at, which shows
     # folded: each statement not read, with where reading stopped.
     assert "${lookAtHtml(group, idx)}" in PAGE
-    assert "reasons = unreadReasonHtml(r);" in PAGE
+    # Since 0.45.0 the causes are said once for the statements not read,
+    # and each row says where reading stopped.
+    assert "return { key: 'unread', hint: stoppedHint, html:" in PAGE
+    assert "if (m) return `stopped at <code>${escHtml(" in PAGE
     assert "such as a comma missing '" in PAGE
 
 

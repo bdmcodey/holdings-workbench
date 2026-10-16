@@ -1,6 +1,6 @@
 # How the Holdings Workbench Works
 
-*Written for librarians and cataloguers. Describes version 0.44.1.*
+*Written for librarians and cataloguers. Describes version 0.45.0.*
 
 The Holdings Workbench turns the free-text holdings in MARC 866 fields into structured 853 caption/pattern and 863 enumeration/chronology fields, and asks a cataloguer to confirm anything it cannot be sure of. This guide explains how, for librarians rather than programmers.
 
@@ -255,7 +255,7 @@ Confirmed patterns form a library for the session:
 - **The record, in order:** a card's preview shows every statement on the example's record in the order its 866s come, each under the 853 it links to, with a new heading wherever the linking number changes (a pattern the record comes back to says "continued"). A held statement sits where it comes, with its reason in orange and Edit and Split beside it; fixed, it converts where it stands. The record in step 3 is shown the same way. Before 0.42.0 held statements were gathered into a "Held for review" block at the end, with no Edit or Split in a card's preview.
 - **Not read:** a card whose statements the standard parser can't read at all says `N not read`, and, folded, says where reading stopped on the first, for example "Read 'v. 21-26' but could not account for ', 29-31 33, …'". Such a statement often has a mistake in it (a comma missing between runs, a hyphen after a closed run, a stray character like `//`), and Edit fixes it; written as meant, what you say on the card converts it.
 - **What its statements do:** each card counts how many of its statements are `held` (nothing written, the 866 kept), `to check` (converted, with something to look at first), `not read` (the standard parser reads nothing of it) and `left out` (converted, with a value MARC has no place for). Every statement of the card is counted, as the standard parser reads each on its own, and one can be counted twice: `v. 15 (1998 Buyers Guide)` is both to check and left out.
-- **Statements to look at:** under its expression, each card lists its statements that are held, to check or not read, every one of them and not only the examples, each with the record it is on, what happens to it and why, and Edit and Split beside it. Fixed, a statement leaves the list. With a file, "Show the records to look at" narrows step 3 to their records. Before 0.43.0 a card from a file only counted them: "224 statements, 6 held", and the six could be reached only if they were among the 25 examples shown.
+- **Statements to look at:** under its expression, each card lists its statements that are held, to check or not read, every one of them and not only the examples, each with the record it is on, and Edit and Split beside it. Fixed, a statement leaves the list. The list is grouped by reason, and each reason is said once above its statements: "Months and seasons in one statement", "Not read by the standard parser", or a message that only statements saying exactly the same share. What differs between statements stays, short, on each row: the change, as "February → Fall", which is where to split; or where reading stopped, which points at the mistake. The full message is on each statement in step 3, where one record is looked at on its own. With a file, "Show the records to look at" narrows step 3 to their records. Before 0.43.0 a card from a file only counted them: "224 statements, 6 held", and the six could be reached only if they were among the 25 examples shown.
 - **By kind:** under the pattern count, "Statements to look at" has a button for each kind, with how many statements and patterns: Held, To check, Not read, Left out. One shows only the patterns with that kind, unfolded, each listing only those statements; "Show all patterns" goes back. Left out is there to find, not in the cards' lists by default: those statements convert, and Conversion settings say what happens to them. A pattern with a statement held or to check is never filed with "nothing to decide": it goes in a group, "with statements to look at", which starts open. Supplements and indexes keep their own group. Step 3 reads whole records, so it can find a little more than these counts, such as months changing to seasons between two 866s. See "Months and seasons".
 
 ## The standard parser: reading one statement
@@ -529,9 +529,9 @@ The log is built from the same summary as the conversion, so it describes exactl
 
 Four checks run before any change is released, and each answers a different question.
 
-| Check | Question it answers | Result as of 0.44.1 |
+| Check | Question it answers | Result as of 0.45.0 |
 | --- | --- | --- |
-| Automated tests | Does every behaviour described here still hold? | 1,110 passed, 8 skipped |
+| Automated tests | Does every behaviour described here still hold? | 1,111 passed, 8 skipped |
 | Corpus report | What do 117 real 866 statements convert to, and has any outcome changed? | 89 clean (76%), 22 converted with a warning, 6 with no fields, 0 with values lost |
 | Conversion audit | Did any number in a statement reach no field and no warning? | 0 unaccounted for: the corpus, the LC examples, the other library's catalogue, and all 1,057 statements of the 372-record test export |
 | Round trip | Convert, write the 866 as Alma would, convert again: do the same 863s come back? | Test export: 938 identical, 103 identical apart from an 853 caption, 14 not converted (13 of them months and seasons in one 866), **0 drift** |
