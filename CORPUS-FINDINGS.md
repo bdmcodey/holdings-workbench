@@ -2839,6 +2839,39 @@ real export gets no note on any of its 1,057 866s. The angle-bracket dates of
 D41 (`<1884:6:28>`) are not treated as the Newspaper Program's: nothing here
 says whose they are.
 
+## Held statements where they come, and a card that says it cannot be read · **0.42.0**
+
+*16 October 2026.* Raised by the cataloguer testing 0.41.0 on the real export.
+
+**A card that cannot be read said nothing while folded.** The card for the
+list with a comma missing decides how its statement is read, and said so only
+once opened. Each card now counts the statements the standard parser cannot
+read at all (`N not read`, yellow) and, folded, says where reading stopped on
+the first -- the parser's own "could not account for ..." line -- with the
+usual causes: a comma missing between runs, a hyphen after a closed run, a
+stray character. Written as meant, a statement like `?: 16` is still what the
+card is for, and the note says that too. On the real export: 1 card of 107
+with splitting off, 3 of 104 with it on (the same statement in three pieces).
+
+**Held statements were last, and could not be fixed from the card.** A card's
+preview of the example's record grouped statements by $8 and put the held
+ones in a "Held for review" block after everything, with no Edit or Split;
+step 3 the same, with Split only for a months-to-seasons hold. The cataloguer
+asked for them first or in their place, and in place reads truer: a statement
+held between two that convert is where the record changes. Both now show the
+record in 866 order, a heading wherever the linking number changes ("$8 1,
+continued" for a pattern the record returns to), and a held statement where it
+comes, with its reason and Edit and Split -- one renderer for both. The card's
+preview did not say which 866 each statement was; it does now.
+
+**Editing from a card folded step 2.** Fixing the last card that asked
+something folded the step to its line, as finding patterns does when nothing
+needs deciding. After an edit or a split, from any step, the step is now left
+as it was. And the card's example has Split beside Edit: it had only Edit, and
+Split was on the record in step 3 and on pasted statements' outcomes.
+
+No reading or conversion changes: corpora no drift.
+
 ## A list with a mistake in it, and the pattern that would convert part of it · **0.41.0**
 
 *16 October 2026.* Reported by the cataloguer on 0.40.0, with a statement from

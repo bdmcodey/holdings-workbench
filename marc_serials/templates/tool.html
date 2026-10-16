@@ -454,6 +454,8 @@
     .pc-outcomes { padding: 0 var(--sp-3) var(--sp-2); display: flex;
                    flex-direction: column; gap: var(--sp-2); }
     .pc-outcome-head { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-2); }
+    .pc-unread { padding: 0 var(--sp-3) var(--sp-2); display: flex;
+                 flex-direction: column; gap: var(--sp-1); }
 
     .regex-box {
       width: 100%;
@@ -2889,7 +2891,7 @@ document.getElementById('btn-use-file').addEventListener('click', useFileAgain);
 
 document.getElementById('btn-detect').addEventListener('click', runDetect);
 
-async function runDetect() {
+async function runDetect({ keepFold = false } = {}) {
   const statements = statementsForDetection();
   const errBox = document.getElementById('detect-error');
   errBox.innerHTML = '';
@@ -2927,7 +2929,12 @@ async function runDetect() {
     renderPatterns(data);
     // From a file: nothing here asks anything, so fold it and put Convert in
     // view. If something does need deciding, that is the work -- stay open.
-    setPatternsCollapsed(!fromPaste && !partitionGroups(data.groups).open.length);
+    // After an edit or a split the cataloguer is still at work where they
+    // were, so the step is left as it is: folding it because the last card
+    // that asked something was just fixed took the screen away mid-task.
+    if (!keepFold) {
+      setPatternsCollapsed(!fromPaste && !partitionGroups(data.groups).open.length);
+    }
   } catch (err) {
     showAlert(errBox, err.message, 'err');
   } finally {
@@ -3080,6 +3087,8 @@ function outcomeSentence(parts) {
 /** The pills a card wears for what its statements do on their own. */
 function outcomePills(group) {
   const bits = [];
+  if (group.unread) bits.push(`<span class="pill decide"
+    title="Statements the standard parser can't read at all; the note under the expression says where it stopped">${group.unread} not read</span>`);
   if (group.held) bits.push(`<span class="pill attention"
     title="Statements read and deliberately not converted: nothing is written from them and the 866 stays as it is">${group.held} held</span>`);
   if (group.to_check) bits.push(`<span class="pill attention"
@@ -3394,6 +3403,7 @@ function buildPatternCard(group, idx) {
               title="Copy this expression, including any edits made below">Copy</button>
     </div>
     <div class="pc-records small"></div>
+    ${unreadNoteHtml(group)}
     ${exampleOutcomesHtml(group, idx)}
     <div class="pc-body" hidden>
       ${decidesNote(group, skipped)}
@@ -3406,6 +3416,8 @@ function buildPatternCard(group, idx) {
         <span class="example-count small dim"></span>
         <button type="button" class="btn btn-secondary btn-sm ex-edit"
                 title="Correct this statement here: the 866 on its record, or the line you pasted">Edit</button>
+        <button type="button" class="btn btn-ghost btn-sm ex-split"
+                title="Make this statement into two or more, to say where a change falls that it does not show, such as months to seasons">Split</button>
       </div>
       <div class="ex-edit-slot"></div>
 
@@ -3492,7 +3504,7 @@ function showExample(card) {
   card.querySelector('.ex-next').disabled = shown <= 1;
   // Edit is for the statement on screen: one from a file can be edited where
   // the file says it came from; one pasted, in the pasted text.
-  card.querySelector('.ex-edit').hidden =
+  card.querySelector('.ex-edit').hidden = card.querySelector('.ex-split').hidden =
     !(sourceMode === 'paste' || exampleSource(card));
   card.querySelector('.ex-edit-slot').innerHTML = '';
 
@@ -3502,88 +3514,166 @@ function showExample(card) {
 }
 
 /**
- * Correct the statement on screen, from the card.
+ * Edit or Split one statement in place, wherever it is shown.
  *
  * The Patterns step is where a mistake in a statement is seen -- a comma
- * missing between runs, a stray hyphen -- and until 0.41.0 correcting it
- * meant finding the record again in step 3. The edit is the same one step 3
- * makes, stored the same way: listed on the record, logged as "Edited by you",
- * and put back from there. An example that is one part of a longer 866 opens
- * the whole 866, since that is what is stored.
+ * missing between runs, a stray hyphen, months turning into seasons -- and
+ * until 0.41.0 correcting it meant finding the record again in step 3. These
+ * make the same edit and split step 3 makes, stored the same way: listed on
+ * the record, logged as "Edited by you", put back from there. `target` is
+ * {record_index, field_index} for a file, or {pasted: true} for the pasted
+ * text. Opened from a card's example, a held statement in a record's
+ * preview, or a pasted statement's outcome.
  */
-function openCardEdit(card) {
-  const slot = card.querySelector('.ex-edit-slot');
-  const example = (card._group.examples || [])[card._example] || '';
-  const src = exampleSource(card);
-  if (sourceMode !== 'paste' && src && src.split_part != null) {
-    slot.innerHTML = `<div class="alert alert-info small">This statement is a part of an
-      866 you split. Change it with Split, on its record in step 3.</div>`;
-    return;
-  }
-  const text = sourceMode === 'paste' ? example : (src ? src.source_866 : example);
-  const rec = src && allRecords[src.record_index];
-  const where = sourceMode === 'paste'
-    ? 'The line you pasted. Saving changes it in the pasted text.'
-    : `The 866 on ${escHtml(rec ? rec.title : `record ${src.record_index + 1}`)}`
-      + (text !== example ? ', of which the example is one part' : '')
-      + '. Saved as an edit to that record, as in step 3.';
-  const same = sourceMode === 'paste' ? 0 : (src.same_866 || 0);
+function openInlineEdit(slot, target, text, { where = '', same = 0 } = {}) {
+  const before = slot.innerHTML;
+  const id = `ie-${Math.random().toString(36).slice(2, 9)}`;
   slot.innerHTML = `
     <div class="edit866 mt-1">
-      <div class="small">${where}</div>
-      <textarea rows="2" class="mt-1 ex-edit-text"
+      ${where ? `<div class="small">${where}</div>` : ''}
+      <textarea rows="2" class="mt-1 ie-text"
                 aria-label="Corrected holdings statement">${escHtml(text)}</textarea>
       ${same ? `<div class="check-row mt-1">
-        <input type="checkbox" class="ex-edit-same" id="ex-edit-same-${card.dataset.idx}" />
-        <label for="ex-edit-same-${card.dataset.idx}">Also make this change on the
+        <input type="checkbox" class="ex-edit-same" id="${id}-same" />
+        <label for="${id}-same">Also make this change on the
           ${same} other record${same !== 1 ? 's' : ''} with exactly this 866</label>
       </div>` : ''}
       <div class="btn-row mt-1">
-        <button type="button" class="btn btn-primary btn-sm ex-edit-save">Save and find patterns again</button>
-        <button type="button" class="btn btn-ghost btn-sm ex-edit-cancel">Cancel</button>
+        <button type="button" class="btn btn-primary btn-sm ie-save">Save and find patterns again</button>
+        <button type="button" class="btn btn-ghost btn-sm ie-cancel">Cancel</button>
       </div>
-      <div class="ex-edit-status"></div>
+      <div class="ie-status"></div>
     </div>`;
-  slot.querySelector('.ex-edit-cancel').addEventListener('click', () => { slot.innerHTML = ''; });
-  slot.querySelector('.ex-edit-save').addEventListener('click', () => saveCardEdit(card, text));
+  slot.querySelector('.ie-cancel').addEventListener('click', () => { slot.innerHTML = before; });
+  slot.querySelector('.ie-save').addEventListener('click', async () => {
+    const status = slot.querySelector('.ie-status');
+    const value = slot.querySelector('.ie-text').value.split(/\s+/).join(' ').trim();
+    if (!value) { showAlert(status, 'An 866 needs its holdings statement.', 'warn'); return; }
+    if (target.pasted) { replacePastedLine(text, [value]); return; }
+    const box = slot.querySelector('.ex-edit-same');
+    status.innerHTML = '<span class="spinner"></span>';
+    try {
+      const data = await postJson('api/edit-866', {
+        record_index: target.record_index, field_index: target.field_index, code: 'a',
+        value, same_text: !!(box && box.checked) });
+      await after866Change(
+        [{ record_index: target.record_index, fields_866: data.fields_866 }]
+          .concat(data.also || []), data.statements);
+    } catch (err) {
+      showAlert(status, err.message, 'err');
+    }
+  });
   slot.querySelector('textarea').focus();
 }
 
-async function saveCardEdit(card, was) {
-  const slot = card.querySelector('.ex-edit-slot');
-  const status = slot.querySelector('.ex-edit-status');
-  const value = slot.querySelector('.ex-edit-text').value.split(/\s+/).join(' ').trim();
-  if (!value) {
-    showAlert(status, 'An 866 needs its holdings statement.', 'warn');
-    return;
+function openInlineSplit(slot, target, text, { where = '' } = {}) {
+  const before = slot.innerHTML;
+  const id = `is-${Math.random().toString(36).slice(2, 9)}`;
+  slot.innerHTML = `
+    <div class="edit866 mt-1">
+      ${where ? `<div class="small">${where}</div>` : ''}
+      <div class="small mt-1">Write each part as a statement of its own, dividing where the
+        change falls: for example <code>v. 19 no. 3-6 (Sept.-Dec. 1986)</code> and
+        <code>v. 20 no. 1-4 (Winter-Fall 1987)</code>.${target.pasted
+          ? ' The parts replace this statement in the pasted text.'
+          : ' The first keeps this 866\'s notes; each other part becomes an 866 of its own right after it.'}</div>
+      <div id="s866-parts-${id}" class="mt-1">
+        ${[text, text].map((t, n) => splitPartHtml(id, n, t)).join('')}
+      </div>
+      <div class="btn-row mt-1">
+        <button type="button" class="btn btn-primary btn-sm is-save">Save and find patterns again</button>
+        <button type="button" class="btn btn-ghost btn-sm" onclick="addSplitPart('${id}')">Add another part</button>
+        <button type="button" class="btn btn-ghost btn-sm is-cancel">Cancel</button>
+      </div>
+      <div class="is-status"></div>
+    </div>`;
+  slot.querySelector('.is-cancel').addEventListener('click', () => { slot.innerHTML = before; });
+  slot.querySelector('.is-save').addEventListener('click', async () => {
+    const status = slot.querySelector('.is-status');
+    const parts = [...slot.querySelectorAll('.s866-part')]
+      .map(t => t.value.split(/\s+/).join(' ').trim()).filter(Boolean);
+    if (parts.length < 2) {
+      showAlert(status, 'A split needs at least two statements. To change one, use Edit.', 'warn');
+      return;
+    }
+    if (target.pasted) { replacePastedLine(text, parts); return; }
+    status.innerHTML = '<span class="spinner"></span>';
+    try {
+      const data = await postJson('api/split-866', {
+        record_index: target.record_index, field_index: target.field_index, parts });
+      await after866Change(
+        [{ record_index: target.record_index, fields_866: data.fields_866 }], data.statements);
+    } catch (err) {
+      showAlert(status, err.message, 'err');
+    }
+  });
+  slot.querySelector('textarea').focus();
+}
+
+/** A pasted statement corrected or split: its line, every time it is pasted. */
+function replacePastedLine(text, replacement) {
+  const box = document.getElementById('stmt-input');
+  box.value = box.value.split('\n')
+    .flatMap(line => line.trim() === text ? replacement : [line]).join('\n');
+  showPastedSummary();
+  runDetect({ keepFold: true });
+}
+
+/**
+ * After an edit or a split, from any step: every screen that read the old
+ * text reads the new. The Patterns step is left folded or open as it was.
+ */
+async function after866Change(changes, statements) {
+  changes.forEach(r => {
+    if (allRecords[r.record_index]) allRecords[r.record_index].fields_866 = r.fields_866;
+    recordPreviews.delete(r.record_index);
+  });
+  allStatements = statements;
+  if (allRecords.length) await reloadReview();
+  for (const r of changes) {
+    const row = document.querySelector(`.rec-row[data-index="${r.record_index}"]`);
+    if (row && row.classList.contains('open')) await renderRecordDetail(r.record_index);
   }
+  if (detected && detected.length) await runDetect({ keepFold: true });
+}
+
+/** What Edit or Split on a card's example works on, or why it cannot. */
+function cardTarget(card) {
+  const example = (card._group.examples || [])[card._example] || '';
   if (sourceMode === 'paste') {
-    const box = document.getElementById('stmt-input');
-    box.value = box.value.split('\n')
-      .map(line => line.trim() === was ? value : line).join('\n');
-    showPastedSummary();
-    runDetect();
-    return;
+    return { target: { pasted: true }, text: example,
+             where: 'The line you pasted. Saving changes it in the pasted text.' };
   }
   const src = exampleSource(card);
-  const same = slot.querySelector('.ex-edit-same');
-  status.innerHTML = '<span class="spinner"></span>';
-  try {
-    const data = await postJson('api/edit-866', {
-      record_index: src.record_index, field_index: src.field_index, code: 'a',
-      value, same_text: !!(same && same.checked) });
-    const changed = [{ record_index: src.record_index, fields_866: data.fields_866 }]
-      .concat(data.also || []);
-    changed.forEach(r => {
-      if (allRecords[r.record_index]) allRecords[r.record_index].fields_866 = r.fields_866;
-      recordPreviews.delete(r.record_index);
-    });
-    allStatements = data.statements;
-    if (allRecords.length) await reloadReview();
-    runDetect();
-  } catch (err) {
-    showAlert(status, err.message, 'err');
+  if (!src) return null;
+  if (src.split_part != null) {
+    return { refused: 'This statement is a part of an 866 you split. Change it with Split, on its record in step 3.' };
   }
+  const rec = allRecords[src.record_index];
+  return {
+    target: { record_index: src.record_index, field_index: src.field_index },
+    text: src.source_866,
+    same: src.same_866 || 0,
+    where: `The 866 on ${escHtml(rec ? rec.title : `record ${src.record_index + 1}`)}`
+      + (src.source_866 !== example ? ', of which the example is one part' : '')
+      + '. Saved as an edit to that record, as in step 3.',
+  };
+}
+
+function openCardEdit(card) {
+  const slot = card.querySelector('.ex-edit-slot');
+  const t = cardTarget(card);
+  if (!t) return;
+  if (t.refused) { slot.innerHTML = `<div class="alert alert-info small">${t.refused}</div>`; return; }
+  openInlineEdit(slot, t.target, t.text, { where: t.where, same: t.same });
+}
+
+function openCardSplit(card) {
+  const slot = card.querySelector('.ex-edit-slot');
+  const t = cardTarget(card);
+  if (!t) return;
+  if (t.refused) { slot.innerHTML = `<div class="alert alert-info small">${t.refused}</div>`; return; }
+  openInlineSplit(slot, t.target, t.text, { where: t.where });
 }
 
 /** Where the example on screen came from, when it came from a file at all. */
@@ -3622,8 +3712,7 @@ function exampleOutcomeHtml(o, text, idx, i) {
     ? ['elsewhere', `belongs in ${o.belongs_in}`] : OUTCOME_PILLS[o.outcome];
   let reasons;
   if (o.outcome === 'unread') {
-    reasons = `<div class="small dim">The standard parser writes nothing for this statement:
-      only a confirmed pattern converts it. Open the card to see what it would write.</div>`;
+    reasons = unreadReasonHtml(o);
   } else if (o.outcome === 'held' || o.outcome === 'elsewhere') {
     reasons = `<div class="alert alert-info small">${heldReasonHtml(o)}</div>`;
   } else {
@@ -3640,62 +3729,63 @@ function exampleOutcomeHtml(o, text, idx, i) {
       <span class="role-sample">${escHtml(text)}</span>
       <span class="pill ${cls}">${escHtml(label)}</span>
       ${split}
+      <button type="button" class="btn btn-ghost btn-sm"
+              title="Correct this statement in the pasted text"
+              onclick="openPasteEdit(${idx}, ${i})">Edit</button>
     </div>
     ${reasons}`;
 }
 
 /**
- * Split a pasted statement, as an 866 on a record is split: the parts take its
- * place in the pasted text, one to a line, and the patterns are found again.
+ * Why the standard parser read nothing, and what usually causes it.
+ *
+ * The first warning is always the general "No recognisable holdings ranges
+ * found"; what follows says where reading stopped -- "Read 'v. 21-26' but
+ * could not account for ', 29-31 33, ...'" -- which is what points at the
+ * mistake. A statement the parser cannot read is often one with a mistake in
+ * it, and as often one written as meant in a shape only a pattern reads, so
+ * both are said.
  */
+function unreadReasonHtml(o) {
+  const stopped = (o.warnings || [])
+    .filter(w => !w.startsWith('No recognisable holdings ranges found'));
+  return `<div class="alert alert-warn small">
+    ${stopped.map(w => `<div>${escHtml(w)}</div>`).join('')}
+    <div${stopped.length ? ' class="mt-05"' : ''}>${UNREAD_CAUSES}</div></div>`;
+}
+const UNREAD_CAUSES = 'If the statement has a mistake in it, such as a comma missing '
+  + 'between runs, a hyphen after a run that is closed, or a stray character like //, '
+  + 'Edit fixes it. If it is written as meant, what you say on this card is what converts it.';
+
+/**
+ * Said on a card from a file, where it shows folded: the statements the
+ * standard parser could not read, and where it stopped on the first. Pasted
+ * statements list theirs one by one instead.
+ */
+function unreadNoteHtml(group) {
+  if (sourceMode === 'paste' || !group.unread) return '';
+  const outcomes = group.example_outcomes || [];
+  const i = outcomes.findIndex(o => o && o.outcome === 'unread');
+  const n = group.unread;
+  return `<div class="pc-unread">
+    <div class="small"><strong>The standard parser can't read ${n === group.count
+      ? (n === 1 ? 'this statement' : `any of these ${n} statements`)
+      : `${n} of these statements`}.</strong>${i >= 0 && n > 1
+      ? ` The first: <span class="role-sample">${escHtml(group.examples[i])}</span>` : ''}</div>
+    ${i >= 0 ? unreadReasonHtml(outcomes[i]) : `<div class="alert alert-warn small">${UNREAD_CAUSES}</div>`}
+  </div>`;
+}
+
+/** Split or edit a pasted statement from its outcome on the card. */
 function openPasteSplit(idx, i) {
   const text = detected[idx].examples[i];
-  const id = `p${idx}-${i}`;
-  const slot = document.getElementById(`pco-${idx}-${i}`);
-  slot.innerHTML = `
-    <div class="edit866">
-      <div class="role-sample">${escHtml(text)}</div>
-      <div class="small mt-1">Write each part as a statement of its own, dividing where the
-        change falls: for example <code>v. 19 no. 3-6 (Sept.-Dec. 1986)</code> and
-        <code>v. 20 no. 1-4 (Winter-Fall 1987)</code>. The parts replace this statement
-        in the pasted text.</div>
-      <div id="s866-parts-${id}" class="mt-1">
-        ${[text, text].map((t, n) => splitPartHtml(id, n, t)).join('')}
-      </div>
-      <div class="btn-row mt-1">
-        <button type="button" class="btn btn-primary btn-sm"
-                onclick="savePasteSplit(${idx}, ${i})">Save and find patterns again</button>
-        <button type="button" class="btn btn-ghost btn-sm"
-                onclick="addSplitPart('${id}')">Add another part</button>
-        <button type="button" class="btn btn-ghost btn-sm"
-                onclick="cancelPasteSplit(${idx}, ${i})">Cancel</button>
-      </div>
-      <div id="s866-status-${id}"></div>
-    </div>`;
-  slot.querySelector('textarea').focus();
+  openInlineSplit(document.getElementById(`pco-${idx}-${i}`), { pasted: true }, text);
 }
 
-function cancelPasteSplit(idx, i) {
-  const group = detected[idx];
-  document.getElementById(`pco-${idx}-${i}`).innerHTML =
-    exampleOutcomeHtml(group.example_outcomes[i], group.examples[i], idx, i);
-}
-
-function savePasteSplit(idx, i) {
-  const id = `p${idx}-${i}`;
+function openPasteEdit(idx, i) {
   const text = detected[idx].examples[i];
-  const parts = [...document.querySelectorAll(`#s866-parts-${id} .s866-part`)]
-    .map(t => t.value.split(/\s+/).join(' ').trim()).filter(Boolean);
-  if (parts.length < 2) {
-    showAlert(document.getElementById(`s866-status-${id}`),
-      'A split needs at least two statements.', 'warn');
-    return;
-  }
-  const box = document.getElementById('stmt-input');
-  box.value = box.value.split('\n')
-    .flatMap(line => line.trim() === text ? parts : [line]).join('\n');
-  showPastedSummary();
-  runDetect();
+  openInlineEdit(document.getElementById(`pco-${idx}-${i}`), { pasted: true }, text,
+    { where: 'Saving changes it in the pasted text.' });
 }
 
 function buildExamplesHtml(examples) {
@@ -3879,6 +3969,7 @@ function wireCard(card) {
   });
 
   card.querySelector('.ex-edit').addEventListener('click', () => openCardEdit(card));
+  card.querySelector('.ex-split').addEventListener('click', () => openCardSplit(card));
 
   card.querySelector('.ex-prev').addEventListener('click', () => {
     const shown = card._group.examples_shown ?? (card._group.examples || []).length;
@@ -3975,7 +4066,7 @@ async function runPreview(card) {
  */
 /**
  * Statements held because they belong in another field: a supplement (867)
- * or an index (868). Apart from "Held for review", because what they want is
+ * or an index (868). Apart from the held statements, because what they want is
  * different -- not a pattern, but moving, which is the cataloguer's to do
  * until this tool converts 867 and 868.
  */
@@ -4022,18 +4113,9 @@ function warningHtml(pv, w, extra = 'small') {
 }
 
 function renderRecordPreview(data) {
-  const groups = new Map();
-  const review = [];
-  const elsewhere = [];
-  data.previews.forEach(pv => {
-    if (pv.belongs_in) { elsewhere.push(pv); return; }
-    if (pv.needs_review || !pv.fields_863.length) { review.push(pv); return; }
-    if (!groups.has(pv.link)) {
-      groups.set(pv.link, { field_853: pv.field_853, existing: pv.existing,
-                            merged: pv.merged_run, rows: [] });
-    }
-    groups.get(pv.link).rows.push(pv);
-  });
+  const idx = data.record.index;
+  const elsewhere = data.previews.filter(pv => pv.belongs_in);
+  const counts = linkCounts(data.previews);
 
   const row = pv => `
     <div class="pair-row ${pv.is_example ? 'is-example' : ''}">
@@ -4050,47 +4132,120 @@ function renderRecordPreview(data) {
       </div>
     </div>`;
 
-  const blocks = [...groups.entries()].map(([link, g]) => `
+  const blocks = inRecordOrder(data.previews).map(seg => seg.held
+    ? heldRowsHtml(seg.rows, idx, pv => pv.is_example ? ' — the example above' : '')
+    : `
     <div class="pattern-group">
       <div class="pg-header">
         <div class="pg-header-meta">
-          <span class="pg-title">Pattern $8 ${escHtml(link)}</span>
-          <span class="pill ${g.existing ? '' : 'has-866'}">${
-            g.existing ? 'already on this record' : 'generated'}</span>
-          <span class="dim small">${g.rows.length} statement${g.rows.length !== 1 ? 's' : ''}</span>
-          ${g.merged ? `<span class="pill decide"
+          <span class="pg-title">Pattern $8 ${escHtml(seg.link)}${seg.continued ? ', continued' : ''}</span>
+          <span class="pill ${seg.existing ? '' : 'has-866'}">${
+            seg.existing ? 'already on this record' : 'generated'}</span>
+          <span class="dim small">${counts[seg.link]} statement${counts[seg.link] !== 1 ? 's' : ''}</span>
+          ${seg.merged ? `<span class="pill decide"
              title="These statements record different amounts of detail. Tick &quot;Keep patterns separate&quot; on this record if they are not one publication.">merged</span>` : ''}
         </div>
-        <div class="field-display f853">${highlightField(escHtml(g.field_853 || ''))}</div>
+        <div class="field-display f853">${highlightField(escHtml(seg.field_853 || ''))}</div>
       </div>
-      ${g.rows.map(row).join('')}
+      ${seg.rows.map(row).join('')}
     </div>`).join('');
 
-  const held = review.length ? `
-    <div class="pattern-group">
-      <div class="pg-header">
-        <div class="pg-header-meta">
-          <span class="pg-title">Held for review</span>
-          <span class="pill">${review.length} statement${review.length !== 1 ? 's' : ''}</span>
-        </div>
-      </div>
-      ${review.map(pv => `
-        <div class="pair-row ${pv.is_example ? 'is-example' : ''}">
+  return `
+    <div class="small dim mb-1">In <strong>${escHtml(data.record.title)}</strong> —
+      every holdings statement on the record, in its order, with the linking numbers it would
+      receive.</div>
+    ${blocks}${elsewhereHtml(elsewhere)}`;
+}
+
+/**
+ * A record's statements in the order its 866s come, each under the 853 it
+ * links to.
+ *
+ * Held statements were gathered into a "Held for review" block after
+ * everything else, so the one statement asking for attention was the last
+ * thing on the screen, and out of its place: a statement held between two
+ * that convert is where the record changes, from months to seasons, say.
+ * Each now sits where it comes, its reason in orange, with Edit and Split
+ * beside it; once fixed it converts where it stands. Where the linking number
+ * changes a new 853 heading starts, so a pattern the record comes back to is
+ * headed again, "continued". Supplements and indexes keep their own block.
+ */
+function inRecordOrder(previews) {
+  const segments = [];
+  const seen = new Set();
+  previews.forEach(pv => {
+    if (pv.belongs_in) return;
+    const last = segments[segments.length - 1];
+    if (pv.needs_review || !pv.fields_863.length) {
+      if (last && last.held) last.rows.push(pv);
+      else segments.push({ held: true, rows: [pv] });
+      return;
+    }
+    if (last && !last.held && last.link === pv.link) { last.rows.push(pv); return; }
+    segments.push({ held: false, link: pv.link, field_853: pv.field_853,
+                    existing: pv.existing, merged: pv.merged_run,
+                    continued: seen.has(pv.link), rows: [pv] });
+    seen.add(pv.link);
+  });
+  return segments;
+}
+
+/** How many statements link to each $8, wherever on the record they come. */
+function linkCounts(previews) {
+  const counts = {};
+  previews.forEach(pv => {
+    if (!pv.belongs_in && !pv.needs_review && pv.fields_863.length) {
+      counts[pv.link] = (counts[pv.link] || 0) + 1;
+    }
+  });
+  return counts;
+}
+
+/** Statements held where they come in the record: reason, Edit and Split. */
+function heldRowsHtml(rows, idx, labelFor = () => '') {
+  return `
+    <div class="pattern-group held-group">
+      ${rows.map(pv => `
+        <div class="pair-row ${pv.is_example ? 'is-example' : ''}"
+             data-record="${idx}" data-field="${pv.field_index ?? ''}">
           <div>
-            <div class="pair-col-label">866</div>
+            <div class="pair-col-label">866${labelFor(pv)} — held, nothing written</div>
             <div class="field-display f866">${escHtml(pv.source_866)}</div>
+            ${pv.field_index != null ? `<div class="btn-row mt-1">
+              <button type="button" class="btn btn-secondary btn-sm"
+                      onclick="heldAction(this, 'edit')">Edit</button>
+              <button type="button" class="btn btn-${pv.chron_switch && pv.chron_switch.where === 'within'
+                ? 'secondary' : 'ghost'} btn-sm"
+                      title="Make this 866 into two or more statements, to say where a change falls that it does not show, such as months to seasons"
+                      onclick="heldAction(this, 'split')">${pv.chron_switch && pv.chron_switch.where === 'within'
+                        ? 'Split this 866 at the change' : 'Split'}</button>
+            </div>` : ''}
+            <div class="held-slot"></div>
           </div>
           <div>
             <div class="pair-col-label">Reason</div>
             <div class="alert alert-attention">${heldReasonHtml(pv)}</div>
           </div>
         </div>`).join('')}
-    </div>` : '';
+    </div>`;
+}
 
-  return `
-    <div class="small dim mb-1">In <strong>${escHtml(data.record.title)}</strong> —
-      every holdings statement on the record, with the linking numbers it would receive.</div>
-    ${blocks}${held}${elsewhereHtml(elsewhere)}`;
+/** Edit or Split on a held statement, in place. */
+function heldAction(button, kind) {
+  const row = button.closest('.pair-row');
+  const idx = Number(row.dataset.record);
+  const fi = Number(row.dataset.field);
+  const slot = row.querySelector('.held-slot');
+  const f = ((allRecords[idx] || {}).fields_866 || [])[fi];
+  if (!f) return;
+  if (f.split_part != null) {
+    slot.innerHTML = `<div class="alert alert-info small mt-1">This is a part of an 866 you
+      split. Change it with Split in the record's list of 866s, in step 3.</div>`;
+    return;
+  }
+  const target = { record_index: idx, field_index: fi };
+  if (kind === 'split') openInlineSplit(slot, target, f.a || '');
+  else openInlineEdit(slot, target, f.a || '');
 }
 
 /**
@@ -4800,35 +4955,26 @@ async function renderRecordDetail(idx) {
     return;
   }
 
-  // Group by linking number, preserving first-appearance order. Statements held
-  // for review have no 853 and are collected separately.
-  const groups = new Map();
-  const review = [];
-  const elsewhere = [];
-  previews.forEach(pv => {
-    if (pv.belongs_in) { elsewhere.push(pv); return; }
-    if (pv.needs_review || !pv.fields_863.length) { review.push(pv); return; }
-    if (!groups.has(pv.link)) {
-      groups.set(pv.link, { field_853: pv.field_853, existing: pv.existing,
-                            merged: pv.merged_run, rows: [] });
-    }
-    groups.get(pv.link).rows.push(pv);
-  });
-
-  const groupsHtml = [...groups.entries()].map(([link, g]) => `
+  // In the order the 866s come, each under the 853 it links to, a held
+  // statement where it falls: see inRecordOrder().
+  const elsewhere = previews.filter(pv => pv.belongs_in);
+  const counts = linkCounts(previews);
+  const groupsHtml = inRecordOrder(previews).map(seg => seg.held
+    ? heldRowsHtml(seg.rows, idx)
+    : `
     <div class="pattern-group">
       <div class="pg-header">
         <div class="pg-header-meta">
-          <span class="pg-title">Pattern $8 ${escHtml(link)}</span>
-          <span class="pill ${g.existing ? '' : 'has-866'}">${
-            g.existing ? 'already on this record' : 'generated'}</span>
-          <span class="dim small">${g.rows.length} statement${g.rows.length !== 1 ? 's' : ''}</span>
-          ${g.merged ? `<span class="pill decide"
+          <span class="pg-title">Pattern $8 ${escHtml(seg.link)}${seg.continued ? ', continued' : ''}</span>
+          <span class="pill ${seg.existing ? '' : 'has-866'}">${
+            seg.existing ? 'already on this record' : 'generated'}</span>
+          <span class="dim small">${counts[seg.link]} statement${counts[seg.link] !== 1 ? 's' : ''}</span>
+          ${seg.merged ? `<span class="pill decide"
              title="These statements record different amounts of detail. Tick &quot;Keep patterns separate&quot; below if they are not one publication.">merged</span>` : ''}
         </div>
-        <div class="field-display f853">${highlightField(escHtml(g.field_853 || ''))}</div>
+        <div class="field-display f853">${highlightField(escHtml(seg.field_853 || ''))}</div>
       </div>
-      ${g.rows.map(pv => `
+      ${seg.rows.map(pv => `
         <div class="pair-row">
           <div>
             <div class="pair-col-label">866 — source</div>
@@ -4850,35 +4996,6 @@ async function renderRecordDetail(idx) {
           </div>
         </div>`).join('')}
     </div>`).join('');
-
-  const reviewHtml = review.length ? `
-    <div class="pattern-group">
-      <div class="pg-header">
-        <div class="pg-header-meta">
-          <span class="pg-title">Held for review</span>
-          <span class="pill">${review.length} statement${review.length !== 1 ? 's' : ''}</span>
-        </div>
-        <div class="dim small">${review.every(pv => pv.chron_switch)
-          ? 'Not converted. Splitting the 866 where the change falls is how it gets converted.'
-          : 'Not converted. Finding a pattern for these and confirming it is how they get converted.'}</div>
-      </div>
-      ${review.map(pv => `
-        <div class="pair-row">
-          <div>
-            <div class="pair-col-label">866 — source</div>
-            <div class="field-display f866">${escHtml(pv.source_866)}</div>
-            ${pv.chron_switch && pv.chron_switch.where === 'within' && pv.field_index != null
-              ? `<button type="button" class="btn btn-secondary btn-sm mt-1"
-                   onclick="openSplit866(${idx}, ${pv.field_index})">Split this 866 at the change</button>`
-              : ''}
-          </div>
-          <div>
-            <div class="pair-col-label">Reason</div>
-            <div class="alert alert-attention">${heldReasonHtml(pv)}</div>
-          </div>
-        </div>`).join('')}
-    </div>` : '';
-
   const leftAsUploaded = (about && about.left_as_uploaded) || [];
   const leftHtml = leftAsUploaded.length ? `
     <div class="alert alert-attention mt-2"><strong>Left as uploaded by your setting.</strong>
@@ -4892,7 +5009,6 @@ async function renderRecordDetail(idx) {
     ${notesHtml}
     ${leftHtml}
     ${groupsHtml}
-    ${reviewHtml}
     ${elsewhereHtml(elsewhere)}
     ${record853Html(idx, about)}
     <div class="btn-row">

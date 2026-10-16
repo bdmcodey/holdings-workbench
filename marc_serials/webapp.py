@@ -881,6 +881,11 @@ def _outcome_counts(outcomes) -> dict:
         # was folded away as "nothing to decide", and its Fall was only to be
         # found by opening the card and reading the preview.
         "left_out": sum(1 for o in outcomes if o["left_out"]),
+        # Not read at all by the standard parser. A card that decides how a
+        # statement is read always has these, and said so only once opened:
+        # folded, "v. 21-26, 29-31 33, ..." -- a comma missing -- looked like
+        # any other card with a decision in it.
+        "unread": sum(1 for o in outcomes if o["outcome"] == OUTCOME_UNREAD),
     }
 
 
@@ -1339,6 +1344,9 @@ def api_pattern_preview():
             for preview, text, idx in zip(previews, texts, field_indexes):
                 preview["source_866"] = text
                 preview["is_example"] = (idx == field_index)
+                # Which 866 this is on the record, for Edit and Split on a
+                # statement held in this preview -- as /api/preview-record says.
+                preview["field_index"] = idx
 
             return jsonify({
                 "scope": "record",

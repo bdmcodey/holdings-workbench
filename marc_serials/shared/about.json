@@ -1,6 +1,6 @@
 {
   "name": "MARC Holdings Workbench",
-  "version": "0.41.0",
+  "version": "0.42.0",
   "released": "2026-10-16",
   "status": "Proof of concept — under active development. Check your output before loading it into the catalog.",
   "description": "One tool for MARC serials holdings. Upload a MARC file, find the patterns in its 866 statements, confirm what each part of a pattern means, and convert to structured 853 caption/pattern and 863 enumeration/chronology fields. Statements no pattern matches are converted by the standard parser.",
@@ -9,6 +9,25 @@
   "contact": "Matthew Codey, codey@usc.edu",
   "_comment": "Written for cataloging staff, not developers. Say what changed about the output or the screen, not how the code changed. Newest version first.",
   "changelog": [
+    {
+      "version": "0.42.0",
+      "date": "2026-10-16",
+      "summary": "Held statements show where they come on the record, with Edit and Split beside them; a card says when the parser can't read a statement, and where it stopped; editing from a card no longer folds the Patterns step.",
+      "changes": [
+        {
+          "tool": "MARC Holdings Workbench",
+          "text": "A pattern card's preview of the record, and the record in step 3, now show every statement in the order its 866s come, each under the 853 it links to. A held statement sits where it comes, with its reason in orange and Edit and Split beside it, instead of in a \"Held for review\" block at the end; once fixed it converts where it stands. A pattern the record comes back to is headed again, \"continued\"."
+        },
+        {
+          "tool": "MARC Holdings Workbench",
+          "text": "A card whose statements the standard parser can't read says \"N not read\" and, even folded, where reading stopped on the first, with the usual causes: a comma missing between runs, a hyphen after a closed run, or a stray character. Edit fixes those; a statement written as meant is converted by what you say on the card."
+        },
+        {
+          "tool": "MARC Holdings Workbench",
+          "text": "The example on a pattern card has Split beside Edit. After an edit or a split the Patterns step stays open, where before it folded away once its last question was answered."
+        }
+      ]
+    },
     {
       "version": "0.41.0",
       "date": "2026-10-16",

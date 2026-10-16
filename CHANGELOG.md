@@ -15,6 +15,14 @@ more than one release; numbering resumed with 0.6.1. Reasoning behind the
 parser and converter decisions, including the defects a real corpus exposed and
 what was done about each, is in [CORPUS-FINDINGS.md](CORPUS-FINDINGS.md).
 
+## 0.42.0 — 2026-10-16
+
+Held statements show where they come on the record, with Edit and Split beside them; a card says when the parser can't read a statement, and where it stopped; editing from a card no longer folds the Patterns step.
+
+- **MARC Holdings Workbench** — A pattern card's preview of the record, and the record in step 3, now show every statement in the order its 866s come, each under the 853 it links to. A held statement sits where it comes, with its reason in orange and Edit and Split beside it, instead of in a "Held for review" block at the end; once fixed it converts where it stands. A pattern the record comes back to is headed again, "continued".
+- **MARC Holdings Workbench** — A card whose statements the standard parser can't read says "N not read" and, even folded, where reading stopped on the first, with the usual causes: a comma missing between runs, a hyphen after a closed run, or a stray character. Edit fixes those; a statement written as meant is converted by what you say on the card.
+- **MARC Holdings Workbench** — The example on a pattern card has Split beside Edit. After an edit or a split the Patterns step stays open, where before it folded away once its last question was answered.
+
 ## 0.41.0 — 2026-10-16
 
 A pattern never converts part of a statement; a list whose years go backwards is marked to check; the last run of a list can be left open in its years; a statement can be edited from its pattern card.

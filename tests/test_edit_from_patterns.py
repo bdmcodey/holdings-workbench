@@ -97,4 +97,4 @@ def test_the_card_offers_edit_and_the_box_starts_unticked():
     assert 'class="btn btn-secondary btn-sm ex-edit"' in page
     assert '<input type="checkbox" class="ex-edit-same"' in page
     assert 'class="ex-edit-same" checked' not in page
-    assert "value, same_text: !!(same && same.checked) });" in page
+    assert "value, same_text: !!(box && box.checked) });" in page
