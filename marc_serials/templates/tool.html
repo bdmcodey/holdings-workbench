@@ -454,8 +454,7 @@
     .pc-outcomes { padding: 0 var(--sp-3) var(--sp-2); display: flex;
                    flex-direction: column; gap: var(--sp-2); }
     .pc-outcome-head { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-2); }
-    .pc-unread { padding: 0 var(--sp-3) var(--sp-2); display: flex;
-                 flex-direction: column; gap: var(--sp-1); }
+    .look-row { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-2); }
 
     .regex-box {
       width: 100%;
@@ -2398,6 +2397,12 @@ function paintPatternRecords(card) {
   } else if (shape) {
     bits.push(button('shape', `Show the ${plural(shape)} with this shape`, shape));
   }
+  // Only the records with a statement held, to check or not read: for working
+  // through them in step 3 rather than on the card.
+  const look = (group.look_at_records || []).length;
+  if (look && look !== shape && recordIndex.size) {
+    bits.push(button('look', `Show the ${plural(look)} to look at`, look));
+  }
   slot.innerHTML = bits.join('');
 }
 
@@ -2413,10 +2418,11 @@ function showPatternRecords(card, mode) {
   patternFilter = {
     id: card._id,
     mode,
-    indexes: new Set(group.records || []),
+    indexes: new Set(mode === 'look' ? group.look_at_records || [] : group.records || []),
   };
   const chip = document.getElementById('chip-one-pattern');
-  chip.textContent = `${mode === 'converted' ? 'Converted by' : 'Has the shape'}: ${group.human_label}`;
+  chip.textContent = `${mode === 'converted' ? 'Converted by'
+    : mode === 'look' ? 'To look at, with the shape' : 'Has the shape'}: ${group.human_label}`;
   chip.hidden = false;
   document.getElementById('btn-clear-pattern-filter').hidden = false;
   filterTo('one-pattern');
@@ -3043,6 +3049,10 @@ function needsAnAnswer(group, stored) {
     && group.decides !== 'nothing' && group.decides !== 'elsewhere';
 }
 
+// Which kind of statement the Patterns step is narrowed to: "all", or "held",
+// "to_check", "unread" or "left_out". Kept outside the render, like the folds.
+let lookFilter = 'all';
+
 // Which folds the cataloguer has opened. Kept outside the render so opening one
 // to look at a pattern, then removing another, does not fold it back up.
 const patternFolds = {};
@@ -3062,27 +3072,52 @@ function outcomeTotals(entries) {
   return t;
 }
 
-/** Said under the pattern count: nothing to decide is not nothing to see. */
-function outcomeSentence(parts) {
-  const t = outcomeTotals(Object.entries(parts)
-    .filter(([key]) => key !== 'skipped').flatMap(([, entries]) => entries));
-  const plural = (n, one, many) => `<strong>${n}</strong> ${n !== 1 ? many : one}`;
-  let said = '';
-  if (t.held || t.to_check) {
-    const bits = [];
-    if (t.held) bits.push(`${plural(t.held, 'statement is', 'statements are')} held,
-      with nothing written from ${t.held !== 1 ? 'them' : 'it'}`);
-    if (t.to_check) bits.push(`${plural(t.to_check, 'statement converts', 'statements convert')}
-      with something to check`);
-    said += ` ${bits.join(', and ')}; the cards marked "held" or "to check" say which.`;
-  }
-  if (t.left_out) {
-    said += ` ${plural(t.left_out, 'statement', 'statements')} will convert with
-      something left out to fit MARC; the cards marked "left out" say which, and
-      Conversion settings say what happens to ${t.left_out !== 1 ? 'them' : 'it'}.`;
-  }
-  return said;
+/**
+ * Statements to look at, by kind, with counts, as buttons that narrow the
+ * step to the patterns with that kind.
+ *
+ * Until 0.43.0 this was a sentence under the pattern count and a line on the
+ * group of cards, both long and both giving the same totals in prose; a
+ * cataloguer found it hard to read and had no way to go straight to, say,
+ * the held ones. Skipped patterns are left as they are, so they are not
+ * counted.
+ */
+const LOOK_CHIPS = [
+  ['held', 'Held'], ['to_check', 'To check'], ['unread', 'Not read'], ['left_out', 'Left out'],
+];
+
+function lookChipsHtml(groups) {
+  const counted = groups.filter(g => {
+    const stored = library.find(p => p.id === patternIdFor(g));
+    return !(stored && stored.skip);
+  });
+  const chips = LOOK_CHIPS.map(([kind, label]) => {
+    const statements = counted.reduce((n, g) => n + (g[kind] || 0), 0);
+    const patterns = counted.filter(g => g[kind]).length;
+    if (!statements && lookFilter !== kind) return '';
+    return `<button type="button" class="chip${lookFilter === kind ? ' active' : ''}"
+      data-look="${kind}" aria-pressed="${lookFilter === kind}">${label} — ${statements}
+      statement${statements !== 1 ? 's' : ''} in ${patterns} pattern${patterns !== 1 ? 's' : ''}</button>`;
+  }).join('');
+  if (!chips) return '';
+  return `
+    <div class="look-row mt-1">
+      <span class="small">Statements to look at:</span>
+      ${chips}
+      ${lookFilter !== 'all' ? `<button type="button" class="chip" data-look="all">Show all patterns</button>` : ''}
+    </div>
+    <p class="small dim mt-05">Counted by reading each statement on its own. Step 3 reads
+      whole records, and can find a little more, such as months changing to seasons
+      between two 866s.</p>`;
 }
+
+document.addEventListener('click', e => {
+  const chip = e.target.closest('[data-look]');
+  if (!chip) return;
+  lookFilter = chip.dataset.look;
+  patternOffset = 0;
+  redrawPatterns();
+});
 
 /** The pills a card wears for what its statements do on their own. */
 function outcomePills(group) {
@@ -3109,7 +3144,8 @@ function buildPatternFold(key, label, entries) {
   // A fold of patterns with nothing to decide can still lose a value; say so
   // on the line that is all a folded group shows. Held and to-check
   // statements are not folded at all, but are said here too should one be.
-  const t = key === 'skipped' ? {} : outcomeTotals(entries);
+  // The group of patterns to look at is counted by the buttons at the top.
+  const t = key === 'skipped' || key === 'attention' ? {} : outcomeTotals(entries);
   const bits = [];
   if (t.held) bits.push(`${t.held} held`);
   if (t.to_check) bits.push(`${t.to_check} to check`);
@@ -3155,10 +3191,34 @@ function renderPatterns(data) {
             parts.readable.length
               ? ': the confirmed patterns and the standard parser between them read every statement'
               : ' — all patterns are confirmed and will be used when you convert'}.`
-    }${outcomeSentence(parts)}</p>
+    }</p>
+    ${lookChipsHtml(data.groups)}
     ${flavourChooserHtml()}`;
   area.appendChild(summary);
   paintFlavourAlert();
+
+  // Narrowed to one kind: every pattern with a statement of it, unfolded,
+  // each listing only those statements.
+  if (lookFilter !== 'all') {
+    const matching = data.groups.map((group, idx) => ({ group, idx }))
+      .filter(({ group }) => {
+        const stored = library.find(p => p.id === patternIdFor(group));
+        return !(stored && stored.skip) && group[lookFilter];
+      });
+    const label = Object.fromEntries(LOOK_CHIPS)[lookFilter].toLowerCase();
+    const note = document.createElement('p');
+    note.className = 'small dim mt-2';
+    note.textContent = matching.length
+      ? `${matching.length} pattern${matching.length !== 1 ? 's have' : ' has'} statements ${
+          lookFilter === 'unread' ? 'not read' : label}. "Show all patterns" goes back to all of them.`
+      : `No statements ${lookFilter === 'unread' ? 'not read' : label} now.`;
+    area.appendChild(note);
+    matching.forEach(({ group, idx }) => area.appendChild(buildPatternCard(group, idx)));
+    renderPatternPager(0);
+    document.getElementById('btn-toggle-patterns').hidden = false;
+    refreshPatternsSummary();
+    return;
+  }
 
   // A page of the cards still wanting a decision.
   //
@@ -3178,7 +3238,7 @@ function renderPatterns(data) {
   if (parts.attention.length) {
     const n = parts.attention.length;
     area.appendChild(buildPatternFold('attention',
-      `${n} pattern${n !== 1 ? 's' : ''} with nothing to decide, and statements held or to check`,
+      `${n} pattern${n !== 1 ? 's' : ''} with statements to look at`,
       parts.attention));
   }
 
@@ -3372,7 +3432,7 @@ function buildPatternCard(group, idx) {
         ${buildExamplesHtml(group.examples)}
       </div>
       <div class="pc-records small"></div>
-      ${exampleOutcomesHtml(group, idx)}`;
+      ${lookAtHtml(group, idx)}`;
     card._group = group;
     card._id = id;
     paintPatternRecords(card);
@@ -3403,8 +3463,7 @@ function buildPatternCard(group, idx) {
               title="Copy this expression, including any edits made below">Copy</button>
     </div>
     <div class="pc-records small"></div>
-    ${unreadNoteHtml(group)}
-    ${exampleOutcomesHtml(group, idx)}
+    ${lookAtHtml(group, idx)}
     <div class="pc-body" hidden>
       ${decidesNote(group, skipped)}
       <div class="example-bar">
@@ -3682,59 +3741,116 @@ function exampleSource(card) {
 }
 
 /**
- * Each pasted statement that does not simply convert, with what it does and why.
+ * Statements to look at: every statement of a card that is held, to check or
+ * not read -- or, under the "Left out" filter, that loses a value -- each with
+ * its record, what happens to it and why, and Edit and Split beside it.
  *
- * Pasted statements have no Convert step, so the card is the only place this
- * can be said. With a file the record list says it, record by record, against
- * the record's own 853, which a statement on its own does not have.
+ * Until 0.43.0 a card from a file only counted these ("224 statements, 6
+ * held"), and the six could be reached only if they happened to be among the
+ * 25 examples shown, or from step 3. Pasted statements had a list; a file now
+ * has the same one. The statements that convert cleanly stay out of it.
  */
-function exampleOutcomesHtml(group, idx) {
-  if (sourceMode !== 'paste') return '';
-  const outcomes = group.example_outcomes || [];
-  const rows = outcomes.map((o, i) => ({ o, i, text: (group.examples || [])[i] }))
-    .filter(({ o, text }) => o && text && o.outcome !== 'clean');
-  if (!rows.length) return '';
-  return `<div class="pc-outcomes">${rows.map(({ o, i, text }) =>
-    `<div class="pc-outcome" id="pco-${idx}-${i}">${exampleOutcomeHtml(o, text, idx, i)}</div>`
-  ).join('')}</div>`;
-}
-
-const OUTCOME_PILLS = {
+const LOOK_PILLS = {
   held: ['attention', 'held'],
   to_check: ['attention', 'to check'],
+  unread: ['decide', 'not read'],
   left_out: ['leftout', 'left out'],
-  noted: ['', 'converts, with a note'],
-  unread: ['decide', 'not read by the parser'],
 };
+const LOOK_SHOWN = 10;
+const lookExpanded = new Set();     // cards showing their whole list
 
-function exampleOutcomeHtml(o, text, idx, i) {
-  const [cls, label] = o.outcome === 'elsewhere'
-    ? ['elsewhere', `belongs in ${o.belongs_in}`] : OUTCOME_PILLS[o.outcome];
+function lookRows(group) {
+  const want = lookFilter === 'all' ? ['held', 'to_check', 'unread'] : [lookFilter];
+  return (group.to_look_at || []).map((r, i) => ({ r, i }))
+    .filter(({ r }) => r.kinds.some(k => want.includes(k)));
+}
+
+function lookAtHtml(group, idx) {
+  const rows = lookRows(group);
+  if (!rows.length) return '';
+  const all = lookExpanded.has(patternIdFor(group));
+  const shown = all ? rows : rows.slice(0, LOOK_SHOWN);
+  return `<div class="pc-outcomes">
+    <div class="small"><strong>Statements to look at</strong> (${rows.length}${
+      (group.to_look_at || []).length >= 200 ? ' or more' : ''})</div>
+    ${shown.map(({ r, i }) => `
+      <div class="pc-outcome" id="pcl-${idx}-${i}" data-idx="${idx}" data-i="${i}">
+        ${lookRowHtml(r)}
+      </div>`).join('')}
+    ${rows.length > shown.length ? `<button type="button" class="btn btn-ghost btn-sm look-more"
+       data-idx="${idx}">Show all ${rows.length}</button>` : ''}
+  </div>`;
+}
+
+function lookRowHtml(r) {
+  const src = r.source;
+  const rec = src && allRecords[src.record_index];
+  const others = (r.records || []).length - 1;
+  const where = src && sourceMode !== 'paste'
+    ? `<span class="small dim">on ${escHtml(rec ? rec.title : `record ${src.record_index + 1}`)}${
+        others > 0 ? ` and ${others} other record${others !== 1 ? 's' : ''}` : ''}</span>` : '';
+  const pills = r.kinds.map(k => {
+    const [cls, label] = LOOK_PILLS[k];
+    return `<span class="pill ${cls}">${label}</span>`;
+  }).join('');
   let reasons;
-  if (o.outcome === 'unread') {
-    reasons = unreadReasonHtml(o);
-  } else if (o.outcome === 'held' || o.outcome === 'elsewhere') {
-    reasons = `<div class="alert alert-info small">${heldReasonHtml(o)}</div>`;
+  if (r.kinds.includes('held')) {
+    reasons = `<div class="alert alert-attention small">${heldReasonHtml(r)}</div>`;
+  } else if (r.kinds.includes('unread')) {
+    reasons = unreadReasonHtml(r);
   } else {
-    reasons = (o.warnings || []).map(w => warningHtml(o, w)).join('');
+    reasons = (r.warnings || []).filter(w =>
+      lookFilter !== 'left_out' || (r.left_out || []).includes(w))
+      .map(w => warningHtml(r, w)).join('');
   }
-  // Months changing to seasons inside one statement is held until it is
-  // divided where the change falls, which only the cataloguer can say.
-  const split = o.chron_switch && o.chron_switch.where === 'within'
-    ? `<button type="button" class="btn btn-secondary btn-sm"
-               title="Divide this statement where the change falls, in the pasted text"
-               onclick="openPasteSplit(${idx}, ${i})">Split</button>` : '';
+  const within = r.chron_switch && r.chron_switch.where === 'within';
   return `
     <div class="pc-outcome-head">
-      <span class="role-sample">${escHtml(text)}</span>
-      <span class="pill ${cls}">${escHtml(label)}</span>
-      ${split}
-      <button type="button" class="btn btn-ghost btn-sm"
-              title="Correct this statement in the pasted text"
-              onclick="openPasteEdit(${idx}, ${i})">Edit</button>
+      <span class="role-sample">${escHtml(r.text)}</span>
+      ${pills}
+      ${where}
+      <button type="button" class="btn btn-secondary btn-sm" onclick="lookAction(this, 'edit')">Edit</button>
+      <button type="button" class="btn btn-${within ? 'secondary' : 'ghost'} btn-sm"
+              title="Make this statement into two or more, to say where a change falls that it does not show, such as months to seasons"
+              onclick="lookAction(this, 'split')">${within ? 'Split at the change' : 'Split'}</button>
     </div>
-    ${reasons}`;
+    ${reasons}
+    <div class="look-slot"></div>`;
 }
+
+/** Edit or Split on a statement in a card's list, in place. */
+function lookAction(button, kind) {
+  const row = button.closest('.pc-outcome');
+  const r = detected[Number(row.dataset.idx)].to_look_at[Number(row.dataset.i)];
+  const slot = row.querySelector('.look-slot');
+  if (sourceMode === 'paste') {
+    if (kind === 'split') openInlineSplit(slot, { pasted: true }, r.text);
+    else openInlineEdit(slot, { pasted: true }, r.text,
+                        { where: 'Saving changes it in the pasted text.' });
+    return;
+  }
+  const src = r.source;
+  if (!src) return;
+  if (src.split_part != null) {
+    slot.innerHTML = `<div class="alert alert-info small mt-1">This is a part of an 866 you
+      split. Change it with Split, on its record in step 3.</div>`;
+    return;
+  }
+  const rec = allRecords[src.record_index];
+  const where = `The 866 on ${escHtml(rec ? rec.title : `record ${src.record_index + 1}`)}`
+    + (src.source_866 !== r.text ? ', of which this statement is one part' : '') + '.';
+  const target = { record_index: src.record_index, field_index: src.field_index };
+  if (kind === 'split') openInlineSplit(slot, target, src.source_866, { where });
+  else openInlineEdit(slot, target, src.source_866, { where, same: src.same_866 || 0 });
+}
+
+document.addEventListener('click', e => {
+  const more = e.target.closest('.look-more');
+  if (!more) return;
+  const group = detected[Number(more.dataset.idx)];
+  lookExpanded.add(patternIdFor(group));
+  redrawPatterns();
+});
 
 /**
  * Why the standard parser read nothing, and what usually causes it.
@@ -3756,37 +3872,6 @@ function unreadReasonHtml(o) {
 const UNREAD_CAUSES = 'If the statement has a mistake in it, such as a comma missing '
   + 'between runs, a hyphen after a run that is closed, or a stray character like //, '
   + 'Edit fixes it. If it is written as meant, what you say on this card is what converts it.';
-
-/**
- * Said on a card from a file, where it shows folded: the statements the
- * standard parser could not read, and where it stopped on the first. Pasted
- * statements list theirs one by one instead.
- */
-function unreadNoteHtml(group) {
-  if (sourceMode === 'paste' || !group.unread) return '';
-  const outcomes = group.example_outcomes || [];
-  const i = outcomes.findIndex(o => o && o.outcome === 'unread');
-  const n = group.unread;
-  return `<div class="pc-unread">
-    <div class="small"><strong>The standard parser can't read ${n === group.count
-      ? (n === 1 ? 'this statement' : `any of these ${n} statements`)
-      : `${n} of these statements`}.</strong>${i >= 0 && n > 1
-      ? ` The first: <span class="role-sample">${escHtml(group.examples[i])}</span>` : ''}</div>
-    ${i >= 0 ? unreadReasonHtml(outcomes[i]) : `<div class="alert alert-warn small">${UNREAD_CAUSES}</div>`}
-  </div>`;
-}
-
-/** Split or edit a pasted statement from its outcome on the card. */
-function openPasteSplit(idx, i) {
-  const text = detected[idx].examples[i];
-  openInlineSplit(document.getElementById(`pco-${idx}-${i}`), { pasted: true }, text);
-}
-
-function openPasteEdit(idx, i) {
-  const text = detected[idx].examples[i];
-  openInlineEdit(document.getElementById(`pco-${idx}-${i}`), { pasted: true }, text,
-    { where: 'Saving changes it in the pasted text.' });
-}
 
 function buildExamplesHtml(examples) {
   const shown = (examples || []).slice(0, 12);

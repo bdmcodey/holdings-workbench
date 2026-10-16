@@ -85,6 +85,7 @@ def test_the_page_never_folds_a_held_or_to_check_card():
     assert "details.open = patternFolds[key] ?? key === 'attention';" in page
     # Supplements keep their own fold.
     assert "return group.decides !== 'elsewhere' &&" in page
-    # Pasted statements show their own outcome, and can be split in place.
-    assert "if (sourceMode !== 'paste') return '';" in page
-    assert "onclick=\"openPasteSplit(${idx}, ${i})\"" in page
+    # Statements show their own outcome, and can be edited and split in place:
+    # pasted ones since 0.39.0, a file's too since 0.43.0.
+    assert "onclick=\"lookAction(this, 'split')\"" in page
+    assert "if (kind === 'split') openInlineSplit(slot, { pasted: true }, r.text);" in page

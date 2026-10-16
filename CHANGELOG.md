@@ -15,6 +15,13 @@ more than one release; numbering resumed with 0.6.1. Reasoning behind the
 parser and converter decisions, including the defects a real corpus exposed and
 what was done about each, is in [CORPUS-FINDINGS.md](CORPUS-FINDINGS.md).
 
+## 0.43.0 — 2026-10-16
+
+Each pattern card lists its statements to look at, every one, with its record and Edit and Split; buttons by kind, with counts, narrow the Patterns step to the held, to check, not read or left out.
+
+- **MARC Holdings Workbench** — Each pattern card now lists the statements that are held, to check or not read — every one, not only the 25 examples — each with the record it is on, what happens to it and why, and Edit and Split beside it. A fixed statement leaves the list. "Show the records to look at" narrows step 3 to their records. Before, a card from a file only counted them, and every statement of a card is now counted, not the first 200.
+- **MARC Holdings Workbench** — Under the pattern count, "Statements to look at" has a button for each kind, with how many statements and patterns: Held, To check, Not read, Left out. One shows only the patterns with that kind, each listing only those statements; "Show all patterns" goes back. They replace the sentence that gave these totals.
+
 ## 0.42.0 — 2026-10-16
 
 Held statements show where they come on the record, with Edit and Split beside them; a card says when the parser can't read a statement, and where it stopped; editing from a card no longer folds the Patterns step.

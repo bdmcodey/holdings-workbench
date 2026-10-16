@@ -2839,6 +2839,36 @@ real export gets no note on any of its 1,057 866s. The angle-bracket dates of
 D41 (`<1884:6:28>`) are not treated as the Newspaper Program's: nothing here
 says whose they are.
 
+## Statements to look at, on the card and by kind · **0.43.0**
+
+*16 October 2026.* Raised by the cataloguer testing 0.42.0 on the real export:
+a card read "224 statements, 6 held", and the six could not be found from it.
+"If they are called out at this step, the fix needs to be able to be applied
+at this step." And the line counting them across the step was hard to read.
+
+**What the card had.** Counts, over the first 200 statements (so the last 24
+of that card were not counted at all), and 25 examples to step through. The
+list of each statement's outcome, with Split, was for pasted statements only
+(0.39.0). So a held statement past the 25th example could be fixed only in
+step 3.
+
+**What it has now.** Every statement is counted (cap 5,000; the whole export
+detects in 0.6 seconds, as before). Each card lists its statements held, to
+check or not read -- every one, with the record it is on (and how many others
+share the words), its reason, and Edit and Split -- for a file as for pasted
+text; "Show the records to look at" narrows step 3 to them. Under the pattern
+count, buttons by kind with counts replace the sentence: one narrows the step
+to the patterns with that kind, each card listing only those. Left out is a
+button, not in the lists by default: those statements convert, and Conversion
+settings decide what happens to them. One line says the counts are each
+statement on its own, and step 3, reading records, can find a little more.
+
+On the real export: the 224-statement card lists its 6 held statements, on 5
+records; Held, 13 statements in 4 patterns; To check, 12 in 11; Not read, 1 in
+1; Left out, 109 in 35. Totals unchanged from 0.42.0.
+
+No reading or conversion changes: corpora no drift.
+
 ## Held statements where they come, and a card that says it cannot be read · **0.42.0**
 
 *16 October 2026.* Raised by the cataloguer testing 0.41.0 on the real export.
