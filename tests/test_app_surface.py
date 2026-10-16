@@ -484,3 +484,17 @@ def test_the_pattern_library_is_on_screen_before_anything_is_loaded():
     assert '<details id="library-bar" class="library" hidden>' not in page
     assert "document.getElementById('library-bar').hidden" not in page
     assert "summary.textContent = 'Pattern library — empty';" in page
+
+
+def test_an_open_record_can_be_closed_from_its_foot():
+    """
+    Asked for on 0.43.0: a long record's only Close was the line at its top,
+    screens up from Reviewed, Skip and the note. Close sits beside them now,
+    shown only while the record is open, and brings the folded line into view.
+    """
+    page = (TEMPLATES / "tool.html").read_text(encoding="utf-8")
+    foot = page[page.index('<div class="rec-foot">'):page.index("`).join('');",
+                                                             page.index('<div class="rec-foot">'))]
+    assert 'class="rec-skip"' in foot and 'onclick="closeRecord(${i})"' in foot
+    assert ".rec-row:not(.open) .rec-close { display: none; }" in page
+    assert "if (bringIntoView) row.scrollIntoView({ block: 'nearest' });" in page

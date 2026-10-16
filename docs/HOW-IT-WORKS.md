@@ -1,6 +1,6 @@
 # How the Holdings Workbench Works
 
-*Written for librarians and cataloguers. Describes version 0.43.0.*
+*Written for librarians and cataloguers. Describes version 0.44.0.*
 
 The Holdings Workbench turns the free-text holdings in MARC 866 fields into structured 853 caption/pattern and 863 enumeration/chronology fields, and asks a cataloguer to confirm anything it cannot be sure of. This guide explains how, for librarians rather than programmers.
 
@@ -458,6 +458,7 @@ Everything you decide is kept for the session and applied every time the file is
 | **Skip** | Leaves the record exactly as uploaded: nothing converted, no 866 removed, existing 853 and 863s untouched |
 | **Keep patterns separate** | Gives each shape of holdings on the record its own 853, even where one records less detail than another. Normally statements that are one publication written with more or less detail share an 853 |
 | **Reviewed** | Marks the record as looked at, for the "Not yet reviewed" filter. It changes nothing in the output |
+| **Close** | Beside Reviewed and Skip at the foot of an open record: folds it back to its line, which stays in view, so a long record can be closed where the work on it ends rather than from its top |
 | **Edit an 866** | Corrects a typo before conversion, such as `(Fal 1995-Fall 1999)`. The corrected text goes into the file, and "Put back as uploaded" undoes it. The same edit can be made from a pattern card, on step 2 |
 | **Split an 866** | Makes one 866 into several statements, to say where a change falls that it doesn't show, such as months to seasons. See "Months and seasons" |
 | **Your note** | A reminder for you or a colleague. It goes into the log, never into the record |
@@ -526,9 +527,9 @@ The log is built from the same summary as the conversion, so it describes exactl
 
 Four checks run before any change is released, and each answers a different question.
 
-| Check | Question it answers | Result as of 0.43.0 |
+| Check | Question it answers | Result as of 0.44.0 |
 | --- | --- | --- |
-| Automated tests | Does every behaviour described here still hold? | 1,106 passed, 8 skipped |
+| Automated tests | Does every behaviour described here still hold? | 1,107 passed, 8 skipped |
 | Corpus report | What do 117 real 866 statements convert to, and has any outcome changed? | 89 clean (76%), 22 converted with a warning, 6 with no fields, 0 with values lost |
 | Conversion audit | Did any number in a statement reach no field and no warning? | 0 unaccounted for: the corpus, the LC examples, the other library's catalogue, and all 1,057 statements of the 372-record test export |
 | Round trip | Convert, write the 866 as Alma would, convert again: do the same 863s come back? | Test export: 938 identical, 103 identical apart from an 853 caption, 14 not converted (13 of them months and seasons in one 866), **0 drift** |

@@ -143,9 +143,17 @@
     }
     .rec-review {
       display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap;
-      padding: 0 var(--sp-3) var(--sp-3);
+      flex: 1;
       font-size: var(--fs-xs); color: var(--text-muted);
     }
+    .rec-foot {
+      display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap;
+      padding: 0 var(--sp-3) var(--sp-3);
+    }
+    /* Close is beside Reviewed and Skip, at the foot of an open record, so a
+       record can be folded where the work on it ends: a long one put its
+       only Close -- the line at its top -- screens away. */
+    .rec-row:not(.open) .rec-close { display: none; }
 
     .review-bar {
       display: flex; align-items: center; justify-content: space-between;
@@ -1778,6 +1786,7 @@ function renderRecordList(records) {
         <span class="rec-meta">${escHtml(rec.issn || '–')} · ${escHtml(rec.location || 'no location')}</span>
       </button>
       <div class="rec-detail" hidden></div>
+      <div class="rec-foot">
       <label class="rec-review">
         <input type="checkbox" class="rec-reviewed" data-index="${i}" />
         Reviewed
@@ -1790,6 +1799,9 @@ function renderRecordList(records) {
         <span title="Leave this record exactly as it is: nothing converted, no 866 removed, existing 853/863 untouched">
           Skip</span>
       </label>
+      <button type="button" class="btn btn-ghost btn-sm rec-close" onclick="closeRecord(${i})"
+              title="Fold this record back to its line, without scrolling back up to it">▴ Close</button>
+      </div>
     </div>`).join('');
 
   box.querySelectorAll('.rec-keep-separate').forEach(el =>
@@ -4655,15 +4667,26 @@ async function selectRecord(idx) {
   const detail = row.querySelector('.rec-detail');
 
   if (!detail.hidden) {                      // second click closes it
-    detail.hidden = true;
-    row.classList.remove('open');
-    row.querySelector('.rec-caret').textContent = '▸';
+    closeRecord(idx, false);
     return;
   }
   detail.hidden = false;
   row.classList.add('open');
   row.querySelector('.rec-caret').textContent = '▾';
   await renderRecordDetail(idx);
+}
+
+/**
+ * Fold an open record back to its line. From the Close at its foot, the
+ * folded line is brought into view, since what was on screen has gone.
+ */
+function closeRecord(idx, bringIntoView = true) {
+  const row = document.querySelector(`.rec-row[data-index="${idx}"]`);
+  if (!row) return;
+  row.querySelector('.rec-detail').hidden = true;
+  row.classList.remove('open');
+  row.querySelector('.rec-caret').textContent = '▸';
+  if (bringIntoView) row.scrollIntoView({ block: 'nearest' });
 }
 
 /**

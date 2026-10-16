@@ -15,6 +15,12 @@ more than one release; numbering resumed with 0.6.1. Reasoning behind the
 parser and converter decisions, including the defects a real corpus exposed and
 what was done about each, is in [CORPUS-FINDINGS.md](CORPUS-FINDINGS.md).
 
+## 0.44.0 — 2026-10-16
+
+An open record in step 3 can be closed from its foot, beside Reviewed and Skip.
+
+- **MARC Holdings Workbench** — An open record in step 3 has a Close button at its foot, beside Reviewed, Keep patterns separate and Skip. It folds the record back to its line and keeps that line in view, so after writing a note or ticking Reviewed there is no need to scroll back up to the top of a long record to close it.
+
 ## 0.43.0 — 2026-10-16
 
 Each pattern card lists its statements to look at, every one, with its record and Edit and Split; buttons by kind, with counts, narrow the Patterns step to the held, to check, not read or left out.
