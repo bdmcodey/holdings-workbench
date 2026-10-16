@@ -2883,6 +2883,20 @@ likeliest cause. And the last run of a list can now be left open in its years,
 Parser path on the three corpora and the real export: no 863 differs, no
 drift, audit 0, round trip unchanged (938 / 103 / 14, DRIFT 0).
 
+**Edit on the Patterns step.** Raised with the report: the mistake is seen on
+the card, and correcting it meant finding the record again in step 3. The card
+now has Edit beside its example, saving the same edit step 3 makes. Decided by
+the cataloguer: it edits this record; a box, unticked, makes the same change
+on every other record whose 866 reads exactly the same, each as an edit of its
+own. Pasted statements are edited in the pasted text.
+
+Building it found a gap: `_statement_origins()`, which ties a card's examples
+to their records, read the file as uploaded, so a statement already corrected
+with Edit had no record behind it on its card -- "show its records" missed it,
+and it could not have been edited again. It reads the records as every other
+screen does now, edits and splits applied, and so does `/api/detect` when the
+statements are not sent.
+
 ## Lists of months, lists of volumes and years, and the library on a fresh page · **0.40.0**
 
 *16 October 2026.* Requested by the cataloguer after 0.39.0, from the real

@@ -12,7 +12,7 @@
     {
       "version": "0.41.0",
       "date": "2026-10-16",
-      "summary": "A pattern never converts part of a statement; a list whose years go backwards is marked to check; the last run of a list can be left open in its years.",
+      "summary": "A pattern never converts part of a statement; a list whose years go backwards is marked to check; the last run of a list can be left open in its years; a statement can be edited from its pattern card.",
       "changes": [
         {
           "tool": "MARC Holdings Workbench",
@@ -25,6 +25,10 @@
         {
           "tool": "MARC Holdings Workbench",
           "text": "The last run of a list can be left open in its years as well as its volumes: v. 1-3, 5-(1990-92, 1994-) converts, ending with $a 5- $i 1994-."
+        },
+        {
+          "tool": "MARC Holdings Workbench",
+          "text": "A statement can be corrected from its pattern card, on step 2: Edit, beside the example, opens the whole 866 it comes from and saves the same edit step 3 makes, listed on the record and undone there with \"Put back as uploaded\". Where other records have an 866 that reads exactly the same, a box (unticked) makes the same change on them too. With pasted statements, Edit changes the line in the pasted text. A statement already corrected with Edit now still leads back to its record on its card."
         }
       ]
     },
