@@ -90,7 +90,10 @@ def test_the_year_first_grammar_no_longer_claims_z39_71_chronology():
 
 
 def test_a_run_with_nothing_writable_is_held_not_written_empty():
-    rc = convert_holdings(parse_866("(Feb, Jun, Aug 1998)"))
+    # Months in no year at all. "(Feb, Jun, Aug 1998)" was the case until
+    # 0.40.0, when a year stated once at the end of a list began to be read;
+    # see test_parser's chronology-list tests.
+    rc = convert_holdings(parse_866("(Feb, Jun, Aug)"))
     assert rc.fields_863 == [] and rc.needs_review
     assert any("no 863 was written" in w for w in rc.warnings)
 

@@ -2491,6 +2491,8 @@ sense -- `(Fal 1995-Fall 1999)`, which converted without its season, and
 wording MARC has no code for (`1st Quarter 1992`, `July 2014 Addendum`) or
 chronology-only lists the parser does not read yet (`(Jan-May, Sep-Nov
 1983)`). An edit fixes the first kind and is a way round the others.
+*The chronology-only lists are read since 0.40.0, and so is the export's
+paired list of volumes and years; `57-59 61, 63, 65-66-(...)` is still held.*
 
 **How it is built.** An edit is a decision like a per-record conversion:
 stored with the session, forgotten on a new upload, and applied in
@@ -2836,6 +2838,62 @@ $2usnp statements among all 1,158 in the corpora and the real export, and the
 real export gets no note on any of its 1,057 866s. The angle-bracket dates of
 D41 (`<1884:6:28>`) are not treated as the Newspaper Program's: nothing here
 says whose they are.
+
+## Lists of months, lists of volumes and years, and the library on a fresh page · **0.40.0**
+
+*16 October 2026.* Requested by the cataloguer after 0.39.0, from the real
+export's remaining unread and held statements.
+
+**Lists of months or seasons with no numbering.** `(Mar, May, Jul 1995)`
+states its year once, at the end, for every month in it -- exactly as
+`v. 19 nos. 1, 3, 5 (Jan, Mar, May 1915)` does, which the distributed-list
+reader has always handled by giving the year back to the parts before it
+(`_carry_year_back()`). The chronology-only reader
+(`_parse_chronology_list()`) asked for a year on every part instead, a guard
+added when its first version wrote three months with no year from
+`(Jan, Mar-May, Sep, Oct 1982)`. So the list fell through to the single-range
+reader, which took the whole of "Mar, May, Jul 1995" as a year and held it,
+saying it was "not something a year subfield can hold". It now carries the
+year back first, where every part names a month or a season; the guard stays
+and still holds months in no year at all (`(Feb, Jun, Aug)`). Where every
+part does not start with a word, nothing is carried: `(Apr 18, 1996)` is one
+date, not Apr 18 and 1996. A list mixing months and seasons is held with the
+0.37.0 reason and Split. Between runs, `$w g` as before -- except where the
+next run is the very next month or season (`(Nov, Dec 1915, Jan 1916)`), which
+has no break to indicate.
+
+Two tests pinned the old outcome with statements of this shape:
+`test_a_list_of_month_runs_is_still_held` (`(Jan-May, Sep-Nov 1983)`, now
+`test_a_list_of_month_runs_is_two_runs_not_one_range`: two 863s, never
+`$j 01-11`), and the empty-run guard's test, which used `(Feb, Jun, Aug 1998)`
+as its example and now uses `(Feb, Jun, Aug)`. Both protect the same design
+as before: nothing invented, no month without a year, no empty 863.
+
+**Runs of volumes paired with runs of years.** `v. 4-6, 9, 12-14, 20-35
+(1951-53, 1956/57, 1960-62, 1968-83)` is the enumerated list form with years
+for chronology. It was refused at once, because a year run written short,
+`1951-53`, did not match `_BARE_YEAR_ITEM_RE`; the unit parser already
+expands it. Now it does, and the list reads as four 863s. Unchanged: the two
+lists must be the same length, so four volume runs against three year runs is
+still not read, and `v. 49-54, 57-59 61, 63, 65-66-(...)`, with a comma
+missing, is still not a list.
+
+**The real export (1,057 statements).** 11 change, and nothing else does:
+8 held statements now convert; 2 that wrote the year alone (the months left
+out) now write their months; 1 unread statement now converts.
+The mixed month-and-season list moves from one held reason to the other.
+Still not converted: 14, down from 23 -- 13 that change between months and
+seasons inside one 866, and the list with a comma missing. Round trip: 938
+the same both times, 103 the same 863s with the 853 losing a caption, 14 not
+converted, DRIFT 0. Audit: 0 unaccounted for. The three corpora: no output
+changes (no 863 differs), no drift.
+
+**The library on a fresh page.** Raised with the above. The pattern library
+was in step 2, which appears only once there are statements, so a library
+kept from earlier in the visit could not be seen, exported or cleared -- or
+one imported -- without uploading or pasting first. It sits under step 1 now,
+outside the part that folds, and is never hidden: empty, it says so and
+offers Import. Clear asks first, since only an export brings it back.
 
 ## Held and to-check statements on the Patterns step · **0.39.0**
 

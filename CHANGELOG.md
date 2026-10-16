@@ -15,6 +15,14 @@ more than one release; numbering resumed with 0.6.1. Reasoning behind the
 parser and converter decisions, including the defects a real corpus exposed and
 what was done about each, is in [CORPUS-FINDINGS.md](CORPUS-FINDINGS.md).
 
+## 0.40.0 — 2026-10-16
+
+Lists of months or seasons written under one year, and lists of volumes paired with lists of years, now convert; the pattern library can be seen, exported, imported and cleared as soon as the page opens.
+
+- **MARC Holdings Workbench** — A list of months or seasons with the year written once at the end, such as (Mar, May, Jul 1995) or (Jan-May, Sep-Nov 1983), now converts to one 863 for each run, each with that year. These were held before, or written with the year alone. A list mixing months and seasons is still held, with its Split button, and months with no year at all are never written. No gap ($w g) is written between runs that follow straight on, such as Nov and Dec 1915.
+- **MARC Holdings Workbench** — A list of volume runs paired with a list of year runs, such as v. 4-6, 9 (1951-53, 1956/57), now converts to one 863 for each pair, with short end years written in full (1951-1953). The two lists must be the same length, or nothing is converted from the statement.
+- **MARC Holdings Workbench** — The pattern library is now under step 1, Holdings, and shows as soon as the page opens, so you can look at, export or clear a library kept from earlier in the visit, or import one saved earlier, before uploading a file or pasting statements. Clear now asks before it empties the library.
+
 ## 0.39.0 — 2026-10-15
 
 The Patterns step says which statements are held or to check, and no longer folds them away under "nothing to decide".

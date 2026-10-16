@@ -763,8 +763,10 @@ _LIST_HEAD_RE = re.compile(
 # The chronology block at the very end of a statement.
 _TRAILING_CHRON_RE = re.compile(r"\(\s*(?P<chron>[^()]*?)\s*\)\s*$")
 
-# A chronology item that states only a year, or a run of them.
-_BARE_YEAR_ITEM_RE = re.compile(rf"^{_YEAR_TOKEN}(?:\s*-\s*{_YEAR_TOKEN})?$")
+# A chronology item that states only a year, or a run of them. The end of a
+# run may be written short, "1951-53", as the unit parser already reads it.
+_BARE_YEAR_ITEM_RE = re.compile(
+    rf"^{_YEAR_TOKEN}(?:\s*-\s*(?:{_YEAR_TOKEN}|\d{{2}}(?!\d)))?$")
 
 # One year, which "1915/16" still is -- a single publication year written across
 # the turn of one.  "1982-1994" is not, and the difference decides whether a
@@ -985,11 +987,16 @@ def _parse_chronology_list(text: str,
     one statement of 1057, "(1986-1988, 1993-1994)", which converted to
     "$i 1986" and lost 1988, 1993 and 1994 without saying so.
 
-    Deliberately narrow.  Every part must read as chronology on its own and
-    none may carry enumeration, so "(Jan, Mar-May, Sep, Oct 1982)" -- where the
-    year is stated once at the end and the parts are not chronologies -- is not
-    a list by this definition and keeps the behaviour it already had, which
-    names what it could not encode rather than dropping it.
+    Deliberately narrow.  Every part must read as chronology on its own, with
+    a year of its own, and none may carry enumeration.
+
+    A year stated once, at the end, is given back to the parts before it, as
+    _carry_year_back() does for the enumerated form: "(Jan, Mar-May, Sep, Oct
+    1982)" is Jan 1982, Mar-May 1982, Sep 1982 and Oct 1982. Until 0.40.0 such
+    a list was held, which kept a month from being written with no year but
+    converted nothing: 9 statements of the real export, among them
+    "(Jan-May, Sep-Nov 1983)". Only where every part names a month or a season
+    -- the American "(Apr 18, 1996)" is one date, not Apr 18 and 1996.
     """
     head = text.strip()
     match = _TRAILING_CHRON_RE.search(head)
@@ -1002,6 +1009,8 @@ def _parse_chronology_list(text: str,
                          _split_top_level(match.group("chron"))) if p]
     if len(parts) < 2:
         return None
+    if all(p[:1].isalpha() for p in parts):
+        parts = _carry_year_back(parts)
 
     ranges: List[HoldingsRange] = []
     for part in parts:
@@ -1018,10 +1027,36 @@ def _parse_chronology_list(text: str,
         ranges.append(hr)
 
     # Non-consecutive runs, so each but the last ends at a gap. $w g, the same
-    # break indicator the enumerated form of this already writes.
-    for hr in ranges[:-1]:
-        hr.break_after = "g"
+    # break indicator the enumerated form of this already writes -- unless the
+    # next run is the very next month or season, as Dec 1915 is after Nov 1915,
+    # where there is no break to indicate.
+    for hr, nxt in zip(ranges, ranges[1:]):
+        hr.break_after = "" if _follows_on(hr, nxt) else "g"
     return ranges
+
+
+def _follows_on(hr: "HoldingsRange", nxt: "HoldingsRange") -> bool:
+    """Whether `nxt` starts with the month or season straight after `hr` ends."""
+    last = hr.end if hr.end is not None and hr.end.month else hr.start
+    first = nxt.start
+    if not (last.month and last.year and first.month and first.year):
+        return False
+    ends = re.findall(r"\d+", last.month)
+    starts = re.findall(r"\d+", first.month)
+    end_years = re.findall(r"\d{4}", last.year)
+    start_years = re.findall(r"\d{4}", first.year)
+    if not (ends and starts and end_years and start_years):
+        return False
+    end, start = int(ends[-1]), int(starts[0])
+    end_year, start_year = int(end_years[-1]), int(start_years[0])
+    # Months run 1-12 and seasons 21-24, Spring to Winter; each wraps into the
+    # next year. A month and a season never follow on from each other.
+    for low, high in ((1, 12), (21, 24)):
+        if low <= end <= high and low <= start <= high:
+            if start_year == end_year and start == end + 1:
+                return True
+            return start_year == end_year + 1 and end == high and start == low
+    return False
 
 
 def _parse_distributed_list(text: str,

@@ -1,6 +1,6 @@
 # How the Holdings Workbench Works
 
-*Written for librarians and cataloguers. Describes version 0.39.0.*
+*Written for librarians and cataloguers. Describes version 0.40.0.*
 
 The Holdings Workbench turns the free-text holdings in MARC 866 fields into structured 853 caption/pattern and 863 enumeration/chronology fields, and asks a cataloguer to confirm anything it cannot be sure of. This guide explains how, for librarians rather than programmers.
 
@@ -228,6 +228,7 @@ Confirmed patterns form a library for the session:
 
 - **Order:** patterns are tried largest group first, and the first that matches a whole statement is used. A pattern that matches only part of a statement doesn't apply to it.
 - **Skip:** a pattern can be marked "skip" to claim a shape you will handle by hand. Its statements are left exactly as they are.
+- **Where it is:** under step 1, Holdings, from the moment the page opens, so a library kept from earlier in the visit can be looked at, exported or cleared, and one saved earlier imported, before anything is uploaded or pasted. It stays there when step 1 folds to a line. Before 0.40.0 it was in step 2, which appears only once there are statements. Clear asks first, since only an export brings the patterns back.
 - **Export and Import:** the library can be saved as a file and loaded again next week, or on another collection. Every pattern is checked as it is loaded, and anything rejected is listed with the reason.
 - **Test expression:** each card's rule can be tried against statements before you trust it. Hand-edited rules are allowed.
 - **Copy:** each card shows its expression under the heading, with a Copy button. "Copy all expressions" copies every pattern at once, one per line: heading, number of statements, expression. It pastes into a spreadsheet as three columns.
@@ -269,8 +270,9 @@ flowchart TD
 2. **Two grammars.** Most statements put the enumeration first, as in `v.1(1990)`. Some older local records put the year first, as in `2019: (1-6 [Feb-Nov])2020: (7-12 [Jan-Dec])`. These are read by a separate reader, but only when the colon after the year is followed by a volume number or a parenthesis. A word after the colon is Z39.71's own way of writing a date, as in `1990:Jan.-1994:Dec.`, and goes to the main reader. Before version 0.28.0 the year-first reader took those too, and they converted to nothing.
 3. **Cutting into parts.** The statement is cut at commas and semicolons outside parentheses. The parser remembers which mark it cut at, because that becomes the 863's break code: a comma means a gap (`$w g`), a semicolon a break that is not a gap (`$w n`). A mark at the very end counts too, as in `1986-1988,`, which is how Alma writes a gap after the last run. A full stop at the very end, as in `v.89,pt.1(1969)-v.96,pt.3(Dec.1972).`, is only punctuation and is ignored. A full stop after a letter, as in `no.` or `Dec.`, is part of an abbreviation and is kept. The comma inside a date, as in `Dec. 16, 1887`, is never a cut.
 4. **Reading each part.** A part is read as one of three things, tried in this order:
-   - A **list of runs**, like `v. 19 nos. 1, 3, 5, 7-12 (Jan, Mar, May, Jul-Dec 1915)`. This becomes four 863s, one for each run, with the months matched to their issues.
-   - A **run of years only**, like `(1986-1988, 1993-1994)`. This becomes one 863 for each run.
+   - A **list of runs**, like `v. 19 nos. 1, 3, 5, 7-12 (Jan, Mar, May, Jul-Dec 1915)`. This becomes four 863s, one for each run, with the months matched to their issues. Runs of volumes pair with runs of years the same way, and a year range may be written short: `v. 4-6, 9 (1951-53, 1956/57)` is `$a 4-6 $i 1951-1953` and `$a 9 $i 1956/1957`. The two lists have to be the same length; if they aren't, nothing is converted from the statement, because pairing them would be a guess.
+   - A **list of dates only**, like `(1986-1988, 1993-1994)`. This becomes one 863 for each run. A year written once, at the end, belongs to every month or season before it: `(Mar, May, Jul 1995)` is three 863s, `$i 1995` with `$j 03`, `05` and `07`, and `(Jan-May, Sep-Nov 1983)` is two. Before 0.40.0 these were held, or written with the year alone. A list that mixes months and seasons, like `(May, Jul, Spring 1994)`, is still held (see "Months and seasons"). Months with no year at all are never written.
+   - Between the runs of a list goes a gap (`$w g`), except where the next run is the very next number, month or season: nothing goes between `Nov` and `Dec 1915`.
    - A **single range**, like `v.1:no.1(1990:Jan.)-v.5:no.4(1994:Dec.)`. A hyphen at the end means the holdings are still open (currently received). Written inside the parentheses, as in `v.35 (2025-)`, it means the same. A run left open, like `v.1-3 (1990)-`, is held, because it doesn't say whether the volumes or the holding are what's still open.
 5. **The last resort.** If nothing could be read, a lone year like `2016?` is kept, with a warning that the question mark isn't encoded. A lone number like `?: 16` is held for review, because nothing says whether it's a volume, an issue or a year.
 
@@ -313,7 +315,7 @@ Once a statement is read, the converter writes one 853 for its shape and one 863
 - **First indicator:** `4` (detailed), or `3` (summary) if you choose it. Libraries mark the same field both ways: in the Library of Congress examples, the same 863 appears as `30` in one document and `40` in another. So this is your declaration, not something the tool infers.
 - **Second indicator:** `0` for a range (compressed), `1` for a single issue or volume (uncompressed).
 - **Open holdings:** `v.6(1995)-` writes `$a 6- $i 1995-`.
-- **Never an empty 863:** if every value of a run is refused, as with a list of months like `(Feb, Jun, Aug 1998)`, no 863 is written for it, and the statement is held with its 866 kept. Before 0.28.0 an 863 holding only `$8` was written, and "Remove each 866" could then delete the holdings.
+- **Never an empty 863:** if every value of a run is refused, as with a list of months in no year like `(Feb, Jun, Aug)`, no 863 is written for it, and the statement is held with its 866 kept. Before 0.28.0 an 863 holding only `$8` was written, and "Remove each 866" could then delete the holdings.
 
 ### Breaks and notes
 
@@ -516,12 +518,12 @@ The log is built from the same summary as the conversion, so it describes exactl
 
 Four checks run before any change is released, and each answers a different question.
 
-| Check | Question it answers | Result as of 0.39.0 |
+| Check | Question it answers | Result as of 0.40.0 |
 | --- | --- | --- |
-| Automated tests | Does every behaviour described here still hold? | 1,058 passed, 8 skipped |
+| Automated tests | Does every behaviour described here still hold? | 1,074 passed, 8 skipped |
 | Corpus report | What do 117 real 866 statements convert to, and has any outcome changed? | 89 clean (76%), 22 converted with a warning, 6 with no fields, 0 with values lost |
 | Conversion audit | Did any number in a statement reach no field and no warning? | 0 unaccounted for: the corpus, the LC examples, the other library's catalogue, and all 1,057 statements of the 372-record test export |
-| Round trip | Convert, write the 866 as Alma would, convert again: do the same 863s come back? | Test export: 927 identical, 105 identical apart from an 853 caption, 23 not converted (12 of them months and seasons in one 866), **0 drift** |
+| Round trip | Convert, write the 866 as Alma would, convert again: do the same 863s come back? | Test export: 938 identical, 103 identical apart from an 853 caption, 14 not converted (13 of them months and seasons in one 866), **0 drift** |
 
 - **The tests** are small worked examples, each saying what should happen to a particular statement or record. Many are named after a real mistake the tool once made, so it can't come back unnoticed. The 8 skipped tests need real library files that aren't kept in the project.
 - **The corpus report** runs a collection of real statements (enumeration and chronology text only, with no identifiers) through both the detector and the parser. Each statement's expected outcome is recorded, so the report can say exactly what a change moved.

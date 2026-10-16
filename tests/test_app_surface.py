@@ -465,3 +465,22 @@ def test_confirming_a_suggestion_unchanged_puts_out_needs_a_decision(client):
     collected = re.search(
         r"function collectRoles\(card\)\s*\{(.*?)\n\}", script, re.S)
     assert collected and "suggested: false" in collected.group(1)
+
+
+def test_the_pattern_library_is_on_screen_before_anything_is_loaded():
+    """
+    Until 0.40.0 the library lived in step 2, which appears only once there are
+    statements, so a library kept from earlier in the visit could not be seen,
+    exported or cleared -- nor one imported -- without uploading or pasting
+    first. It sits under step 1 now, outside the part that folds, and is never
+    hidden: empty, it says so and offers Import.
+    """
+    page = (TEMPLATES / "tool.html").read_text(encoding="utf-8")
+    source = page[page.index('<section class="step" id="step-source">'):
+                  page.index('<section class="step" id="step-patterns"')]
+    assert '<details id="library-bar"' in source, "the library is not in step 1"
+    assert source.index('id="library-wrap"') > source.index('id="source-body"'), (
+        "inside the part of step 1 that folds, the library would vanish with it")
+    assert '<details id="library-bar" class="library" hidden>' not in page
+    assert "document.getElementById('library-bar').hidden" not in page
+    assert "summary.textContent = 'Pattern library — empty';" in page
