@@ -1193,9 +1193,12 @@ let fileSummary = '';
 let fileDetect  = null;
 let library     = [];    // confirmed patterns, mirroring the server's copy
 let lastSplit   = true;  // how the last detection ran; patterns inherit it
-// Patterns the cataloguer has taken out of the library. Auto-confirmation must
-// not put them back on the next detection run -- removing one is a decision.
+// Patterns the cataloguer has taken out of the library one at a time.
+// Auto-confirmation must not put them back on the next detection run --
+// removing one is a decision. Clear forgets them all: see its handler.
 let dismissed   = new Set();
+// How many patterns the last detection run left out for that reason, to say so.
+let removedHeldBack = 0;
 // Review state, for this visit only: which records have been previewed, which
 // the cataloguer has ticked off, and where in the file they are.
 let recordPreviews = new Map();   // record index -> the page entry for it
@@ -3002,20 +3005,23 @@ async function runDetect({ keepFold = false } = {}) {
  * reads it confidently as volume 19, issue 2, and the supplement, which is what
  * the library actually holds, disappears into an ordinary 863.
  *
- * Patterns the cataloguer has removed are never re-added; taking one out is a
- * decision, and a detection run should not undo it.
+ * Patterns the cataloguer has removed one at a time are not re-added; taking
+ * one out is a decision, and a detection run should not undo it. How many were
+ * left out is said on the step, so the library being smaller than expected has
+ * a reason on screen.
  */
 async function autoConfirm(groups) {
-  const ready = groups.filter(g =>
+  const readable = groups.filter(g =>
     !g.too_complex &&
     g.regex &&
     g.decides !== 'reading' &&
     // Held whatever is confirmed, so confirming one says nothing true.
     g.decides !== 'elsewhere' &&
     !(g.suggested_roles || []).some(r => r.kind === UNRESOLVED_KIND || r.suggested) &&
-    !dismissed.has(patternIdFor(g)) &&
     !library.some(p => p.id === patternIdFor(g))
   );
+  const ready = readable.filter(g => !dismissed.has(patternIdFor(g)));
+  removedHeldBack = readable.length - ready.length;
   if (!ready.length) return;
 
   const additions = ready.map(g => ({
@@ -3229,6 +3235,10 @@ function renderPatterns(data) {
               ? ': the confirmed patterns and the standard parser between them read every statement'
               : ' — all patterns are confirmed and will be used when you convert'}.`
     }</p>
+    ${removedHeldBack ? `<p class="small dim">${removedHeldBack} pattern${
+      removedHeldBack !== 1 ? 's' : ''} you removed from the library ${
+      removedHeldBack !== 1 ? 'were' : 'was'} not confirmed again. Confirm on a card brings
+      one back; Clear, in the library, starts over.</p>` : ''}
     ${lookChipsHtml(data.groups)}
     ${flavourChooserHtml()}`;
   area.appendChild(summary);
@@ -4726,13 +4736,18 @@ document.getElementById('btn-clear-library').addEventListener('click', async () 
   // except by importing an export.
   const n = library.length;
   if (!confirm(`Clear all ${n} pattern${n !== 1 ? 's' : ''} from the library? `
-               + 'Export first if you want to load them again.')) return;
-  // Clearing is as deliberate as removing one, so nothing cleared comes back on
-  // the next detection run. Confirming a card by hand undoes that for it.
-  library.forEach(p => dismissed.add(p.id));
+               + 'Find patterns will confirm the ones it can read again; anything you '
+               + 'chose on a card goes. Export first to keep them as they are.')) return;
+  // Clear is starting over: the library is emptied and the patterns taken out
+  // of it one by one are forgotten too, so the next Find patterns confirms
+  // what it can read. Until 0.44.1 every cleared pattern was remembered as
+  // removed, and the memory outlived an upload: clear, upload, Find patterns
+  // left the library empty, with the one line that said why long gone.
+  dismissed.clear();
+  removedHeldBack = 0;
   await saveLibrary([]);
   showAlert(document.getElementById('library-status'),
-    'Library cleared. These patterns will not be confirmed again automatically.',
+    'Library cleared. Find patterns will confirm the patterns it can read again.',
     'info');
   if (detected.length) redrawPatterns();
 });

@@ -15,6 +15,12 @@ more than one release; numbering resumed with 0.6.1. Reasoning behind the
 parser and converter decisions, including the defects a real corpus exposed and
 what was done about each, is in [CORPUS-FINDINGS.md](CORPUS-FINDINGS.md).
 
+## 0.44.1 — 2026-10-16
+
+Clearing the pattern library starts over: Find patterns fills it again, even after uploading a file.
+
+- **MARC Holdings Workbench** — Clear, in the pattern library, now starts over. Before, it remembered every cleared pattern as one you had removed, and that outlasted uploading a file, so clearing, uploading and finding patterns left the library empty. Now the next Find patterns confirms again every pattern it can read. A pattern you remove on its own is still not confirmed again, and the Patterns step now says how many were left out for that reason; Confirm on its card brings one back. Clear's question now says what it does, and that anything chosen on a card goes with it.
+
 ## 0.44.0 — 2026-10-16
 
 An open record in step 3 can be closed from its foot, and stays on screen while you work on it; every edit or split says whether it fixed the statement.

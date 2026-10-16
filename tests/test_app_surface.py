@@ -539,3 +539,20 @@ def test_an_edit_or_split_says_whether_it_fixed_the_statement():
     assert page.count("reportFix(") >= 5
     # Step 3's editors no longer fold step 2 above the record being worked on.
     assert "runDetect();" not in page.replace("runDetect({ keepFold: true });", "")
+
+
+def test_clear_starts_over_and_a_removed_pattern_is_said_to_be_held_back():
+    """
+    Reported on 0.44.0: clear the library, upload the file, Find patterns,
+    and the library stayed empty. Clear remembered every pattern as removed,
+    and the memory outlived the upload. Clear now forgets; a pattern removed
+    on its own is still not re-confirmed, and the step says how many were
+    held back for that reason.
+    """
+    page = (TEMPLATES / "tool.html").read_text(encoding="utf-8")
+    clear = page[page.index("document.getElementById('btn-clear-library').addEventListener"):]
+    clear = clear[:clear.index("});")]
+    assert "dismissed.clear();" in clear
+    assert "dismissed.add(" not in clear
+    assert "const ready = readable.filter(g => !dismissed.has(patternIdFor(g)));" in page
+    assert "you removed from the library ${" in page
