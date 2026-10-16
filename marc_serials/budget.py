@@ -34,9 +34,11 @@ from __future__ import annotations
 
 import json
 import os
+import queue
 import subprocess
 import sys
-from typing import Optional, Sequence
+import threading
+from typing import List, Optional, Sequence
 
 # Measured on the 117-statement corpus, against the longest expression the
 # detector generates (2,546 characters) searching 2,000 copies of a 500-character
@@ -171,6 +173,112 @@ def match_statements(regex: str, statements: Sequence[str],
     return body["results"]
 
 
+def runaway_regexes(regexes: Sequence[str], statements: Sequence[str],
+                    budget: Optional[float] = None) -> List[int]:
+    """
+    Which of `regexes` do not finish against `statements`, by position.
+
+    The same question as completes_within_budget(), asked of many expressions
+    at once and answered the same way: each gets `budget` seconds of its own,
+    and one that runs over is stopped and counted. What differs is the cost.
+    Asked one at a time, every expression paid for a child process to start --
+    about 50 ms, and the matching itself a few -- so confirming the 106
+    patterns of a real export spent 5.5 seconds starting interpreters before
+    the Patterns step could show anything.
+
+    Here one child takes them in turn and says when it finishes each. The
+    parent waits `budget` seconds for each line; if one does not come, that
+    expression is the runaway: the child is killed, the expression counted,
+    and a fresh child carries on from the next. So the guarantee is the one
+    above -- whatever runs, stops -- for the price of one child, plus one per
+    runaway.
+
+    An expression that cannot be compiled counts as finishing, as it does for
+    completes_within_budget(); the caller refuses it on its own terms.
+    """
+    budget = MATCH_BUDGET_SECONDS if budget is None else budget
+    texts = [str(s)[:MAX_STATEMENT_CHARS] for s in list(statements)[:MAX_STATEMENTS]]
+    pending = list(range(len(regexes)))
+    runaway: List[int] = []
+
+    while pending:
+        try:
+            child = subprocess.Popen(
+                [sys.executable, os.path.abspath(__file__), "--batch"],
+                stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                stderr=subprocess.DEVNULL, text=True)
+        except OSError:                          # pragma: no cover - no child
+            return runaway
+        lines: "queue.Queue[Optional[str]]" = queue.Queue()
+
+        def _read(stream=child.stdout):
+            for line in stream:
+                lines.put(line)
+            lines.put(None)
+
+        def _write(proc=child, batch=[regexes[i] for i in pending]):
+            try:
+                proc.stdin.write(json.dumps({"regexes": batch, "statements": texts}))
+                proc.stdin.close()
+            except (OSError, ValueError):        # killed while writing
+                pass
+
+        # Threads, not select(): a pipe cannot be select()ed on Windows, where
+        # the Workbench is also run.
+        reader = threading.Thread(target=_read, daemon=True)
+        writer = threading.Thread(target=_write, daemon=True)
+        reader.start()
+        writer.start()
+
+        finished = 0
+        while finished < len(pending):
+            try:
+                line = lines.get(timeout=budget)
+            except queue.Empty:
+                child.kill()
+                child.wait()
+                runaway.append(pending[finished])
+                pending = pending[finished + 1:]
+                break
+            if line is None:
+                # The child ended without finishing them all -- it could not
+                # run them, which is not this function's business (see above).
+                child.wait()
+                pending = []
+                break
+            finished += 1
+        else:
+            child.wait()
+            pending = []
+        # The child has ended either way, so both threads finish promptly;
+        # then the pipes are closed rather than left to the garbage collector.
+        writer.join(timeout=budget)
+        reader.join(timeout=budget)
+        for stream in (child.stdin, child.stdout):
+            try:
+                stream.close()
+            except (OSError, ValueError):
+                pass
+    return runaway
+
+
+def _batch_worker(payload: dict) -> None:
+    """Run each expression in turn, and say when each is done."""
+    import re
+
+    statements = [(raw or "").strip() for raw in payload["statements"]]
+    for regex in payload["regexes"]:
+        try:
+            compiled = re.compile(regex, re.IGNORECASE)
+            for s in statements:
+                if not compiled.fullmatch(s):
+                    compiled.search(s)
+        except Exception:                        # re.error and the like
+            pass
+        sys.stdout.write("done\n")
+        sys.stdout.flush()
+
+
 def too_slow_message(budget: Optional[float] = None) -> str:
     """
     What to say when an expression is stopped, and what to do about it.
@@ -217,6 +325,12 @@ def completes_within_budget(regex: str, statements: Sequence[str],
 
 def main() -> int:                               # pragma: no cover - the child
     """Read one JSON request from stdin, write one JSON response to stdout."""
+    if "--batch" in sys.argv[1:]:
+        try:
+            _batch_worker(json.load(sys.stdin))
+        except ValueError:
+            pass
+        return 0
     try:
         payload = json.load(sys.stdin)
     except ValueError as exc:

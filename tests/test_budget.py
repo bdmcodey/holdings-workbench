@@ -101,3 +101,35 @@ def test_the_message_says_what_is_wrong_and_what_to_do():
     note = too_slow_message()
     assert "repeat" in note
     assert "nothing was tested" in note
+
+
+# -- many expressions, one child ------------------------------------------------
+
+def test_many_expressions_are_checked_in_one_child_and_the_runaway_named():
+    """
+    0.46.0: storing the 106 patterns Find patterns confirms on the real export
+    spent 5.5 seconds starting one child per pattern. One child now takes them
+    in turn, each still under its own budget; a runaway is stopped, named by
+    its position, and the ones after it are still checked.
+    """
+    from marc_serials.budget import runaway_regexes
+    regexes = [r"v\.\d+", RUNAWAY, r"no\.\d+", r"^(1+)+$", r"\(\d{4}\)"]
+    statements = [VICTIM, "1" * 30 + "!", "v.1 (1990)"]
+    started = time.monotonic()
+    assert runaway_regexes(regexes, statements, budget=1.0) == [1, 3]
+    assert time.monotonic() - started < 15
+
+
+def test_many_ordinary_expressions_cost_about_one_child():
+    from marc_serials.budget import runaway_regexes
+    regexes = [rf"v\.{n}\d*" for n in range(100)]
+    started = time.monotonic()
+    assert runaway_regexes(regexes, list(BACKTRACKING_PROBES)) == []
+    # One at a time this was 100 interpreter starts; generously bounded, for a
+    # slow CI machine.
+    assert time.monotonic() - started < 3
+
+
+def test_a_broken_expression_among_many_counts_as_finishing():
+    from marc_serials.budget import runaway_regexes
+    assert runaway_regexes([r"v\.\d+", "(", r"no\.\d+"], ["v.1"]) == []
