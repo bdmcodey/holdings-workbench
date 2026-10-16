@@ -15,6 +15,12 @@ more than one release; numbering resumed with 0.6.1. Reasoning behind the
 parser and converter decisions, including the defects a real corpus exposed and
 what was done about each, is in [CORPUS-FINDINGS.md](CORPUS-FINDINGS.md).
 
+## 0.45.1 — 2026-10-16
+
+Find patterns shows its cards in under two seconds on a 372-record file, where it took about seven.
+
+- **MARC Holdings Workbench** — Find patterns is faster: on a 372-record export the cards now appear in about 1.6 seconds instead of 6.6. Nearly all the wait was the check that every pattern confirmed for you will always finish running, done one pattern at a time. It now checks them together, with the same safeguard for each. Importing a pattern library is faster for the same reason.
+
 ## 0.45.0 — 2026-10-16
 
 A pattern card's statements to look at are grouped by reason, each explained once, with the change or where reading stopped on each row.

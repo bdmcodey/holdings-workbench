@@ -2839,6 +2839,30 @@ real export gets no note on any of its 1,057 866s. The angle-bracket dates of
 D41 (`<1884:6:28>`) are not treated as the Newspaper Program's: nothing here
 says whose they are.
 
+## Find patterns in under two seconds · **0.45.1**
+
+*16 October 2026.* Raised by the cataloguer: on the real export the cards took
+about seven seconds to appear after Find patterns.
+
+**Measured, request by request,** from the click: finding the patterns 0.43 s;
+storing the 106 patterns confirmed for you 5.52 s; re-checking every record
+0.27 s; drawing the cards the rest. Storing was the whole of it.
+
+**Why storing was slow.** A stored expression runs against every statement of
+every conversion afterwards, so each new one is first run against the file's
+statements and the classic runaway shapes, in a child process that is killed if
+it does not finish (see `budget.py`: Python's `re` cannot be stopped from the
+inside). One child per expression: 106 interpreters started, about 50 ms each,
+for a few milliseconds of matching apiece.
+
+**Now** one child takes them all in turn, saying when it finishes each, and the
+parent waits each one's own budget for that line; one that does not come is the
+runaway -- the child is killed, the expression refused as before, and a fresh
+child carries on from the next. The guarantee is unchanged (whatever runs,
+stops; the same budget per expression), for one interpreter instead of 106.
+Storing: 5.52 s to 0.29 s. Click to cards: 6.6 s to 1.6 s. Importing a library
+goes through the same check and is faster by the same.
+
 ## A card's list, one explanation per reason · **0.45.0**
 
 *16 October 2026.* Asked for by the cataloguer testing 0.44.1: on the

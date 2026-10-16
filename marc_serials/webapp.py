@@ -104,6 +104,7 @@ from marc_serials.detector import detect_patterns
 import marc_serials.flavours as flavours
 from marc_serials.budget import (BACKTRACKING_PROBES, MatchFailed, MatchTimeout,
                           completes_within_budget, match_statements,
+                          runaway_regexes,
                           too_slow_message)
 
 import marc_serials.library as plib
@@ -1515,9 +1516,11 @@ def _runaway_patterns(patterns, known: frozenset) -> list:
     fresh = [p for p in patterns if p.regex not in known]
     if not fresh:
         return []
-    text = _probe_statements()
-    return [p.label or p.id for p in fresh
-            if not completes_within_budget(p.regex, text)]
+    # All of them in one child, each still under its own budget: one child
+    # per pattern cost 5.5 seconds of interpreter start-up on the 106 patterns
+    # Find patterns confirms on the real export. See runaway_regexes().
+    slow = runaway_regexes([p.regex for p in fresh], _probe_statements())
+    return [fresh[i].label or fresh[i].id for i in slow]
 
 
 @app.route("/api/patterns", methods=["GET", "PUT"])
