@@ -2839,6 +2839,32 @@ real export gets no note on any of its 1,057 866s. The angle-bracket dates of
 D41 (`<1884:6:28>`) are not treated as the Newspaper Program's: nothing here
 says whose they are.
 
+## Working through records without losing the place · **0.44.0**
+
+*16 October 2026.* Three things the cataloguer met working through the real
+export, record by record.
+
+**Closing a long record.** Its only Close was the line at its top. A Close
+now sits at its foot beside Reviewed and Skip, and brings the folded line to
+the top of the screen, with the next record right below.
+
+**The record vanished mid-task.** Under a filter -- Needs attention, Not yet
+reviewed -- fixing a record, skipping it or ticking Reviewed made it stop
+matching, and the list refresh hid it at once: the open record disappeared
+and everything below jumped up. And an edit in step 3 re-ran pattern
+detection, which folded step 2 above the record when nothing there asked a
+question, moving the page again. An open record now stays, saying it no
+longer matches, and leaves when closed, the next one taking its place at the
+top; moving to another filter, search or page closes what is open first; and
+step 3's edits leave step 2 as it was.
+
+**Did the fix work?** A fixed statement just left the card's list. After any
+edit or split the 866 is converted again, as its record now reads, and a
+message says what happened: fixed (and how many 863s), converts with
+something to check, or still held, with the reason.
+
+No reading or conversion change: corpora no drift.
+
 ## Statements to look at, on the card and by kind · **0.43.0**
 
 *16 October 2026.* Raised by the cataloguer testing 0.42.0 on the real export:

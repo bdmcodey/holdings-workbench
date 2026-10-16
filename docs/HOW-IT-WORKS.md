@@ -1,6 +1,6 @@
 # How the Holdings Workbench Works
 
-*Written for librarians and cataloguers. Describes version 0.43.0.*
+*Written for librarians and cataloguers. Describes version 0.44.0.*
 
 The Holdings Workbench turns the free-text holdings in MARC 866 fields into structured 853 caption/pattern and 863 enumeration/chronology fields, and asks a cataloguer to confirm anything it cannot be sure of. This guide explains how, for librarians rather than programmers.
 
@@ -249,6 +249,7 @@ Confirmed patterns form a library for the session:
 
   An expression a tool can't take (too long for Oracle, or a hand edit using something the tool lacks) is never cut down to fit. Its card shows the reason where the expression would be, Copy is turned off, and "Copy all expressions" gives the reason on its line. The editable box inside a card always holds the expression as the workbench runs it. When you paste statements rather than upload a file, there is no Convert step, so the patterns stay open after Find patterns with every expression in view. With a file, the step folds to one line when nothing needs deciding. Holdings come from one or the other, never both. "Use these statements" sets a loaded file aside: it stays loaded, with your decisions and its patterns, and step 1 names it with a "Back to" button that brings it back. Uploading a file replaces it.
 - **Show its records:** each card can filter the record list to "the records with this shape", and, once confirmed, to "the records it converts". The two can differ: a larger pattern may claim some statements first, and an expression may also match a similar shape. A confirmed pattern that converts nothing is a sign a larger one covers all its statements.
+- **Saying whether it worked:** after any edit or split, from step 2 or step 3, the 866 is converted again and a message at the bottom right says what happened: "Fixed", with how many 863s it now converts to; "Saved. It converts, with something to check", with what; or "Saved, but still held", with the reason. A fixed message goes after a few seconds; the others stay until dismissed.
 - **Edit and Split:** the example on screen has Edit and Split buttons beside it, for a mistake seen here, such as a comma missing between runs, or a change from months to seasons inside one 866. With a file, it opens the whole 866 the example comes from (the example may be one part of it) and saves the same edit step 3 makes: listed on the record, logged as "Edited by you", and undone with "Put back as uploaded" there. Where other records have an 866 that reads exactly the same, a box, unticked, makes the same change on them too; each is then its own edit, undone on its own. Split makes the same split step 3 makes. With pasted statements, both change the line in the pasted text. Either way the patterns are found again, and the Patterns step stays open: before 0.42.0 it folded away once the last card asking something was answered, in the middle of the work. A part of an 866 you split is changed with Split, in step 3.
 - **The record, in order:** a card's preview shows every statement on the example's record in the order its 866s come, each under the 853 it links to, with a new heading wherever the linking number changes (a pattern the record comes back to says "continued"). A held statement sits where it comes, with its reason in orange and Edit and Split beside it; fixed, it converts where it stands. The record in step 3 is shown the same way. Before 0.42.0 held statements were gathered into a "Held for review" block at the end, with no Edit or Split in a card's preview.
 - **Not read:** a card whose statements the standard parser can't read at all says `N not read`, and, folded, says where reading stopped on the first, for example "Read 'v. 21-26' but could not account for ', 29-31 33, …'". Such a statement often has a mistake in it (a comma missing between runs, a hyphen after a closed run, a stray character like `//`), and Edit fixes it; written as meant, what you say on the card converts it.
@@ -458,6 +459,7 @@ Everything you decide is kept for the session and applied every time the file is
 | **Skip** | Leaves the record exactly as uploaded: nothing converted, no 866 removed, existing 853 and 863s untouched |
 | **Keep patterns separate** | Gives each shape of holdings on the record its own 853, even where one records less detail than another. Normally statements that are one publication written with more or less detail share an 853 |
 | **Reviewed** | Marks the record as looked at, for the "Not yet reviewed" filter. It changes nothing in the output |
+| **Close** | Beside Reviewed and Skip at the foot of an open record: folds it back to its line and brings that line to the top of the screen, so a long record can be closed where the work on it ends and the next record is right below. A record that no longer matches the filter you are working through, because you fixed it, skipped it or ticked Reviewed, stays open until you close it, saying it no longer matches; on Close it leaves the list and the next record takes its place at the top. Moving to another filter, search or page closes what is open |
 | **Edit an 866** | Corrects a typo before conversion, such as `(Fal 1995-Fall 1999)`. The corrected text goes into the file, and "Put back as uploaded" undoes it. The same edit can be made from a pattern card, on step 2 |
 | **Split an 866** | Makes one 866 into several statements, to say where a change falls that it doesn't show, such as months to seasons. See "Months and seasons" |
 | **Your note** | A reminder for you or a colleague. It goes into the log, never into the record |
@@ -526,9 +528,9 @@ The log is built from the same summary as the conversion, so it describes exactl
 
 Four checks run before any change is released, and each answers a different question.
 
-| Check | Question it answers | Result as of 0.43.0 |
+| Check | Question it answers | Result as of 0.44.0 |
 | --- | --- | --- |
-| Automated tests | Does every behaviour described here still hold? | 1,106 passed, 8 skipped |
+| Automated tests | Does every behaviour described here still hold? | 1,109 passed, 8 skipped |
 | Corpus report | What do 117 real 866 statements convert to, and has any outcome changed? | 89 clean (76%), 22 converted with a warning, 6 with no fields, 0 with values lost |
 | Conversion audit | Did any number in a statement reach no field and no warning? | 0 unaccounted for: the corpus, the LC examples, the other library's catalogue, and all 1,057 statements of the 372-record test export |
 | Round trip | Convert, write the 866 as Alma would, convert again: do the same 863s come back? | Test export: 938 identical, 103 identical apart from an 853 caption, 14 not converted (13 of them months and seasons in one 866), **0 drift** |

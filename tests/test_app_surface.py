@@ -484,3 +484,58 @@ def test_the_pattern_library_is_on_screen_before_anything_is_loaded():
     assert '<details id="library-bar" class="library" hidden>' not in page
     assert "document.getElementById('library-bar').hidden" not in page
     assert "summary.textContent = 'Pattern library — empty';" in page
+
+
+def test_an_open_record_can_be_closed_from_its_foot():
+    """
+    Asked for on 0.43.0: a long record's only Close was the line at its top,
+    screens up from Reviewed, Skip and the note. Close sits beside them now,
+    shown only while the record is open, and brings the folded line into view.
+    """
+    page = (TEMPLATES / "tool.html").read_text(encoding="utf-8")
+    foot = page[page.index('<div class="rec-foot">'):page.index("`).join('');",
+                                                             page.index('<div class="rec-foot">'))]
+    assert 'class="rec-skip"' in foot and 'onclick="closeRecord(${i})"' in foot
+    assert ".rec-row:not(.open) .rec-close { display: none; }" in page
+    # To the top of the screen: the record, or the one that took its place.
+    assert "while (target && target.hidden) target = target.nextElementSibling;" in page
+    assert "scrollIntoView({ block: 'start' });" in page
+
+
+def test_a_record_being_worked_on_stays_until_it_is_closed():
+    """
+    Also on 0.43.0: fixing a record under "Needs attention" (or ticking
+    Reviewed under "Not yet reviewed") took it off the list at once, so the
+    open record vanished mid-task and the page jumped. It stays while open,
+    says it no longer matches, and leaves on Close; moving to another
+    filter, search or page closes what is open first.
+    """
+    page = (TEMPLATES / "tool.html").read_text(encoding="utf-8")
+    assert "row.hidden = !on && !open;" in page
+    assert 'class="small dim rec-leaving" hidden' in page
+    closing = page[page.index("function closeRecord("):page.index("function foldRow(")]
+    assert "applyReviewFilter();" in closing
+    for handler in ("reviewFilter = chip.dataset.filter;\n    closeOpenRecords();",
+                    "closeOpenRecords();\n  reviewOffset += reviewPageLimit();",
+                    "closeOpenRecords();\n  reviewOffset = Math.max(0, reviewOffset - reviewPageLimit());"):
+        assert handler in page, handler
+
+
+def test_an_edit_or_split_says_whether_it_fixed_the_statement():
+    """
+    Asked for on 0.43.0: a fixed statement simply left the card's list, and
+    nothing said the edit had worked. The 866 is converted again as its
+    record now reads, and the result is said: fixed, converts with something
+    to check, or still held -- with the reason.
+    """
+    page = (TEMPLATES / "tool.html").read_text(encoding="utf-8")
+    assert '<div id="fix-toast" class="alert" role="status" aria-live="polite" hidden></div>' in page
+    outcome = page[page.index("async function recordOutcome("):page.index("function pastedOutcome(")]
+    for said in ("Saved, but still held.", "Saved. It converts, with something to check:",
+                 "<strong>Fixed.</strong>"):
+        assert said in outcome, said
+    # Every way of editing or splitting reports: the card and held rows (via
+    # after866Change), pasted text, and step 3's own editors.
+    assert page.count("reportFix(") >= 5
+    # Step 3's editors no longer fold step 2 above the record being worked on.
+    assert "runDetect();" not in page.replace("runDetect({ keepFold: true });", "")
