@@ -42,6 +42,7 @@ from marc_serials.parser import (
     # combined issues ("Jan/Feb" -> "01/02") must encode exactly as they do on
     # the parser path.  A second copy of those tables would drift.
     _chron_unit_value,
+    _split_top_level,
 )
 from marc_serials.detector import (UNKNOWN, _collapse_unknown_runs,
                                    split_multi_range, tokenize)
@@ -652,6 +653,8 @@ def _build_from_pattern(
     result = ParseResult(raw=text)
     any_match = False
     undecided: list[str] = []
+    unread: list[str] = []         # segments neither reader could read
+    set_aside: list[str] = []      # values a list's pattern does not place
 
     for seg in segments:
         seg = seg.strip()
@@ -681,9 +684,15 @@ def _build_from_pattern(
                 result.warnings.append(
                     f"'{seg}' matched neither the pattern nor the standard parser."
                 )
+                unread.append(seg)
             continue
 
         any_match = True
+        if _lists_runs(seg):
+            set_aside.extend(
+                (m.groupdict().get(r.group) or "").strip() for r in roles
+                if not r.encodes and r.kind != KIND_UNRESOLVED
+                and (m.groupdict().get(r.group) or "").strip())
         hr = _range_from_match(seg, m, roles, result.warnings, undecided)
         if hr is not None:
             result.ranges.append(hr)
@@ -696,7 +705,46 @@ def _build_from_pattern(
     if not any_match or not result.ranges:
         return None
     result.needs_review = bool(undecided)
+    # Half a statement is worse than none: once anything is written from an
+    # 866, "Remove each 866" takes it away, and with it whatever was not
+    # written. Two ways a pattern could do that, both found on
+    # "v. 21-26, 29-31 33, 35, 37-38-(...)", a list with a comma missing that
+    # the parser cannot read. Held, with the reason, and nothing written.
+    if unread:
+        note = ("Only part of this statement could be read: "
+                + ", ".join(f"'{seg}'" for seg in unread)
+                + " matched neither a pattern nor the standard parser, so "
+                "nothing was written from the statement and its 866 stays as it "
+                "is. Correct the 866 with Edit (often a comma is missing "
+                "between runs), or confirm a pattern for that part.")
+        result.warnings.insert(0, note)
+        result.attention.append(note)
+        result.needs_review = True
+    if set_aside:
+        note = ("This statement lists several runs, and a pattern describes "
+                "only one: it would set aside "
+                + ", ".join(f"'{v}'" for v in set_aside)
+                + ". The standard parser could not read the list either, so "
+                "nothing was written and the 866 stays as it is. Look for a "
+                "comma missing between runs, or a hyphen after a run that is "
+                "closed, and correct the 866 with Edit.")
+        result.warnings.insert(0, note)
+        result.attention.append(note)
+        result.needs_review = True
     return result
+
+
+# Before any trailing chronology: a comma with a bare number after it, as in
+# "v. 21-26, 29-31, 33". "Vol. 1, No. 1" has a caption after its comma and is
+# one run's levels, not a list.
+_TRAILING_PARENS_RE = re.compile(r"\([^()]*\)\s*-?\s*$")
+
+
+def _lists_runs(segment: str) -> bool:
+    """Whether a segment is written as a list of runs, read or not."""
+    head = _TRAILING_PARENS_RE.sub("", segment)
+    parts = _split_top_level(head)
+    return len(parts) > 1 and any(p[:1].isdigit() for p in parts[1:])
 
 
 def uncaptioned_levels(results: Sequence[ParseResult]) -> list[int]:

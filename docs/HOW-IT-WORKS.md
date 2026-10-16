@@ -1,6 +1,6 @@
 # How the Holdings Workbench Works
 
-*Written for librarians and cataloguers. Describes version 0.40.0.*
+*Written for librarians and cataloguers. Describes version 0.41.0.*
 
 The Holdings Workbench turns the free-text holdings in MARC 866 fields into structured 853 caption/pattern and 863 enumeration/chronology fields, and asks a cataloguer to confirm anything it cannot be sure of. This guide explains how, for librarians rather than programmers.
 
@@ -56,6 +56,8 @@ A confirmed pattern supplies only what the parser cannot work out for itself:
 - **"Leave these alone."** A pattern marked Skip claims every statement of that shape, and none of them is converted.
 
 Where a statement holds several runs of holdings, such as `v. 19 nos. 1, 3, 5, 7-12`, it is always split into one 863 per run: here four, for nos. 1, 3, 5 and 7-12. The parser does that splitting even when a pattern matches the statement, and the record says the pattern was passed over. The caption you confirmed on that pattern is still used for the levels the statement leaves blank: `34 no 3, 4 (Summer, Autumn 1990)` with `v.` confirmed for the 34 is written `$a v. $b no.`, as two 863s. Before 0.34.0 it stayed `$a (*)`. A pattern describes a single run, so on its own it could only have recorded the first and last issues as one run (`$b 1-12`), losing the gaps.
+
+A pattern never converts part of a statement. If a statement is written as a list of runs that the parser can't read, often because a comma is missing between two runs, a pattern for it can only place one run and would set the rest aside as "Not encoded". With "Split multi-range statements" on, a pattern may match one piece while nothing reads the others. Either way the statement is held, nothing is written, and the 866 stays as it is, with a reason that names what would have been set aside. Before 0.41.0 such a pattern converted the part it could place, and "Remove each 866" then took the whole 866. "100% matched" on a card means only that the expression matches the wording; the preview below it says what would be written.
 
 Until version 0.10.0 a matched pattern read the statement a second way, on its own. Across 141 test statements the two readings disagreed on 10, and the pattern was wrong on 9 of those. Since then the parser has done all the reading, and a test checks that both routes write the same 863.
 
@@ -270,7 +272,8 @@ flowchart TD
 2. **Two grammars.** Most statements put the enumeration first, as in `v.1(1990)`. Some older local records put the year first, as in `2019: (1-6 [Feb-Nov])2020: (7-12 [Jan-Dec])`. These are read by a separate reader, but only when the colon after the year is followed by a volume number or a parenthesis. A word after the colon is Z39.71's own way of writing a date, as in `1990:Jan.-1994:Dec.`, and goes to the main reader. Before version 0.28.0 the year-first reader took those too, and they converted to nothing.
 3. **Cutting into parts.** The statement is cut at commas and semicolons outside parentheses. The parser remembers which mark it cut at, because that becomes the 863's break code: a comma means a gap (`$w g`), a semicolon a break that is not a gap (`$w n`). A mark at the very end counts too, as in `1986-1988,`, which is how Alma writes a gap after the last run. A full stop at the very end, as in `v.89,pt.1(1969)-v.96,pt.3(Dec.1972).`, is only punctuation and is ignored. A full stop after a letter, as in `no.` or `Dec.`, is part of an abbreviation and is kept. The comma inside a date, as in `Dec. 16, 1887`, is never a cut.
 4. **Reading each part.** A part is read as one of three things, tried in this order:
-   - A **list of runs**, like `v. 19 nos. 1, 3, 5, 7-12 (Jan, Mar, May, Jul-Dec 1915)`. This becomes four 863s, one for each run, with the months matched to their issues. Runs of volumes pair with runs of years the same way, and a year range may be written short: `v. 4-6, 9 (1951-53, 1956/57)` is `$a 4-6 $i 1951-1953` and `$a 9 $i 1956/1957`. The two lists have to be the same length; if they aren't, nothing is converted from the statement, because pairing them would be a guess.
+   - A **list of runs**, like `v. 19 nos. 1, 3, 5, 7-12 (Jan, Mar, May, Jul-Dec 1915)`. This becomes four 863s, one for each run, with the months matched to their issues. Runs of volumes pair with runs of years the same way, and a year range may be written short: `v. 4-6, 9 (1951-53, 1956/57)` is `$a 4-6 $i 1951-1953` and `$a 9 $i 1956/1957`. The two lists have to be the same length; if they aren't, nothing is converted from the statement, because pairing them would be a guess. The last run may be left open, in the volumes, the years or both: `v. 1-3, 5-(1990-92, 1994-)` ends with `$a 5- $i 1994-`. A run that is closed and then left open, like `37-38-`, is held, as it is outside a list, and the reason names that run.
+   - **Years that go backwards** from one run to the next, as in `v. 21-26, 29-31, 33 (1921-25, 1938-41, 1932)`, are converted as written, each run with the years in the same place in the list, and marked to check: a year typed wrong is the likeliest cause, and the note names the two runs.
    - A **list of dates only**, like `(1986-1988, 1993-1994)`. This becomes one 863 for each run. A year written once, at the end, belongs to every month or season before it: `(Mar, May, Jul 1995)` is three 863s, `$i 1995` with `$j 03`, `05` and `07`, and `(Jan-May, Sep-Nov 1983)` is two. Before 0.40.0 these were held, or written with the year alone. A list that mixes months and seasons, like `(May, Jul, Spring 1994)`, is still held (see "Months and seasons"). Months with no year at all are never written.
    - Between the runs of a list goes a gap (`$w g`), except where the next run is the very next number, month or season: nothing goes between `Nov` and `Dec 1915`.
    - A **single range**, like `v.1:no.1(1990:Jan.)-v.5:no.4(1994:Dec.)`. A hyphen at the end means the holdings are still open (currently received). Written inside the parentheses, as in `v.35 (2025-)`, it means the same. A run left open, like `v.1-3 (1990)-`, is held, because it doesn't say whether the volumes or the holding are what's still open.
@@ -518,9 +521,9 @@ The log is built from the same summary as the conversion, so it describes exactl
 
 Four checks run before any change is released, and each answers a different question.
 
-| Check | Question it answers | Result as of 0.40.0 |
+| Check | Question it answers | Result as of 0.41.0 |
 | --- | --- | --- |
-| Automated tests | Does every behaviour described here still hold? | 1,074 passed, 8 skipped |
+| Automated tests | Does every behaviour described here still hold? | 1,088 passed, 8 skipped |
 | Corpus report | What do 117 real 866 statements convert to, and has any outcome changed? | 89 clean (76%), 22 converted with a warning, 6 with no fields, 0 with values lost |
 | Conversion audit | Did any number in a statement reach no field and no warning? | 0 unaccounted for: the corpus, the LC examples, the other library's catalogue, and all 1,057 statements of the 372-record test export |
 | Round trip | Convert, write the 866 as Alma would, convert again: do the same 863s come back? | Test export: 938 identical, 103 identical apart from an 853 caption, 14 not converted (13 of them months and seasons in one 866), **0 drift** |

@@ -15,6 +15,14 @@ more than one release; numbering resumed with 0.6.1. Reasoning behind the
 parser and converter decisions, including the defects a real corpus exposed and
 what was done about each, is in [CORPUS-FINDINGS.md](CORPUS-FINDINGS.md).
 
+## 0.41.0 — 2026-10-16
+
+A pattern never converts part of a statement; a list whose years go backwards is marked to check; the last run of a list can be left open in its years.
+
+- **MARC Holdings Workbench** — A pattern no longer converts part of a statement. Where a statement is written as a list of runs the standard parser can't read (often a comma missing between two runs), a pattern could place only one run and set the rest aside as "Not encoded"; and with splitting on, a pattern could convert one piece while nothing read the others. Either way the 866 could then be removed with runs that were never written. Such a statement is now held, with nothing written, and the reason says what would have been set aside. "100% matched" on a card means only that the expression matches the wording; its preview says what would be written.
+- **MARC Holdings Workbench** — A list of runs whose years go backwards from one run to the next, such as v. 21-26, 29-31, 33 (1921-25, 1938-41, 1932), is converted as written and marked to check, naming the two runs: a year typed wrong is the likeliest cause. Where a run inside a list is refused, such as a closed run left open (37-38-), the reason now names that run.
+- **MARC Holdings Workbench** — The last run of a list can be left open in its years as well as its volumes: v. 1-3, 5-(1990-92, 1994-) converts, ending with $a 5- $i 1994-.
+
 ## 0.40.0 — 2026-10-16
 
 Lists of months or seasons written under one year, and lists of volumes paired with lists of years, now convert; the pattern library can be seen, exported, imported and cleared as soon as the page opens.

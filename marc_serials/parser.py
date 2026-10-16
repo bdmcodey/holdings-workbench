@@ -916,6 +916,12 @@ def _expand_distributed_list(text: str,
     open_ended = bool(re.search(r"-\s*$", head))
     if open_ended:
         head = re.sub(r"-\s*$", "", head).strip()
+    # Or the last year of a list is left open, "(1990-92, 1994-)": the same
+    # claim, made on the chronology side. Only of a list -- "(1994-)" alone is
+    # the unit parser's to read.
+    if chron_raw and "," in chron_raw and re.search(r"-\s*$", chron_raw):
+        chron_raw = re.sub(r"-\s*$", "", chron_raw).strip()
+        open_ended = True
 
     parts = [p for p in _split_top_level(head) if p]
     if len(parts) < 2:
@@ -2283,7 +2289,14 @@ def _read_segment(seg: str, result: "ParseResult", notes: List[str]) -> None:
     if listed is not None:
         notes.extend(w for w in seg_notes if w not in notes)
         result.ranges.extend(listed)
+        _check_years_run_forward(listed, result, notes)
         return
+    if is_distributed_list(seg):
+        # A list, but one of its runs was refused. Its reason is the one that
+        # explains the statement -- "'v. 37-38 (1937-38)-' gives a run and then
+        # leaves it open" -- where the unit parser below can only say it read
+        # the first run and not the rest.
+        notes.extend(w for w in seg_notes if w not in notes)
 
     # A list stated as chronology alone, "(1986-1988, 1993-1994)". Tried
     # before the unit parser for the same reason the enumerated list is:
@@ -2293,6 +2306,7 @@ def _read_segment(seg: str, result: "ParseResult", notes: List[str]) -> None:
     if chron_runs is not None:
         notes.extend(w for w in seg_notes if w not in notes)
         result.ranges.extend(chron_runs)
+        _check_years_run_forward(chron_runs, result, notes)
         return
 
     seg_notes = []
@@ -2305,6 +2319,36 @@ def _read_segment(seg: str, result: "ParseResult", notes: List[str]) -> None:
         )
         return
     result.ranges.append(hr)
+
+
+def _check_years_run_forward(runs: List["HoldingsRange"], result: "ParseResult",
+                             notes: List[str]) -> None:
+    """
+    Ask about a list whose years go backwards from one run to the next.
+
+    The runs of a list are given their years by position: the second year
+    run goes with the second volume run. That is the only reading there is,
+    and it is right when the list is -- but in
+    "v. 21-26, 29-31, 33 (1921-25, 1938-41, 1932)" v. 29-31 gets 1938-1941 and
+    then v. 33 gets 1932, earlier than the run before it. A year typed wrong
+    is the likeliest cause, and positional pairing would write it as typed.
+    So it converts, and is marked to check, naming the two runs.
+    """
+    def years(ec: Optional["EnumChron"]) -> List[int]:
+        return [int(y) for y in re.findall(r"\d{4}", (ec.year if ec else "") or "")]
+
+    for prev, nxt in zip(runs, runs[1:]):
+        ended = years(prev.end) or years(prev.start)
+        began = years(nxt.start)
+        if ended and began and began[0] < max(ended):
+            note = (f"The years of this list go backwards: '{prev.raw}' runs to "
+                    f"{max(ended)}, and the next run, '{nxt.raw}', begins in "
+                    f"{began[0]}. Each run was given the years in the same "
+                    f"place in the list; check the 866 for a year typed wrong.")
+            if note not in notes:
+                notes.append(note)
+            if note not in result.attention:
+                result.attention.append(note)
 
 
 # An 863 written out as text, codes gone: "2.1 54-62 1-1 1998-2006 21-21 g" is
