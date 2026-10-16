@@ -2839,6 +2839,31 @@ real export gets no note on any of its 1,057 866s. The angle-bracket dates of
 D41 (`<1884:6:28>`) are not treated as the Newspaper Program's: nothing here
 says whose they are.
 
+## Clear starts over · **0.44.1**
+
+*16 October 2026.* Reported by the cataloguer: clear the pattern library,
+upload the file, Find patterns -- and the library stays empty.
+
+**Cause.** Clear added every pattern in the library to the page's list of
+patterns removed by the cataloguer, which auto-confirmation skips, on the
+reasoning that clearing is as deliberate as removing one. The list lives in
+the page, not the file, so it outlasted the upload; every readable pattern of
+the file was on it, and none was confirmed. The one line saying so was shown
+at the moment of clearing. A reload forgot the list, so the same steps after a
+reload behaved differently. Reproduced on 0.44.0 with the real export: 106
+patterns, then empty after clear, upload and Find patterns.
+
+**Now.** Clear is starting over: it empties the library and forgets the
+removals, and the next Find patterns confirms the 106 again. A pattern removed
+on its own is still not re-confirmed, and the step now says how many were
+held back for that reason. Import was never affected.
+
+**Import, checked at the same time** (not tested before by the cataloguer):
+the real export's 106-pattern library exported, cleared and imported comes
+back identical, field for field, and the file converts exactly as before --
+995 statements converted, 14 held, 57 to check, 359 records read by a
+pattern.
+
 ## Working through records without losing the place · **0.44.0**
 
 *16 October 2026.* Three things the cataloguer met working through the real
