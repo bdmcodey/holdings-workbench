@@ -1,6 +1,6 @@
 # How the Holdings Workbench Works
 
-*Written for librarians and cataloguers. Describes version 0.45.1.*
+*Written for librarians and cataloguers. Describes version 0.46.0.*
 
 The Holdings Workbench turns the free-text holdings in MARC 866 fields into structured 853 caption/pattern and 863 enumeration/chronology fields, and asks a cataloguer to confirm anything it cannot be sure of. This guide explains how, for librarians rather than programmers.
 
@@ -525,13 +525,21 @@ A setting the tool can't use, such as an indicator of 4, is refused with the rea
 
 The log is built from the same summary as the conversion, so it describes exactly the file the Download button gives you.
 
+## From the keyboard, or with a screen reader
+
+Everything can be done without a mouse. Tab moves from one control to the next, and Enter or Space presses a button or ticks a box; that includes the upload box, which opens the file chooser. Escape closes an Edit or Split box without saving. After Cancel, Close or Save, the keyboard is left on the button you were using, or on the record or pattern you were working on.
+
+With a screen reader, buttons that appear many times say what they act on: "Edit" on a statement is read with the statement, "Close" with the record's title, "Copy" with the pattern. The Reviewed, Keep patterns separate and Skip boxes are read one at a time, with the record they belong to. Review buttons and record lines say whether they are open, filter chips whether they are chosen. Find patterns says how many patterns it found and how many need a decision, and a filter chip says how many records now match.
+
+As of 0.46.0 the page was checked against WCAG 2.1 AA: automatically, with axe, in light and dark, and by using it from the keyboard and reading what a screen reader is given.
+
 ## How the tool is checked
 
 Four checks run before any change is released, and each answers a different question.
 
-| Check | Question it answers | Result as of 0.45.1 |
+| Check | Question it answers | Result as of 0.46.0 |
 | --- | --- | --- |
-| Automated tests | Does every behaviour described here still hold? | 1,114 passed, 8 skipped |
+| Automated tests | Does every behaviour described here still hold? | 1,122 passed, 8 skipped |
 | Corpus report | What do 117 real 866 statements convert to, and has any outcome changed? | 89 clean (76%), 22 converted with a warning, 6 with no fields, 0 with values lost |
 | Conversion audit | Did any number in a statement reach no field and no warning? | 0 unaccounted for: the corpus, the LC examples, the other library's catalogue, and all 1,057 statements of the 372-record test export |
 | Round trip | Convert, write the 866 as Alma would, convert again: do the same 863s come back? | Test export: 938 identical, 103 identical apart from an 853 caption, 14 not converted (13 of them months and seasons in one 866), **0 drift** |
