@@ -15,6 +15,12 @@ more than one release; numbering resumed with 0.6.1. Reasoning behind the
 parser and converter decisions, including the defects a real corpus exposed and
 what was done about each, is in [CORPUS-FINDINGS.md](CORPUS-FINDINGS.md).
 
+## 0.39.0 — 2026-10-15
+
+The Patterns step says which statements are held or to check, and no longer folds them away under "nothing to decide".
+
+- **MARC Holdings Workbench** — Each pattern card now counts its statements that are held (nothing written, the 866 kept) and to check (converted, with something to look at first), beside the count of those with something left out to fit MARC; the sentence under the pattern count gives the totals. A pattern with a statement held or to check is no longer folded away under "nothing to decide": it goes in its own group, which starts open. Supplements and indexes keep their own group. With pasted statements, where there is no Convert step, each statement that doesn't simply convert is listed on its card with what happens to it and why, and one held for changing from months to seasons has a Split button there: the parts take its place in the pasted text.
+
 ## 0.38.0 — 2026-10-15
 
 Numbering ($v) can be set for one record, in "This record's 853".

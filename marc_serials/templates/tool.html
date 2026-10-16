@@ -446,6 +446,11 @@
       padding: 0 var(--sp-3) var(--sp-2);
     }
     .pc-records:empty { display: none; }
+    /* Pasted statements have no Convert step, so each one that is not simply
+       converted says so on its card, with its reason. */
+    .pc-outcomes { padding: 0 var(--sp-3) var(--sp-2); display: flex;
+                   flex-direction: column; gap: var(--sp-2); }
+    .pc-outcome-head { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-2); }
 
     .regex-box {
       width: 100%;
@@ -2802,12 +2807,16 @@ document.getElementById('btn-use-text').addEventListener('click', () => {
   if (sourceMode === 'file') setFileAside();
   sourceMode = 'paste';
   showPasteHint();
-  const n = pastedStatements().length;
-  showSourceSummary(`${n} pasted statement${n !== 1 ? 's' : ''}`,
-    allRecords.length ? fileAsideHtml() : '');
+  showPastedSummary();
   revealSteps();
   document.getElementById('step-patterns').scrollIntoView({ behavior: 'smooth', block: 'start' });
 });
+
+function showPastedSummary() {
+  const n = pastedStatements().length;
+  showSourceSummary(`${n} pasted statement${n !== 1 ? 's' : ''}`,
+    allRecords.length ? fileAsideHtml() : '');
+}
 
 /**
  * Switch from a file to pasted statements. The file stays loaded -- its
@@ -2979,12 +2988,18 @@ async function autoConfirm(groups) {
  * the detection run, not its position on screen.
  */
 function partitionGroups(groups) {
-  const parts = { open: [], readable: [], elsewhere: [], confirmed: [], skipped: [],
-                  complex: [] };
+  const parts = { open: [], attention: [], readable: [], elsewhere: [], confirmed: [],
+                  skipped: [], complex: [] };
   groups.forEach((group, idx) => {
     const entry = { group, idx };
     const stored = library.find(p => p.id === patternIdFor(group));
     if (stored && stored.skip) parts.skipped.push(entry);
+    // Nothing to decide is not nothing to see. A statement that is held, or
+    // converts with something to check, was folded away with the patterns
+    // that read cleanly -- and pasted statements have no Convert step where it
+    // would have turned up. Supplements and indexes keep their own fold.
+    // A pattern that still wants an answer is open already, and says so.
+    else if (needsALook(group) && !needsAnAnswer(group, stored)) parts.attention.push(entry);
     else if (group.too_complex) parts.complex.push(entry);
     else if (stored) parts.confirmed.push(entry);
     // Asking about a pattern whose answer would change nothing is asking a
@@ -3000,33 +3015,89 @@ function partitionGroups(groups) {
   return parts;
 }
 
+/** A pattern with a statement held, or to check, on its own reading. */
+function needsALook(group) {
+  return group.decides !== 'elsewhere' && ((group.held || 0) + (group.to_check || 0)) > 0;
+}
+
+/** Whether partitionGroups() would file this pattern with the decisions. */
+function needsAnAnswer(group, stored) {
+  return !stored && !group.too_complex
+    && group.decides !== 'nothing' && group.decides !== 'elsewhere';
+}
+
 // Which folds the cataloguer has opened. Kept outside the render so opening one
 // to look at a pattern, then removing another, does not fold it back up.
 const patternFolds = {};
 
-/** Said under the pattern count: nothing to decide is not nothing lost. */
-function leftOutSentence(groups) {
-  const n = (groups || []).reduce((sum, g) => sum + (g.left_out || 0), 0);
-  if (!n) return '';
-  return ` <strong>${n}</strong> statement${n !== 1 ? 's' : ''} will convert with
-    something left out to fit MARC; the cards marked "left out" say which, and
-    Conversion settings say what happens to ${n !== 1 ? 'them' : 'it'}.`;
+/**
+ * How many statements, across these patterns, are held, to check, or lose a
+ * value, as the standard parser reads each on its own. Skipped patterns are
+ * left as they are, so nothing about converting them is true.
+ */
+function outcomeTotals(entries) {
+  const t = { held: 0, to_check: 0, left_out: 0 };
+  entries.forEach(({ group }) => {
+    t.held += group.held || 0;
+    t.to_check += group.to_check || 0;
+    t.left_out += group.left_out || 0;
+  });
+  return t;
+}
+
+/** Said under the pattern count: nothing to decide is not nothing to see. */
+function outcomeSentence(parts) {
+  const t = outcomeTotals(Object.entries(parts)
+    .filter(([key]) => key !== 'skipped').flatMap(([, entries]) => entries));
+  const plural = (n, one, many) => `<strong>${n}</strong> ${n !== 1 ? many : one}`;
+  let said = '';
+  if (t.held || t.to_check) {
+    const bits = [];
+    if (t.held) bits.push(`${plural(t.held, 'statement is', 'statements are')} held,
+      with nothing written from ${t.held !== 1 ? 'them' : 'it'}`);
+    if (t.to_check) bits.push(`${plural(t.to_check, 'statement converts', 'statements convert')}
+      with something to check`);
+    said += ` ${bits.join(', and ')}; the cards marked "held" or "to check" say which.`;
+  }
+  if (t.left_out) {
+    said += ` ${plural(t.left_out, 'statement', 'statements')} will convert with
+      something left out to fit MARC; the cards marked "left out" say which, and
+      Conversion settings say what happens to ${t.left_out !== 1 ? 'them' : 'it'}.`;
+  }
+  return said;
+}
+
+/** The pills a card wears for what its statements do on their own. */
+function outcomePills(group) {
+  const bits = [];
+  if (group.held) bits.push(`<span class="pill attention"
+    title="Statements read and deliberately not converted: nothing is written from them and the 866 stays as it is">${group.held} held</span>`);
+  if (group.to_check) bits.push(`<span class="pill attention"
+    title="Statements that convert with something to look at before loading">${group.to_check} to check</span>`);
+  if (group.left_out) bits.push(`<span class="pill leftout"
+    title="Statements that convert with a value read and left out because MARC has no place for it; the preview below says which">${group.left_out} left out</span>`);
+  return bits.join('');
 }
 
 function buildPatternFold(key, label, entries) {
   const details = document.createElement('details');
   details.className = 'pattern-group';
-  details.open = !!patternFolds[key];
+  details.open = patternFolds[key] ?? key === 'attention';
   details.addEventListener('toggle', () => { patternFolds[key] = details.open; });
 
   const summary = document.createElement('summary');
   summary.className = 'small';
   // A fold of patterns with nothing to decide can still lose a value; say so
-  // on the line that is all a folded group shows.
-  const losing = entries.reduce((n, { group }) => n + (group.left_out || 0), 0);
-  summary.textContent = losing
-    ? `${label} · ${losing} statement${losing !== 1 ? 's' : ''} with something left out to fit MARC`
-    : label;
+  // on the line that is all a folded group shows. Held and to-check
+  // statements are not folded at all, but are said here too should one be.
+  const t = key === 'skipped' ? {} : outcomeTotals(entries);
+  const bits = [];
+  if (t.held) bits.push(`${t.held} held`);
+  if (t.to_check) bits.push(`${t.to_check} to check`);
+  if (t.left_out) {
+    bits.push(`${t.left_out} statement${t.left_out !== 1 ? 's' : ''} with something left out to fit MARC`);
+  }
+  summary.textContent = [label, ...bits].join(' · ');
   details.appendChild(summary);
 
   const body = document.createElement('div');
@@ -3065,7 +3136,7 @@ function renderPatterns(data) {
             parts.readable.length
               ? ': the confirmed patterns and the standard parser between them read every statement'
               : ' — all patterns are confirmed and will be used when you convert'}.`
-    }${leftOutSentence(data.groups)}</p>
+    }${outcomeSentence(parts)}</p>
     ${flavourChooserHtml()}`;
   area.appendChild(summary);
   paintFlavourAlert();
@@ -3081,6 +3152,16 @@ function renderPatterns(data) {
   const openPage = parts.open.slice(patternOffset, patternOffset + PATTERN_PAGE);
   openPage.forEach(({ group, idx }) => area.appendChild(buildPatternCard(group, idx)));
   renderPatternPager(parts.open.length);
+
+  // What folding used to hide, so open until the cataloguer folds it: one
+  // file measured 19 of these against 5 cards asking for a decision, which is
+  // too many to lay out loose, and too many to tuck away.
+  if (parts.attention.length) {
+    const n = parts.attention.length;
+    area.appendChild(buildPatternFold('attention',
+      `${n} pattern${n !== 1 ? 's' : ''} with nothing to decide, and statements held or to check`,
+      parts.attention));
+  }
 
   if (parts.confirmed.length) {
     const n = parts.confirmed.length;
@@ -3134,6 +3215,9 @@ function patternsSummaryLine() {
   if (parts.readable.length) bits.push(`${parts.readable.length} read by the parser`);
   if (parts.skipped.length) bits.push(`${parts.skipped.length} skipped`);
   if (parts.complex.length) bits.push(`${parts.complex.length} too complex`);
+  if (parts.attention.length) {
+    bits.push(`<span class="count-warn">${parts.attention.length} with statements held or to check</span>`);
+  }
   if (parts.open.length) {
     bits.push(`<span class="count-warn">${parts.open.length} need${
       parts.open.length === 1 ? 's' : ''} a decision</span>`);
@@ -3260,6 +3344,7 @@ function buildPatternCard(group, idx) {
         <span class="pc-label">${escHtml(group.human_label)}</span>
         <span class="pill">${group.count} statement${group.count !== 1 ? 's' : ''}</span>
         <span class="pill decide">too idiosyncratic to express as a pattern</span>
+        ${outcomePills(group)}
       </div>
       <div class="pc-body">
         <p class="small dim">${escHtml(group.decline_reason
@@ -3267,7 +3352,8 @@ function buildPatternCard(group, idx) {
           They will be converted by the standard parser.</p>
         ${buildExamplesHtml(group.examples)}
       </div>
-      <div class="pc-records small"></div>`;
+      <div class="pc-records small"></div>
+      ${exampleOutcomesHtml(group, idx)}`;
     card._group = group;
     card._id = id;
     paintPatternRecords(card);
@@ -3283,8 +3369,7 @@ function buildPatternCard(group, idx) {
       <span class="pc-label">${escHtml(group.human_label)}</span>
       <span class="pill">${group.count} statement${group.count !== 1 ? 's' : ''}</span>
       <span class="pill ${rate === 100 ? 'has-866' : 'decide'}">${rate}% matched</span>
-      ${group.left_out ? `<span class="pill leftout"
-        title="Statements that convert with a value read and left out because MARC has no place for it; the preview below says which">${group.left_out} left out</span>` : ''}
+      ${outcomePills(group)}
       <span class="pill confirmed-pill" ${confirmed && !skipped ? '' : 'hidden'}>Confirmed</span>
       <span class="pill skipped-pill" ${skipped ? '' : 'hidden'}>Skipped</span>
       <span class="pill decide role-warning" ${
@@ -3299,6 +3384,7 @@ function buildPatternCard(group, idx) {
               title="Copy this expression, including any edits made below">Copy</button>
     </div>
     <div class="pc-records small"></div>
+    ${exampleOutcomesHtml(group, idx)}
     <div class="pc-body" hidden>
       ${decidesNote(group, skipped)}
       <div class="example-bar">
@@ -3400,6 +3486,113 @@ function showExample(card) {
 /** Where the example on screen came from, when it came from a file at all. */
 function exampleSource(card) {
   return (card._group.example_sources || [])[card._example] || null;
+}
+
+/**
+ * Each pasted statement that does not simply convert, with what it does and why.
+ *
+ * Pasted statements have no Convert step, so the card is the only place this
+ * can be said. With a file the record list says it, record by record, against
+ * the record's own 853, which a statement on its own does not have.
+ */
+function exampleOutcomesHtml(group, idx) {
+  if (sourceMode !== 'paste') return '';
+  const outcomes = group.example_outcomes || [];
+  const rows = outcomes.map((o, i) => ({ o, i, text: (group.examples || [])[i] }))
+    .filter(({ o, text }) => o && text && o.outcome !== 'clean');
+  if (!rows.length) return '';
+  return `<div class="pc-outcomes">${rows.map(({ o, i, text }) =>
+    `<div class="pc-outcome" id="pco-${idx}-${i}">${exampleOutcomeHtml(o, text, idx, i)}</div>`
+  ).join('')}</div>`;
+}
+
+const OUTCOME_PILLS = {
+  held: ['attention', 'held'],
+  to_check: ['attention', 'to check'],
+  left_out: ['leftout', 'left out'],
+  noted: ['', 'converts, with a note'],
+  unread: ['decide', 'not read by the parser'],
+};
+
+function exampleOutcomeHtml(o, text, idx, i) {
+  const [cls, label] = o.outcome === 'elsewhere'
+    ? ['elsewhere', `belongs in ${o.belongs_in}`] : OUTCOME_PILLS[o.outcome];
+  let reasons;
+  if (o.outcome === 'unread') {
+    reasons = `<div class="small dim">The standard parser writes nothing for this statement:
+      only a confirmed pattern converts it. Open the card to see what it would write.</div>`;
+  } else if (o.outcome === 'held' || o.outcome === 'elsewhere') {
+    reasons = `<div class="alert alert-info small">${heldReasonHtml(o)}</div>`;
+  } else {
+    reasons = (o.warnings || []).map(w => warningHtml(o, w)).join('');
+  }
+  // Months changing to seasons inside one statement is held until it is
+  // divided where the change falls, which only the cataloguer can say.
+  const split = o.chron_switch && o.chron_switch.where === 'within'
+    ? `<button type="button" class="btn btn-secondary btn-sm"
+               title="Divide this statement where the change falls, in the pasted text"
+               onclick="openPasteSplit(${idx}, ${i})">Split</button>` : '';
+  return `
+    <div class="pc-outcome-head">
+      <span class="role-sample">${escHtml(text)}</span>
+      <span class="pill ${cls}">${escHtml(label)}</span>
+      ${split}
+    </div>
+    ${reasons}`;
+}
+
+/**
+ * Split a pasted statement, as an 866 on a record is split: the parts take its
+ * place in the pasted text, one to a line, and the patterns are found again.
+ */
+function openPasteSplit(idx, i) {
+  const text = detected[idx].examples[i];
+  const id = `p${idx}-${i}`;
+  const slot = document.getElementById(`pco-${idx}-${i}`);
+  slot.innerHTML = `
+    <div class="edit866">
+      <div class="role-sample">${escHtml(text)}</div>
+      <div class="small mt-1">Write each part as a statement of its own, dividing where the
+        change falls: for example <code>v. 19 no. 3-6 (Sept.-Dec. 1986)</code> and
+        <code>v. 20 no. 1-4 (Winter-Fall 1987)</code>. The parts replace this statement
+        in the pasted text.</div>
+      <div id="s866-parts-${id}" class="mt-1">
+        ${[text, text].map((t, n) => splitPartHtml(id, n, t)).join('')}
+      </div>
+      <div class="btn-row mt-1">
+        <button type="button" class="btn btn-primary btn-sm"
+                onclick="savePasteSplit(${idx}, ${i})">Save and find patterns again</button>
+        <button type="button" class="btn btn-ghost btn-sm"
+                onclick="addSplitPart('${id}')">Add another part</button>
+        <button type="button" class="btn btn-ghost btn-sm"
+                onclick="cancelPasteSplit(${idx}, ${i})">Cancel</button>
+      </div>
+      <div id="s866-status-${id}"></div>
+    </div>`;
+  slot.querySelector('textarea').focus();
+}
+
+function cancelPasteSplit(idx, i) {
+  const group = detected[idx];
+  document.getElementById(`pco-${idx}-${i}`).innerHTML =
+    exampleOutcomeHtml(group.example_outcomes[i], group.examples[i], idx, i);
+}
+
+function savePasteSplit(idx, i) {
+  const id = `p${idx}-${i}`;
+  const text = detected[idx].examples[i];
+  const parts = [...document.querySelectorAll(`#s866-parts-${id} .s866-part`)]
+    .map(t => t.value.split(/\s+/).join(' ').trim()).filter(Boolean);
+  if (parts.length < 2) {
+    showAlert(document.getElementById(`s866-status-${id}`),
+      'A split needs at least two statements.', 'warn');
+    return;
+  }
+  const box = document.getElementById('stmt-input');
+  box.value = box.value.split('\n')
+    .flatMap(line => line.trim() === text ? parts : [line]).join('\n');
+  showPastedSummary();
+  runDetect();
 }
 
 function buildExamplesHtml(examples) {

@@ -2837,6 +2837,46 @@ real export gets no note on any of its 1,057 866s. The angle-bracket dates of
 D41 (`<1884:6:28>`) are not treated as the Newspaper Program's: nothing here
 says whose they are.
 
+## Held and to-check statements on the Patterns step · **0.39.0**
+
+*15 October 2026.* Found while measuring 0.37.0: the months-and-seasons hold
+was invisible to anyone who pasted the statement. 0.34.0 put `left out` on the
+Patterns step for the same reason, and only that.
+
+**What was hidden.** A pattern whose statements the parser reads in full has
+nothing to decide, so its card was folded away -- and with pasted statements
+there is no Convert step, so the card was the only place anything could be
+said. Pasting the main corpus (117 statements), the folded cards held 1
+statement held for changing from months to seasons
+(`v. 94 no. 1 - v. 101 no. 4 (Jan 1988 - Fall 1995)`) and 2 that convert with
+something to check (`v. 15 no. 6 - v. 23 nos. 2/3 (Nov/Dec 1994 - Late Summer
+2002)`, `v. 15 (1998 Buyers Guide)`); nothing on screen said so. The other
+library's catalogue: 5 held and 2 to check, all folded. The LC examples: 1 to
+check, folded.
+
+**What changed.** Each statement of a group (up to the 200 already examined)
+is converted as the standard parser reads it on its own, and the card counts
+`held`, `to check` and `left out` -- separately, as the record list does, so
+`v. 15 (1998 Buyers Guide)` counts as both to check and left out. A
+supplement or index is not counted as held: it keeps its own group and pill.
+A pattern with a statement held or to check is never filed under "nothing to
+decide"; it goes in its own group, which starts open. With pasted statements
+each statement that does not simply convert is listed on its card with its
+outcome and reason, and a months-to-seasons hold gets a Split button whose
+parts replace the statement in the pasted text.
+
+Counted on its own, a statement does not have its record: a change between
+statements, or an 853 already on the record, is not seen here. With a file the
+record list remains the place for those; the card is a floor, not a ceiling.
+
+**The real export** (1,055 distinct statements, 105 patterns): 19 patterns
+newly kept out of the folds, with 21 statements held and 12 to check; 5
+patterns asked for a decision before. Hence a group that starts open rather
+than 19 cards laid out loose.
+
+Corpora, fixtures and the real export: no outcome changes -- the converter is
+untouched (no drift; audit 0; round trip unchanged).
+
 ## Every value as numbering · D50 · **0.37.1**
 
 *15 October 2026.* Found while measuring 0.31.x, fixed now at the
