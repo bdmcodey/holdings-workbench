@@ -465,6 +465,10 @@
                    flex-direction: column; gap: var(--sp-2); }
     .pc-outcome-head { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-2); }
     .look-row { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-2); }
+    .look-reason { display: flex; flex-direction: column; gap: var(--sp-1); }
+    .look-reason + .look-reason { margin-top: var(--sp-2); }
+    .look-reason .pc-outcome { padding-left: var(--sp-3); }
+    .look-hint { color: var(--text); }
     #fix-toast {
       position: fixed; right: var(--sp-4); bottom: 4rem; z-index: 50;
       max-width: min(34rem, calc(100vw - 2 * var(--sp-4)));
@@ -3897,19 +3901,90 @@ function lookAtHtml(group, idx) {
   if (!rows.length) return '';
   const all = lookExpanded.has(patternIdFor(group));
   const shown = all ? rows : rows.slice(0, LOOK_SHOWN);
+  // One explanation per reason, the statements it applies to under it.
+  const byReason = new Map();
+  shown.forEach(row => {
+    const reason = lookReason(row.r);
+    if (!byReason.has(reason.key)) byReason.set(reason.key, { reason, rows: [] });
+    byReason.get(reason.key).rows.push(row);
+  });
   return `<div class="pc-outcomes">
     <div class="small"><strong>Statements to look at</strong> (${rows.length}${
       (group.to_look_at || []).length >= 200 ? ' or more' : ''})</div>
-    ${shown.map(({ r, i }) => `
-      <div class="pc-outcome" id="pcl-${idx}-${i}" data-idx="${idx}" data-i="${i}">
-        ${lookRowHtml(r)}
+    ${[...byReason.values()].map(({ reason, rows: these }) => `
+      <div class="look-reason">
+        ${reason.html}
+        ${these.map(({ r, i }) => `
+          <div class="pc-outcome" id="pcl-${idx}-${i}" data-idx="${idx}" data-i="${i}">
+            ${lookRowHtml(r, reason)}
+          </div>`).join('')}
       </div>`).join('')}
     ${rows.length > shown.length ? `<button type="button" class="btn btn-ghost btn-sm look-more"
        data-idx="${idx}">Show all ${rows.length}</button>` : ''}
   </div>`;
 }
 
-function lookRowHtml(r) {
+/**
+ * The reason a statement in a card's list is there, said once for all the
+ * statements that share it, with what is particular to each kept for its row.
+ *
+ * Six statements held for changing from months to seasons carried six orange
+ * boxes saying the same thing but for two words -- the month and the season
+ * -- and the list read six times longer than it was. The cataloguer asked for
+ * the explanation once and the statements under it; the full message stays on
+ * each statement in step 3, where one record is looked at on its own. What
+ * differs between them is kept, short, on the row: the change ("February ->
+ * Fall") is where to split, and where reading stopped points at the typo.
+ * A message that is particular to its statement throughout ("'Buyers Guide'
+ * is not something a month or season subfield can hold") groups only with
+ * statements saying exactly the same.
+ */
+function lookReason(r) {
+  if (lookFilter !== 'left_out' && r.kinds.includes('held')
+      && r.chron_switch && r.chron_switch.where === 'within') {
+    return { key: 'switch', hint: switchHint, html: `<div class="alert alert-attention small">
+      <strong>Months and seasons in one statement.</strong> Each of these changes between months
+      and seasons inside one 866. An 853 gives one or the other, so each needs two 853s and two
+      863s, and only you can say which issue the change falls at. Split each at the change, or
+      leave it as it is; nothing is written from it until then.</div>` };
+  }
+  if (lookFilter !== 'left_out' && r.kinds.includes('unread')) {
+    return { key: 'unread', hint: stoppedHint, html: `<div class="alert alert-warn small">
+      <strong>Not read by the standard parser.</strong> ${UNREAD_CAUSES}</div>` };
+  }
+  let html;
+  let text;
+  if (lookFilter !== 'left_out' && r.kinds.includes('held')) {
+    text = (r.warnings || []).join('\n');
+    html = `<div class="alert alert-attention small">${heldReasonHtml(r)}</div>`;
+  } else {
+    const ws = (r.warnings || []).filter(w =>
+      lookFilter !== 'left_out' || (r.left_out || []).includes(w));
+    text = ws.join('\n');
+    html = ws.map(w => warningHtml(r, w)).join('');
+  }
+  return { key: `msg:${text}`, hint: () => '', html };
+}
+
+/** "February → Fall": the change, from the note that says where it is. */
+function switchHint(r) {
+  const m = ((r.chron_switch || {}).note || '').match(/\(([^()]*?) … ([^()]*?)\)/);
+  return m ? `${escHtml(m[1])} → ${escHtml(m[2])}` : '';
+}
+
+/** Where reading stopped: the part of the statement nothing accounted for. */
+function stoppedHint(r) {
+  for (const w of r.warnings || []) {
+    const m = w.match(/could not account for '(.*)'/);
+    // Where it stopped is the start of what is quoted; the rest is the rest
+    // of the statement, already on the row.
+    if (m) return `stopped at <code>${escHtml(m[1].length > 40 ? m[1].slice(0, 40) + '…' : m[1])}</code>`;
+  }
+  const said = (r.warnings || []).find(w => !w.startsWith('No recognisable holdings ranges found'));
+  return said ? escHtml(said) : '';
+}
+
+function lookRowHtml(r, reason) {
   const src = r.source;
   const rec = src && allRecords[src.record_index];
   const others = (r.records || []).length - 1;
@@ -3920,28 +3995,19 @@ function lookRowHtml(r) {
     const [cls, label] = LOOK_PILLS[k];
     return `<span class="pill ${cls}">${label}</span>`;
   }).join('');
-  let reasons;
-  if (r.kinds.includes('held')) {
-    reasons = `<div class="alert alert-attention small">${heldReasonHtml(r)}</div>`;
-  } else if (r.kinds.includes('unread')) {
-    reasons = unreadReasonHtml(r);
-  } else {
-    reasons = (r.warnings || []).filter(w =>
-      lookFilter !== 'left_out' || (r.left_out || []).includes(w))
-      .map(w => warningHtml(r, w)).join('');
-  }
+  const hint = reason.hint(r);
   const within = r.chron_switch && r.chron_switch.where === 'within';
   return `
     <div class="pc-outcome-head">
       <span class="role-sample">${escHtml(r.text)}</span>
       ${pills}
+      ${hint ? `<span class="small look-hint">${hint}</span>` : ''}
       ${where}
       <button type="button" class="btn btn-secondary btn-sm" onclick="lookAction(this, 'edit')">Edit</button>
       <button type="button" class="btn btn-${within ? 'secondary' : 'ghost'} btn-sm"
               title="Make this statement into two or more, to say where a change falls that it does not show, such as months to seasons"
               onclick="lookAction(this, 'split')">${within ? 'Split at the change' : 'Split'}</button>
     </div>
-    ${reasons}
     <div class="look-slot"></div>`;
 }
 
@@ -3980,22 +4046,11 @@ document.addEventListener('click', e => {
 });
 
 /**
- * Why the standard parser read nothing, and what usually causes it.
- *
- * The first warning is always the general "No recognisable holdings ranges
- * found"; what follows says where reading stopped -- "Read 'v. 21-26' but
- * could not account for ', 29-31 33, ...'" -- which is what points at the
- * mistake. A statement the parser cannot read is often one with a mistake in
- * it, and as often one written as meant in a shape only a pattern reads, so
- * both are said.
+ * What usually stops the standard parser, said once above the statements it
+ * could not read. A statement the parser cannot read is often one with a
+ * mistake in it, and as often one written as meant in a shape only a pattern
+ * reads, so both are said.
  */
-function unreadReasonHtml(o) {
-  const stopped = (o.warnings || [])
-    .filter(w => !w.startsWith('No recognisable holdings ranges found'));
-  return `<div class="alert alert-warn small">
-    ${stopped.map(w => `<div>${escHtml(w)}</div>`).join('')}
-    <div${stopped.length ? ' class="mt-05"' : ''}>${UNREAD_CAUSES}</div></div>`;
-}
 const UNREAD_CAUSES = 'If the statement has a mistake in it, such as a comma missing '
   + 'between runs, a hyphen after a run that is closed, or a stray character like //, '
   + 'Edit fixes it. If it is written as meant, what you say on this card is what converts it.';

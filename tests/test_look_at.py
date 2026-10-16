@@ -84,3 +84,21 @@ def test_the_step_has_buttons_by_kind_in_place_of_the_sentence():
     assert "${lookChipsHtml(data.groups)}" in PAGE
     assert "if (lookFilter !== 'all') {" in PAGE
     assert "with statements to look at`" in PAGE
+
+
+def test_one_explanation_per_reason_and_the_particular_on_each_row():
+    """
+    Asked for on 0.44.1: six statements held for changing from months to
+    seasons carried six orange boxes saying the same thing but for the month
+    and the season. The explanation is said once, the statements under it,
+    and what differs -- the change, where reading stopped -- stays on the row.
+    The full message stays on each statement in step 3.
+    """
+    assert "byReason.get(reason.key).rows.push(row);" in PAGE
+    reason = PAGE[PAGE.index("function lookReason("):PAGE.index("function switchHint(")]
+    assert "return { key: 'switch', hint: switchHint" in reason
+    assert "return { key: 'unread', hint: stoppedHint" in reason
+    # Anything else groups only with statements saying exactly the same.
+    assert "return { key: `msg:${text}`" in reason
+    row = PAGE[PAGE.index("function lookRowHtml("):PAGE.index("function lookAction(")]
+    assert "alert" not in row          # no box on a row: the reason box is above

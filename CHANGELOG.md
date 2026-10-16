@@ -15,6 +15,12 @@ more than one release; numbering resumed with 0.6.1. Reasoning behind the
 parser and converter decisions, including the defects a real corpus exposed and
 what was done about each, is in [CORPUS-FINDINGS.md](CORPUS-FINDINGS.md).
 
+## 0.45.0 — 2026-10-16
+
+A pattern card's statements to look at are grouped by reason, each explained once, with the change or where reading stopped on each row.
+
+- **MARC Holdings Workbench** — On a pattern card, "Statements to look at" is grouped by reason, and each reason is explained once above its statements instead of in a box on every one: "Months and seasons in one statement", "Not read by the standard parser", or a message shared only by statements that say exactly the same. What differs stays on each row, short: the change, such as February → Fall, which is where to split, or where reading stopped, which points at the mistake. Step 3 still shows the full message on each statement.
+
 ## 0.44.1 — 2026-10-16
 
 Clearing the pattern library starts over: Find patterns fills it again, even after uploading a file.

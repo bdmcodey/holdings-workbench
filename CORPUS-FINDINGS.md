@@ -2839,6 +2839,26 @@ real export gets no note on any of its 1,057 866s. The angle-bracket dates of
 D41 (`<1884:6:28>`) are not treated as the Newspaper Program's: nothing here
 says whose they are.
 
+## A card's list, one explanation per reason · **0.45.0**
+
+*16 October 2026.* Asked for by the cataloguer testing 0.44.1: on the
+224-statement card, the six statements held for changing from months to
+seasons each carried the same orange box, differing in two words -- the month
+and the season -- and the list read six times longer than it was.
+
+The card's list is now grouped by reason, each said once: "Months and seasons
+in one statement" (any statement held for a change inside it), "Not read by
+the standard parser" (with the usual causes), or a message, which groups only
+statements saying exactly the same -- "'Buyers Guide' is not something a month
+or season subfield can hold" is particular to its statement and stays its own.
+What differs stays on the row, short: the change ("February → Fall"), where
+the split goes; where reading stopped, the first 40 characters, where the
+mistake is. Step 3 keeps the full message on each statement.
+
+On the real export, every card's list now has one box per reason: the three
+months-and-seasons cards (6, 3 and 3 statements) one box each, the card not
+read one box, the to-check cards one box per distinct message.
+
 ## Clear starts over · **0.44.1**
 
 *16 October 2026.* Reported by the cataloguer: clear the pattern library,
