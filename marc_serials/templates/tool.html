@@ -146,6 +146,7 @@
       flex: 1;
       font-size: var(--fs-xs); color: var(--text-muted);
     }
+    .rec-review label { display: inline-flex; align-items: center; gap: var(--sp-2); cursor: pointer; }
     .rec-foot {
       display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap;
       padding: 0 var(--sp-3) var(--sp-3);
@@ -665,11 +666,11 @@
     <fieldset>
       <legend>Text size</legend>
       <button type="button" class="ui-size-btn s1" data-scale="1" aria-pressed="true"
-              title="Normal text size">A</button>
+              title="Normal text size">A<span class="sr-only">, normal text size</span></button>
       <button type="button" class="ui-size-btn s2" data-scale="1.15" aria-pressed="false"
-              title="Larger text">A</button>
+              title="Larger text">A<span class="sr-only">, larger text</span></button>
       <button type="button" class="ui-size-btn s3" data-scale="1.3" aria-pressed="false"
-              title="Largest text">A</button>
+              title="Largest text">A<span class="sr-only">, largest text</span></button>
     </fieldset>
     <button type="button" class="ui-theme-btn" id="theme-toggle" aria-pressed="false">
       <span aria-hidden="true">◐</span> <span class="theme-label">Dark</span>
@@ -696,7 +697,11 @@
     </div>
 
     <div class="step-body" id="source-body">
-      <div id="drop-zone">
+      <!-- A button to a keyboard and a screen reader: Enter or Space opens the
+           file chooser, as a click does. Until 0.46.0 it could not be reached
+           without a mouse, and the file input itself is hidden. -->
+      <div id="drop-zone" role="button" tabindex="0"
+           aria-label="Choose a MARC file to upload (.mrc), or drop one here">
         <span class="icon">📁</span>
         Drop a MARC file here, or click to browse
       </div>
@@ -756,9 +761,9 @@ v.6(1995)-"></textarea>
   <section class="step" id="step-patterns" hidden>
     <div class="step-head">
       <span class="step-number">2</span>
-      <h2>Patterns</h2>
+      <h2 id="patterns-heading" tabindex="-1">Patterns</h2>
       <button type="button" class="btn btn-ghost btn-sm" id="btn-toggle-patterns"
-              aria-controls="patterns-body" aria-expanded="true" hidden>Hide</button>
+              aria-controls="patterns-body" aria-expanded="true" hidden>Hide patterns</button>
     </div>
 
     <div class="step-body" id="patterns-body">
@@ -1013,19 +1018,19 @@ v.6(1995)-"></textarea>
           </div>
         </div>
         <div class="filter-row mt-2" role="group" aria-label="Show which records">
-          <button type="button" class="chip active" data-filter="all">All</button>
-          <button type="button" class="chip" data-filter="held">Needs attention</button>
-          <button type="button" class="chip" data-filter="pattern">Read by a pattern</button>
-          <button type="button" class="chip" data-filter="parser">Read by the parser</button>
-          <button type="button" class="chip" data-filter="unreviewed">Not yet reviewed</button>
-          <button type="button" class="chip" data-filter="encoding"
+          <button type="button" class="chip active" data-filter="all" aria-pressed="true">All</button>
+          <button type="button" class="chip" aria-pressed="false" data-filter="held">Needs attention</button>
+          <button type="button" class="chip" aria-pressed="false" data-filter="pattern">Read by a pattern</button>
+          <button type="button" class="chip" aria-pressed="false" data-filter="parser">Read by the parser</button>
+          <button type="button" class="chip" aria-pressed="false" data-filter="unreviewed">Not yet reviewed</button>
+          <button type="button" class="chip" aria-pressed="false" data-filter="encoding"
                   title="Records with something to note about their Leader, or about the level you are recording at"
                   >Leader &amp; level</button>
-          <button type="button" class="chip" data-filter="leftout"
+          <button type="button" class="chip" aria-pressed="false" data-filter="leftout"
                   title="Records where a value was read and left out to fit MARC">Something left out</button>
-          <button type="button" class="chip" data-filter="skipped">Skipped</button>
+          <button type="button" class="chip" aria-pressed="false" data-filter="skipped">Skipped</button>
           <!-- Set from a pattern card's "Show ... records"; named after it. -->
-          <button type="button" class="chip" data-filter="one-pattern"
+          <button type="button" class="chip" aria-pressed="false" data-filter="one-pattern"
                   id="chip-one-pattern" hidden></button>
           <button type="button" class="btn btn-ghost btn-sm" id="btn-clear-pattern-filter"
                   aria-label="Stop showing only this pattern's records" hidden>&times;</button>
@@ -1097,6 +1102,8 @@ v.6(1995)-"></textarea>
 {% if about.version %}
 <!-- What an edit or a split did, said once it has been checked again. -->
 <div id="fix-toast" class="alert" role="status" aria-live="polite" hidden></div>
+<!-- Read out by a screen reader, shown to no one: see announce(). -->
+<div id="sr-status" class="sr-only" role="status" aria-live="polite"></div>
 
 <footer class="app-footer">
   <button type="button" class="version-badge" id="btn-about"
@@ -1565,6 +1572,9 @@ const dropZone  = document.getElementById('drop-zone');
 const fileInput = document.getElementById('file-input');
 
 dropZone.addEventListener('click', () => fileInput.click());
+dropZone.addEventListener('keydown', e => {
+  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInput.click(); }
+});
 dropZone.addEventListener('dragover', e => {
   e.preventDefault(); dropZone.classList.add('dragover');
 });
@@ -1798,30 +1808,30 @@ function renderRecordList(records) {
   const box = document.getElementById('records-accordion');
   box.innerHTML = records.map((rec, i) => `
     <div class="rec-row" data-index="${i}">
-      <button type="button" class="rec-toggle" onclick="selectRecord(${i})">
+      <button type="button" class="rec-toggle" onclick="selectRecord(${i})" aria-expanded="false">
         <span class="rec-caret" aria-hidden="true">▸</span>
         ${rec.identifier ? `<span class="rec-id">${escHtml(rec.identifier)}</span>` : ''}
-        <span class="rec-title">${escHtml(rec.title)}</span>
+        <span class="rec-title" id="rec-title-${i}">${escHtml(rec.title)}</span>
         <span class="rec-status"></span>
         <span class="rec-meta">${escHtml(rec.issn || '–')} · ${escHtml(rec.location || 'no location')}</span>
       </button>
       <div class="rec-detail" hidden></div>
       <div class="rec-foot">
-      <label class="rec-review">
-        <input type="checkbox" class="rec-reviewed" data-index="${i}" />
-        Reviewed
-        <span class="rec-sep"></span>
-        <input type="checkbox" class="rec-keep-separate" data-index="${i}" />
-        <span title="Give each pattern its own 853, even where one records less detail than another">
-          Keep patterns separate</span>
-        <span class="rec-sep"></span>
-        <input type="checkbox" class="rec-skip" data-index="${i}" />
-        <span title="Leave this record exactly as it is: nothing converted, no 866 removed, existing 853/863 untouched">
-          Skip</span>
-      </label>
+      <!-- A label each: one label round all three named only the first, as
+           "Reviewed Keep patterns separate Skip", and the other two not at all. -->
+      <div class="rec-review">
+        <label><input type="checkbox" class="rec-reviewed" data-index="${i}" aria-describedby="rec-title-${i}" /> Reviewed</label>
+        <span class="rec-sep" aria-hidden="true"></span>
+        <label title="Give each pattern its own 853, even where one records less detail than another"><input
+          type="checkbox" class="rec-keep-separate" data-index="${i}" aria-describedby="rec-title-${i}" /> Keep patterns separate</label>
+        <span class="rec-sep" aria-hidden="true"></span>
+        <label title="Leave this record exactly as it is: nothing converted, no 866 removed, existing 853/863 untouched"><input
+          type="checkbox" class="rec-skip" data-index="${i}" aria-describedby="rec-title-${i}" /> Skip</label>
+      </div>
       <span class="small dim rec-leaving" hidden>No longer matches this filter: it stays
         open while you work on it, and leaves the list when you close it.</span>
       <button type="button" class="btn btn-ghost btn-sm rec-close" onclick="closeRecord(${i})"
+              aria-label="Close ${escHtml(rec.title)}"
               title="Fold this record back to its line, and bring it to the top of the screen">▴ Close</button>
       </div>
     </div>`).join('');
@@ -1940,10 +1950,12 @@ function showLeaderNotices(data) {
          Hidden: ${escHtml(note.name)} — ${note.count}
          record${note.count !== 1 ? 's' : ''}.
          <button type="button" class="btn btn-ghost btn-sm"
+                 aria-label="Show the note: ${escHtml(note.name)}"
                  data-show-notice="${note.key}">Show</button></div>`
     : `<div class="alert alert-info${i ? ' mt-2' : ''}">${note.body}
          <button type="button" class="btn btn-ghost btn-sm"
                  data-hide-notice="${note.key}"
+                 aria-label="Hide the note: ${escHtml(note.name)}"
                  title="Folds this note to one line, in this browser, for every file you upload"
                  >Hide</button></div>`).join('');
   box.hidden = notes.length === 0;
@@ -2332,7 +2344,8 @@ function renderPager(data) {
     // had got to -- the same reason the filter chips reset the offset.
     closeOpenRecords();
     reviewOffset = 0;
-    if (allRecords.length) loadReviewPage();
+    if (allRecords.length) loadReviewPage().then(() =>
+      announce(document.getElementById('review-count').textContent));
   }
 
   box.addEventListener('input', () => {
@@ -2353,15 +2366,18 @@ function renderPager(data) {
 
 document.querySelectorAll('.filter-row .chip').forEach(chip =>
   chip.addEventListener('click', () => {
-    document.querySelectorAll('.filter-row .chip').forEach(c => c.classList.remove('active'));
-    chip.classList.add('active');
+    document.querySelectorAll('.filter-row .chip').forEach(c => {
+      c.classList.toggle('active', c === chip);
+      c.setAttribute('aria-pressed', String(c === chip));
+    });
     reviewFilter = chip.dataset.filter;
     closeOpenRecords();
     // The pages are slices of what the filter shows, so a new filter means new
     // pages -- and the first of them, not wherever the last filter had got to.
     reviewOffset = 0;
     recordIndex.clear();
-    reloadReview();
+    reloadReview().then(() =>
+      announce(document.getElementById('review-count').textContent));
   }));
 
 // ── Expressions and the records a pattern runs on ────────────────────────────
@@ -2487,8 +2503,10 @@ function clearPatternFilter(refilter = true) {
       filterTo('all');
     } else {
       reviewFilter = 'all';
-      document.querySelectorAll('.filter-row .chip').forEach(c =>
-        c.classList.toggle('active', c.dataset.filter === 'all'));
+      document.querySelectorAll('.filter-row .chip').forEach(c => {
+        c.classList.toggle('active', c.dataset.filter === 'all');
+        c.setAttribute('aria-pressed', String(c.dataset.filter === 'all'));
+      });
     }
   }
 }
@@ -2984,6 +3002,10 @@ async function runDetect({ keepFold = false } = {}) {
     // that asked something was just fixed took the screen away mid-task.
     if (!keepFold) {
       setPatternsCollapsed(!fromPaste && !partitionGroups(data.groups).open.length);
+      const open = partitionGroups(data.groups).open.length;
+      const n = data.groups.length;
+      announce(`Found ${n} pattern${n !== 1 ? 's' : ''}`
+        + (open ? `; ${open} need${open === 1 ? 's' : ''} a decision.` : '; none needs a decision.'));
     }
   } catch (err) {
     showAlert(errBox, err.message, 'err');
@@ -3364,7 +3386,7 @@ function setPatternsCollapsed(collapsed) {
   const toggle  = document.getElementById('btn-toggle-patterns');
   body.hidden = collapsed;
   summary.hidden = !collapsed;
-  toggle.textContent = collapsed ? 'Show patterns' : 'Hide';
+  toggle.textContent = collapsed ? 'Show patterns' : 'Hide patterns';
   toggle.setAttribute('aria-expanded', String(!collapsed));
   if (collapsed) summary.innerHTML = patternsSummaryLine();
 }
@@ -3505,12 +3527,14 @@ function buildPatternCard(group, idx) {
       <span class="pill decide role-warning" ${
         !skipped && roles.some(r => r.kind === UNRESOLVED_KIND || r.suggested) ? '' : 'hidden'}>
         needs a decision</span>
-      <button type="button" class="btn btn-secondary btn-sm pc-toggle">Review</button>
+      <button type="button" class="btn btn-secondary btn-sm pc-toggle" aria-expanded="false"
+              aria-label="Review pattern ${escHtml(group.human_label)}">Review</button>
     </div>
     <div class="pc-expr-row">
       <code class="pc-expr" role="button" tabindex="0" aria-expanded="false"
             title="Click to show the whole expression">${escHtml(group.regex)}</code>
       <button type="button" class="btn btn-ghost btn-sm pc-copy"
+              aria-label="Copy expression for ${escHtml(group.human_label)}"
               title="Copy this expression, including any edits made below">Copy</button>
     </div>
     <div class="pc-records small"></div>
@@ -3520,13 +3544,13 @@ function buildPatternCard(group, idx) {
       <div class="example-bar">
         <button type="button" class="btn btn-ghost btn-sm ex-prev"
                 aria-label="Previous example">‹</button>
-        <div class="example-text"></div>
+        <div class="example-text" id="ex-text-${idx}"></div>
         <button type="button" class="btn btn-ghost btn-sm ex-next"
                 aria-label="Next example">›</button>
         <span class="example-count small dim"></span>
-        <button type="button" class="btn btn-secondary btn-sm ex-edit"
+        <button type="button" class="btn btn-secondary btn-sm ex-edit" aria-describedby="ex-text-${idx}"
                 title="Correct this statement here: the 866 on its record, or the line you pasted">Edit</button>
-        <button type="button" class="btn btn-ghost btn-sm ex-split"
+        <button type="button" class="btn btn-ghost btn-sm ex-split" aria-describedby="ex-text-${idx}"
                 title="Make this statement into two or more, to say where a change falls that it does not show, such as months to seasons">Split</button>
       </div>
       <div class="ex-edit-slot"></div>
@@ -3637,6 +3661,7 @@ function showExample(card) {
  */
 function openInlineEdit(slot, target, text, { where = '', same = 0 } = {}) {
   const before = slot.innerHTML;
+  const back = focusReturn(slot);
   const id = `ie-${Math.random().toString(36).slice(2, 9)}`;
   slot.innerHTML = `
     <div class="edit866 mt-1">
@@ -3650,16 +3675,16 @@ function openInlineEdit(slot, target, text, { where = '', same = 0 } = {}) {
       </div>` : ''}
       <div class="btn-row mt-1">
         <button type="button" class="btn btn-primary btn-sm ie-save">Save and find patterns again</button>
-        <button type="button" class="btn btn-ghost btn-sm ie-cancel">Cancel</button>
+        <button type="button" class="btn btn-ghost btn-sm ie-cancel edit-cancel">Cancel</button>
       </div>
       <div class="ie-status"></div>
     </div>`;
-  slot.querySelector('.ie-cancel').addEventListener('click', () => { slot.innerHTML = before; });
+  slot.querySelector('.ie-cancel').addEventListener('click', () => { slot.innerHTML = before; back(); });
   slot.querySelector('.ie-save').addEventListener('click', async () => {
     const status = slot.querySelector('.ie-status');
     const value = slot.querySelector('.ie-text').value.split(/\s+/).join(' ').trim();
     if (!value) { showAlert(status, 'An 866 needs its holdings statement.', 'warn'); return; }
-    if (target.pasted) { replacePastedLine(text, [value]); return; }
+    if (target.pasted) { await replacePastedLine(text, [value]); back(); return; }
     const box = slot.querySelector('.ex-edit-same');
     status.innerHTML = '<span class="spinner"></span>';
     try {
@@ -3670,6 +3695,7 @@ function openInlineEdit(slot, target, text, { where = '', same = 0 } = {}) {
         [{ record_index: target.record_index, fields_866: data.fields_866 }]
           .concat(data.also || []), data.statements,
         { record_index: target.record_index, fields: [target.field_index] });
+      back();
     } catch (err) {
       showAlert(status, err.message, 'err');
     }
@@ -3679,6 +3705,7 @@ function openInlineEdit(slot, target, text, { where = '', same = 0 } = {}) {
 
 function openInlineSplit(slot, target, text, { where = '' } = {}) {
   const before = slot.innerHTML;
+  const back = focusReturn(slot);
   const id = `is-${Math.random().toString(36).slice(2, 9)}`;
   slot.innerHTML = `
     <div class="edit866 mt-1">
@@ -3694,11 +3721,11 @@ function openInlineSplit(slot, target, text, { where = '' } = {}) {
       <div class="btn-row mt-1">
         <button type="button" class="btn btn-primary btn-sm is-save">Save and find patterns again</button>
         <button type="button" class="btn btn-ghost btn-sm" onclick="addSplitPart('${id}')">Add another part</button>
-        <button type="button" class="btn btn-ghost btn-sm is-cancel">Cancel</button>
+        <button type="button" class="btn btn-ghost btn-sm is-cancel edit-cancel">Cancel</button>
       </div>
       <div class="is-status"></div>
     </div>`;
-  slot.querySelector('.is-cancel').addEventListener('click', () => { slot.innerHTML = before; });
+  slot.querySelector('.is-cancel').addEventListener('click', () => { slot.innerHTML = before; back(); });
   slot.querySelector('.is-save').addEventListener('click', async () => {
     const status = slot.querySelector('.is-status');
     const parts = [...slot.querySelectorAll('.s866-part')]
@@ -3707,7 +3734,7 @@ function openInlineSplit(slot, target, text, { where = '' } = {}) {
       showAlert(status, 'A split needs at least two statements. To change one, use Edit.', 'warn');
       return;
     }
-    if (target.pasted) { replacePastedLine(text, parts); return; }
+    if (target.pasted) { await replacePastedLine(text, parts); back(); return; }
     status.innerHTML = '<span class="spinner"></span>';
     try {
       const data = await postJson('api/split-866', {
@@ -3716,12 +3743,47 @@ function openInlineSplit(slot, target, text, { where = '' } = {}) {
         [{ record_index: target.record_index, fields_866: data.fields_866 }], data.statements,
         { record_index: target.record_index,
           fields: parts.map((_, n) => target.field_index + n) });
+      back();
     } catch (err) {
       showAlert(status, err.message, 'err');
     }
   });
   slot.querySelector('textarea').focus();
 }
+
+/**
+ * Put focus back where an editor in step 2 was opened from, once it closes.
+ *
+ * Cancel, and Save once the patterns had been found again, took the editor
+ * away with the focus in it, and focus fell to the top of the page: someone
+ * on a keyboard or a screen reader started again from "Skip to content". Back
+ * to the button that opened it, if it is still on screen; after a save it
+ * usually is not, since the cards are drawn again, so to the same pattern's
+ * Review button, and failing that to the step's heading. The page is not
+ * scrolled: it stays where the cataloguer was working.
+ */
+function focusReturn(slot) {
+  const opener = document.activeElement;
+  const card = slot.closest('.pattern-card');
+  const id = card && card._id;
+  return () => {
+    const again = [...document.querySelectorAll('.pattern-card')].find(c => c._id === id);
+    const to = [opener, again && again.querySelector('.pc-toggle'),
+                document.getElementById('patterns-heading')]
+      .find(el => el && el.isConnected && el.getClientRects().length);
+    if (to) to.focus({ preventScroll: true });
+  };
+}
+
+/** Escape in an editor is its Cancel, in step 2 and step 3 alike. */
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape') return;
+  const editor = e.target.closest && e.target.closest('.edit866');
+  const cancel = editor && editor.querySelector('.edit-cancel');
+  if (!cancel) return;
+  e.preventDefault();
+  cancel.click();
+});
 
 /** A pasted statement corrected or split: its line, every time it is pasted. */
 async function replacePastedLine(text, replacement) {
@@ -3812,6 +3874,21 @@ function pastedOutcome(texts) {
   return { kind: 'attention', html: `<strong>${r.kinds.includes('to_check')
     ? 'Saved. It converts, with something to check.' : 'Saved, but still held.'}</strong>
     <div class="mt-05">${escHtml(reason)}</div>` };
+}
+
+/**
+ * Say aloud what a button did somewhere else on the page.
+ *
+ * Find patterns drew a step's worth of cards, and a filter chip a new list,
+ * both out of sight of the button pressed, and a screen reader said nothing
+ * about either. Emptied first, so the same words said twice are said again.
+ */
+let announceTimer = null;
+function announce(text) {
+  const box = document.getElementById('sr-status');
+  box.textContent = '';
+  clearTimeout(announceTimer);
+  announceTimer = setTimeout(() => { box.textContent = text; }, 100);
 }
 
 let fixToastTimer = null;
@@ -4003,8 +4080,10 @@ function lookRowHtml(r, reason) {
       ${pills}
       ${hint ? `<span class="small look-hint">${hint}</span>` : ''}
       ${where}
-      <button type="button" class="btn btn-secondary btn-sm" onclick="lookAction(this, 'edit')">Edit</button>
+      <button type="button" class="btn btn-secondary btn-sm" onclick="lookAction(this, 'edit')"
+              aria-label="Edit ${escHtml(r.text)}">Edit</button>
       <button type="button" class="btn btn-${within ? 'secondary' : 'ghost'} btn-sm"
+              aria-label="${within ? 'Split at the change' : 'Split'}: ${escHtml(r.text)}"
               title="Make this statement into two or more, to say where a change falls that it does not show, such as months to seasons"
               onclick="lookAction(this, 'split')">${within ? 'Split at the change' : 'Split'}</button>
     </div>
@@ -4209,6 +4288,9 @@ function wireCard(card) {
   toggle.addEventListener('click', () => {
     body.hidden = !body.hidden;
     toggle.textContent = body.hidden ? 'Review' : 'Hide';
+    toggle.setAttribute('aria-expanded', String(!body.hidden));
+    toggle.setAttribute('aria-label',
+      `${body.hidden ? 'Review' : 'Hide'} pattern ${card._group.human_label}`);
     if (!body.hidden) refreshPreview(card);
   });
 
@@ -4480,9 +4562,12 @@ function heldRowsHtml(rows, idx, labelFor = () => '') {
             <div class="field-display f866">${escHtml(pv.source_866)}</div>
             ${pv.field_index != null ? `<div class="btn-row mt-1">
               <button type="button" class="btn btn-secondary btn-sm"
+                      aria-label="Edit 866 ${escHtml(pv.source_866)}"
                       onclick="heldAction(this, 'edit')">Edit</button>
               <button type="button" class="btn btn-${pv.chron_switch && pv.chron_switch.where === 'within'
                 ? 'secondary' : 'ghost'} btn-sm"
+                      aria-label="${pv.chron_switch && pv.chron_switch.where === 'within'
+                        ? 'Split this 866 at the change' : 'Split 866'}: ${escHtml(pv.source_866)}"
                       title="Make this 866 into two or more statements, to say where a change falls that it does not show, such as months to seasons"
                       onclick="heldAction(this, 'split')">${pv.chron_switch && pv.chron_switch.where === 'within'
                         ? 'Split this 866 at the change' : 'Split'}</button>
@@ -4848,6 +4933,7 @@ async function selectRecord(idx) {
   detail.hidden = false;
   row.classList.add('open');
   row.querySelector('.rec-caret').textContent = '▾';
+  row.querySelector('.rec-toggle').setAttribute('aria-expanded', 'true');
   await renderRecordDetail(idx);
 }
 
@@ -4861,13 +4947,22 @@ function closeRecord(idx, bringIntoView = true) {
   foldRow(row);
   // A record that no longer matches the filter leaves the list now.
   applyReviewFilter();
-  if (!bringIntoView) return;
-  // To the top of the screen: the closed record, or, if it has left the
-  // list, the one that took its place -- the next to work on. Closing at the
-  // foot of a long record used to leave the screen wherever the record's
-  // middle had been, and the way back was scrolling up.
+  // The closed record, or, if it has left the list, the one that took its
+  // place -- the next to work on.
   let target = row;
   while (target && target.hidden) target = target.nextElementSibling;
+  // Focus goes with it. The Close it was on is hidden now, and so is the
+  // line's own button when the record has left the list; either way focus
+  // fell to the top of the page.
+  if (bringIntoView || row.hidden) {
+    const to = target ? target.querySelector('.rec-toggle')
+      : document.querySelector('.filter-row .chip.active');
+    if (to) to.focus({ preventScroll: true });
+  }
+  if (!bringIntoView) return;
+  // To the top of the screen. Closing at the foot of a long record used to
+  // leave the screen wherever the record's middle had been, and the way back
+  // was scrolling up.
   (target || document.getElementById('review-bar')).scrollIntoView({ block: 'start' });
 }
 
@@ -4875,6 +4970,7 @@ function foldRow(row) {
   row.querySelector('.rec-detail').hidden = true;
   row.classList.remove('open');
   row.querySelector('.rec-caret').textContent = '▸';
+  row.querySelector('.rec-toggle').setAttribute('aria-expanded', 'false');
 }
 
 /** Close whatever is open, before the list moves to another filter or page. */
@@ -4901,9 +4997,11 @@ function fields866Html(idx) {
           <div class="field-display">${highlightField(escHtml(f.display))}${
             f.split_part != null ? ` <span class="pill" title="You split one 866 into
               these statements">split ${f.split_part + 1}</span>` : ''}</div>
-          ${f.split_part == null ? `<button type="button" class="btn btn-secondary btn-sm"
+          ${f.split_part == null ? `<button type="button" class="btn btn-secondary btn-sm f866-edit"
+                  aria-label="Edit 866 ${escHtml(f.a || '')}"
                   onclick="openEdit866(${idx}, ${fi})">Edit</button>` : ''}
-          <button type="button" class="btn btn-ghost btn-sm"
+          <button type="button" class="btn btn-ghost btn-sm f866-split"
+                  aria-label="Split 866 ${escHtml(f.a || '')}"
                   title="Make this 866 into two or more statements, to say where a change falls that it does not show, such as months to seasons"
                   onclick="openSplit866(${idx}, ${fi})">Split</button>
         </div>`).join('')}
@@ -5076,8 +5174,8 @@ function openEdit866(idx, fi) {
       <div class="btn-row mt-1">
         <button type="button" class="btn btn-primary btn-sm"
                 onclick="saveEdit866(${idx}, ${fi}, false)">Save and check again</button>
-        <button type="button" class="btn btn-ghost btn-sm"
-                onclick="renderRecordDetail(${idx})">Cancel</button>
+        <button type="button" class="btn btn-ghost btn-sm edit-cancel"
+                onclick="cancel866(${idx}, ${fi}, 'edit')">Cancel</button>
         <button type="button" class="btn btn-ghost btn-sm"
                 title="Undo your correction to this subfield"
                 onclick="saveEdit866(${idx}, ${fi}, true)">Put back as uploaded</button>
@@ -5130,8 +5228,8 @@ function openSplit866(idx, fi) {
                 onclick="saveSplit866(${idx}, ${first}, false)">Save and check again</button>
         <button type="button" class="btn btn-ghost btn-sm"
                 onclick="addSplitPart('${id}')">Add another part</button>
-        <button type="button" class="btn btn-ghost btn-sm"
-                onclick="renderRecordDetail(${idx})">Cancel</button>
+        <button type="button" class="btn btn-ghost btn-sm edit-cancel"
+                onclick="cancel866(${idx}, ${first}, 'split')">Cancel</button>
         ${f.split_part != null ? `<button type="button" class="btn btn-ghost btn-sm"
                 title="Put this 866 back as one statement, as uploaded"
                 onclick="saveSplit866(${idx}, ${first}, true)">Undo the split</button>` : ''}
@@ -5139,6 +5237,23 @@ function openSplit866(idx, fi) {
       <div id="s866-status-${id}"></div>
     </div>`;
   row.querySelector('textarea').focus();
+}
+
+/**
+ * Back to the 866's own Edit or Split once its editor in step 3 closes, or to
+ * the record's line if that 866 has gone; the record is drawn again either
+ * way, and focus used to fall to the top of the page with it.
+ */
+function focus866(idx, fi, kind) {
+  const row = document.querySelector(`.rec-row[data-index="${idx}"]`);
+  const to = document.querySelector(`#f866-${idx}-${fi} .f866-${kind}`)
+    || (row && row.querySelector('.rec-toggle'));
+  if (to) to.focus({ preventScroll: true });
+}
+
+async function cancel866(idx, fi, kind) {
+  await renderRecordDetail(idx);
+  focus866(idx, fi, kind);
 }
 
 function splitPartHtml(id, i, text) {
@@ -5169,6 +5284,7 @@ async function saveSplit866(idx, fi, revert) {
     recordPreviews.delete(idx);
     await reloadReview();
     await renderRecordDetail(idx);
+    focus866(idx, fi, 'split');
     if (detected && detected.length) runDetect({ keepFold: true });
     if (!revert) reportFix({ record_index: idx,
       fields: parts.filter(t => t.trim()).map((_, n) => fi + n) });
@@ -5196,6 +5312,7 @@ async function saveEdit866(idx, fi, revert) {
     recordPreviews.delete(idx);
     await reloadReview();
     await renderRecordDetail(idx);
+    focus866(idx, fi, 'edit');
     // Left folded or open as it was: folding step 2 above the record being
     // worked on moved the whole page under the cataloguer.
     if (code === 'a' && detected && detected.length) runDetect({ keepFold: true });

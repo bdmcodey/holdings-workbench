@@ -15,6 +15,15 @@ more than one release; numbering resumed with 0.6.1. Reasoning behind the
 parser and converter decisions, including the defects a real corpus exposed and
 what was done about each, is in [CORPUS-FINDINGS.md](CORPUS-FINDINGS.md).
 
+## 0.46.0 — 2026-10-16
+
+The workbench can be used from the keyboard alone and with a screen reader: a file can be chosen without a mouse, and every button and tick box says what it is for.
+
+- **MARC Holdings Workbench** — A MARC file can be chosen from the keyboard: Tab to the upload box and press Enter or Space. Before, it could only be clicked or dropped on.
+- **MARC Holdings Workbench** — Escape closes an Edit or Split box without saving, in Patterns and in Convert. After Cancel, Close or Save, the keyboard is back on the button you were using, or the record or pattern you were on, instead of at the top of the page.
+- **MARC Holdings Workbench** — For screen readers: the Reviewed, Keep patterns separate and Skip boxes under a record are read separately, with the record's title, where before they were read as one; Edit, Split, Copy and Close buttons say which statement, pattern or record they act on; Review buttons, record lines and filter chips say whether they are open or chosen; and Find patterns and the filter chips say what they found.
+- **MARC Holdings Workbench** — The button that folds the Patterns step now reads "Hide patterns" instead of "Hide", to match "Show patterns".
+
 ## 0.45.1 — 2026-10-16
 
 Find patterns shows its cards in under two seconds on a 372-record file, where it took about seven.

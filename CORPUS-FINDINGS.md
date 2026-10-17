@@ -2839,6 +2839,46 @@ real export gets no note on any of its 1,057 866s. The angle-bracket dates of
 D41 (`<1884:6:28>`) are not treated as the Newspaper Program's: nothing here
 says whose they are.
 
+## From the keyboard and with a screen reader · **0.46.0**
+
+*16 October 2026.* Asked for by the cataloguer: an accessibility check against
+WCAG 2.1 AA before going further.
+
+**What the automatic check found:** nothing. axe-core, run on a fresh page and
+on one with a file loaded, a card and a record open, in light and dark: 0 rules
+broken. The focus ring is 6.4:1 against the page in light and 9.3:1 in dark;
+at 320 px wide nothing scrolls sideways.
+
+**What using the page found** -- from the keyboard, and reading the names
+Chromium hands a screen reader -- was seven things axe cannot see:
+
+1. A file could not be chosen without a mouse: the upload box took no focus.
+   Now a button: Tab to it, Enter or Space opens the chooser. (2.1.1)
+2. The three boxes under a record shared one label, so the first was read as
+   "Reviewed Keep patterns separate Skip" and the other two had no name. Now a
+   label each, and each described by the record's title. (1.3.1, 4.1.2)
+3. Review buttons and record lines did not say whether they were open, nor the
+   filter chips which was chosen. (4.1.2)
+4. After Cancel, Close or Save the editor or record took the focus with it, and
+   it fell to the top of the page. Now it goes back to the button that opened
+   the editor; after a save, which draws the cards again, to the same pattern's
+   Review button; after Close, to the record's line, or the next record's when
+   it has left the filter. (2.4.3)
+5. Every Edit, Split, Copy and Close had the same name as the next, and the
+   three text sizes were each "A". Each now names what it acts on; the visible
+   word comes first, so speaking it still works. (2.4.6, 2.5.3)
+6. Find patterns and the filter chips changed the page out of sight of the
+   button pressed, in silence. Now said aloud: "Found 107 patterns; 1 needs a
+   decision." on the real export, and "31 of 372 match ..." for Needs
+   attention. (4.1.3)
+7. Escape did not leave an editor. It is Cancel now, in step 2 and step 3.
+
+**Checked** on a freshly started server, driving Chromium: each of the seven
+on the made-up test file, then on the real export (no script errors), pasted
+statements included. axe after the change: still 0 in both themes. The corpus
+report is byte-for-byte the same: nothing that reads or writes holdings was
+touched.
+
 ## Find patterns in under two seconds · **0.45.1**
 
 *16 October 2026.* Raised by the cataloguer: on the real export the cards took
