@@ -1,6 +1,6 @@
 # Quick start for cataloguers
 
-*One page, for a first try with the Workbench. Describes version 0.46.1.
+*One page, for a first try with the Workbench. Describes version 0.47.0.
 [How the Holdings Workbench works](HOW-IT-WORKS.md) has the detail behind every step.*
 
 The Workbench reads the free-text holdings in your 866s and writes 853 captions

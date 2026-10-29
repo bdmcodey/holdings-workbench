@@ -90,9 +90,14 @@ def chron_unit_code(raw: str) -> Optional[str]:
 # has -- so it sits here, below the code table it tests against, and the
 # converter imports it.  Two copies of one rule drift.
 
-# A chronology subfield an 853 labels "(month)" or "(season)" holds MARC codes:
-# months 01-12, seasons 21-24, joined by "-" for a range and "/" for a combined
-# issue.  Anything else is prose.
+# What the workbench writes in a chronology subfield an 853 labels "(month)"
+# or "(season)": MARC codes, months 01-12 and seasons 21-24, joined by "-" for
+# a range and "/" for a combined issue. MARC 21 allows words there too ("Months
+# and seasons may be expressed either in natural language or by the following
+# codes"), but a system cannot compress or expand words, and wording like "Late
+# Summer" wants a person's judgement of which code, if any, it is. So anything
+# else is named for the cataloguer rather than written; see
+# converter._uncodeable_message() for what they are told they can do.
 _CHRON_CODE = r"(?:0[1-9]|1[0-2]|2[1-4])"
 _CHRON_VALUE_RE = re.compile(rf"^{_CHRON_CODE}(?:[-/]{_CHRON_CODE})*-?$")
 
@@ -361,6 +366,19 @@ class LeftOut(str):
     A str in every other respect, so it is a warning like any other wherever
     warnings go; isinstance() is how the converter tells it apart, without
     reading anything back out of the wording.
+    """
+    __slots__ = ()
+
+
+class LeftOutToCheck(LeftOut):
+    """
+    Left out to fit MARC, and a decision for the cataloguer as well.
+
+    "2003:Dec./2004:Jan." keeps both years and leaves the months out, as MARC
+    21's own example of the form does -- but whether to add them by hand, or
+    keep the 866 to show the date as written, is for a person to say, so the
+    record is marked to check too. Before 0.47.0 it was, because nothing of the
+    date was written; writing the years is no reason to stop asking.
     """
     __slots__ = ()
 
@@ -1330,6 +1348,43 @@ def _parse_chron_single(raw: str,
     m = re.match(r"^([A-Za-z./]+)$", raw)
     if m:
         return None, _chron_unit_value(m.group(1)), None
+
+    # One issue dated across two years, "2003:Dec./2004:Jan.": both years, as
+    # MARC 21's own example of the form records it ("863 42 $81.2 $a56
+    # $i2003/2004", the display left to a linked 866). The months are not
+    # written: a month pair under a year pair is not something the standard's
+    # example does, so they are named for the cataloguer to add by hand.
+    halves = raw.split("/")
+    if len(halves) == 2:
+        first, second = (_parse_chron_single(h) for h in halves)
+        if (first[0] and second[0] and "/" not in first[0] + second[0]
+                and int(second[0]) == int(first[0]) + 1):
+            if first[1] or second[1]:
+                note = LeftOutToCheck(
+                    f"'{raw}' is one issue dated across two years. Both years "
+                    f"were written ({first[0]}/{second[0]}), as MARC 21's own "
+                    "example of this form does; the months or seasons were "
+                    "left out. "
+                    "Add them by hand if you want them, or keep the 866 to "
+                    "show the date as written.")
+                if warnings is not None and note not in warnings:
+                    warnings.append(note)
+            return f"{first[0]}/{second[0]}", None, None
+
+    # Wording around the one year in it, that none of the forms above read:
+    # "1st Quarter 1980", "July 2010 Addendum", "1st Quarter/Winter 1985".
+    # Until 0.47.0 the boundary came back unread, the caller kept the whole of
+    # it as the year, and the year subfield refused it -- so the 863 had no
+    # year at all, though the statement gives one plainly: 4 of the 8
+    # statements on the real export with wording a code cannot hold. The year
+    # is kept now, and the wording goes where a month would, to be written if
+    # it is a code and named as left out if it is not.
+    years = re.findall(r"(?<!\d)\d{4}(?!\d)", raw)
+    if len(years) == 1:
+        wording = re.sub(r"(?<!\d)\d{4}(?!\d)", " ", raw)
+        wording = re.sub(r"\s+", " ", wording).strip(" :,")
+        if re.search(r"[A-Za-z]", wording):
+            return normalise_year(years[0]), _chron_unit_value(wording), None
 
     return None, None, None
 

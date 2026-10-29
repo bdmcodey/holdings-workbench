@@ -1,6 +1,6 @@
 # How the Holdings Workbench Works
 
-*Written for librarians and cataloguers. Describes version 0.46.1.*
+*Written for librarians and cataloguers. Describes version 0.47.0.*
 
 *Trying it for the first time? [The quick start](QUICK-START.md) is one page: what to press, in order.*
 
@@ -374,7 +374,8 @@ Some values are read correctly and still can't be written, because an 863 has no
 - A level at one end only, like the `no. 9` in `v. 1 (1973)-v. 11 no. 9 (Sep 1983)`, or under a level written as a range, like `v. 40-45 no. 4`.
 - A date stated once for several runs that isn't a single year.
 - The `?` in `2016?`. An 863 can't say a year is uncertain.
-- Wording a coded subfield can't hold, like `Late Summer`. This one is also orange "To check", because it may be an issue of its own.
+- Wording MARC has no code for, like `Late Summer`, `Third Quarter` or `Buyers Guide`. This one is also orange "To check", because what to do with it is your call: see "Wording MARC has no code for" below.
+- The months or seasons of one issue dated across two years, like `2003:Dec./2004:Jan.`. Both years are written (`$i 2003/2004`), as MARC 21's own example of this form does, and the record is marked to check.
 - A level the record's own 853 calls something else, or a value the chosen subfield convention has no place for.
 
 None of these is a value lost in conversion or misread by the parser. Each is named on the record with a dashed box beginning "Left out to fit MARC:", the row says `1 left out`, and the log calls it "Converted, part left out". The "Something left out" filter gathers these records. On the Patterns step, a card whose statements lose something says `left out`, and so does the line a folded group shows, so a pasted statement no longer hides it under "nothing to decide". Cards say `held` and `to check` the same way (see "What its statements do").
@@ -392,6 +393,19 @@ What happens to such a statement is a Conversion setting, "When something would 
 Unlike strict, this setting applies to statements your patterns read too.
 
 In the corpora, 19 of the 111 statements that convert in the main corpus leave something out, 1 of 5 in the LC examples, and 7 of 37 from other libraries' catalogues.
+
+### Wording MARC has no code for
+
+MARC 21 codes months 01–12 and seasons 21–24, and allows a month or season in words as well. The Workbench writes codes, because a system can compress and expand codes but not words. Wording with no code is left out of the 863, the rest of the statement converts (the year included), and the record is marked to check. The message on the statement says what you can do, by what the wording is:
+
+| Wording | What MARC 21 offers |
+| --- | --- |
+| A qualified season or month, like `Late Summer` | The code of the issue it is, if it is that issue (Summer is 22), or the words in `$j` |
+| A quarter, like `Third Quarter` | No code exists. In a quarterly the issue number usually says which quarter already; otherwise the words, or the 866 |
+| A named issue, like `Buyers Guide` or `Addendum` | The 863's `$o` Title of unit, with a `$o` caption in the 853 (MARC 21's own example is an annual buyer's guide), or a `$z` public note |
+| Any of these | Keep the 866 to show the statement as written. MARC 21 allows an 866 "in addition to" the 863s, to give the display |
+
+The Workbench does none of these for you, because each depends on the piece in hand. Add what you choose to the downloaded record. Before 0.47.0 the message said such a subfield "takes MARC codes, not wording", which isn't what MARC 21 says. And wording beside the year, as in `1st Quarter 1980` or `July 2010 Addendum`, cost the 863 its year as well. On a 372-record export, 4 of the 8 statements with such wording had no `$i`, and 2 seasonal runs with an issue dated across two years had only one of their years.
 
 ### Months and seasons
 
@@ -541,9 +555,9 @@ As of 0.46.0 the page was checked against WCAG 2.1 AA: automatically, with axe, 
 
 Four checks run before any change is released, and each answers a different question.
 
-| Check | Question it answers | Result as of 0.46.1 |
+| Check | Question it answers | Result as of 0.47.0 |
 | --- | --- | --- |
-| Automated tests | Does every behaviour described here still hold? | 1,126 passed, 8 skipped |
+| Automated tests | Does every behaviour described here still hold? | 1,141 passed, 8 skipped |
 | Corpus report | What do 117 real 866 statements convert to, and has any outcome changed? | 89 clean (76%), 22 converted with a warning, 6 with no fields, 0 with values lost |
 | Conversion audit | Did any number in a statement reach no field and no warning? | 0 unaccounted for: the corpus, the LC examples, the other library's catalogue, and all 1,057 statements of the 372-record test export |
 | Round trip | Convert, write the 866 as Alma would, convert again: do the same 863s come back? | Test export: 938 identical, 103 identical apart from an 853 caption, 14 not converted (13 of them months and seasons in one 866), **0 drift** |

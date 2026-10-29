@@ -24,7 +24,8 @@ except ImportError:
     HAS_PYMARC = False
 
 from marc_serials.parser import (ParseResult, HoldingsRange, EnumChron,
-                             LeftOut, SEASON_CODES, MARC_CHRON_CODES,
+                             LeftOut, LeftOutToCheck, SEASON_CODES,
+                             MARC_CHRON_CODES,
                              is_codeable, chronology_kinds, chronology_switch,
                              statement_chron_kind, chron_name)
 
@@ -1222,15 +1223,83 @@ def _note_uncodeable(warnings: Optional[List[str]], label: tuple,
     if warnings is None:
         return
     _, word = label
-    note = LeftOut(
-        f"'{value}' is not something a {word} subfield can hold — it takes "
-        f"MARC codes, not wording — so it was left out. Record it by hand if "
-        f"it matters."
-    )
+    note = LeftOut(_uncodeable_message(value, word))
     if note not in warnings:
         warnings.append(note)
     if flags is not None:
         flags.add(note)
+
+
+# Words that say where in a season or month an issue falls, rather than naming
+# an issue of its own: the "Late" of "Late Summer".
+_CHRON_QUALIFIERS = {"early", "late", "mid", "middle", "end", "of", "beginning"}
+
+_KEEP_866 = "keep the 866 to show it as written"
+
+
+def _uncodeable_message(value: str, word: str) -> str:
+    """
+    What to do about wording the 863 was given no code for, said by its kind.
+
+    Until 0.47.0 this said the subfield "takes MARC codes, not wording". MARC
+    21 says otherwise -- "Months and seasons may be expressed either in natural
+    language or by the following codes" (863-865 $i-$m) -- so what is true is
+    narrower: there is no code for this, and the workbench writes codes, which
+    a system can compress and expand and words it cannot. What the standard
+    does offer is a choice the cataloguer makes, by what the wording is:
+
+    - a qualified season or month ("Late Summer"): the code of the issue it
+      is, if it is that issue -- 22, Summer -- or the words;
+    - a quarter ("Third Quarter"): MARC 21 has no code for one, and in a
+      quarterly the issue number already says which;
+    - a named issue ("Buyers Guide"): the 863's $o, Title of unit, whose own
+      example is "annual buyer's guide", with a $o caption in the 853;
+    - any of them: the 866 kept, which the standard provides for "in addition
+      to" the 863s, "to ... generate an alternative display" (866-868).
+    """
+    if word != "month or season":
+        return (f"'{value}' is not a {word} the 863 can hold, so the 863 has "
+                f"none for it. Write it by hand if one fits, or {_KEEP_866}.")
+
+    parts = [p.strip() for p in re.split(r"[-/]", value) if p.strip()]
+    worded = [p for p in parts if not _is_codeable("month", p)]
+    mixed = len(worded) < len(parts)
+    text = worded[0] if worded else value
+    words = re.findall(r"[A-Za-z]+", text)
+    named = [(w, MARC_CHRON_CODES[w.lower()]) for w in words
+             if w.lower() in MARC_CHRON_CODES]
+    extra = [w for w in words if w.lower() not in MARC_CHRON_CODES]
+
+    lead = (f"'{value}' mixes codes with wording that has none ('{text}'), so "
+            "the 863 has no month or season for this range."
+            if mixed else
+            f"'{value}' has no MARC code, so the 863 has no month or season "
+            "for it.")
+    in_words = ("write it in the 863 in words (MARC 21 allows that, though a "
+                "system can't then compress or expand the holdings)")
+
+    if any(w.lower() == "quarter" for w in words):
+        lead = (f"'{value}' names a quarter, and MARC 21 has no code for one, "
+                "so the 863 has no month or season for "
+                + ("this range." if mixed else "it."))
+        others = [MARC_CHRON_CODES[w.lower()]
+                  for w in re.findall(r"[A-Za-z]+", " ".join(worded))
+                  if w.lower() in MARC_CHRON_CODES]
+        season = (f" If it is the {chron_name(others[-1])} issue, its code is "
+                  f"{others[-1]}." if others else "")
+        return (f"{lead}{season} In a quarterly the issue number usually says "
+                f"which quarter already. To record it, {in_words}, or "
+                f"{_KEEP_866}.")
+    if named and all(w.lower() in _CHRON_QUALIFIERS for w in extra):
+        name, code = named[-1]
+        return (f"{lead} If it is the {chron_name(code)} issue, its code is "
+                f"{code}. Otherwise {in_words}, or {_KEEP_866}.")
+    issue = (f"If it is the {chron_name(named[-1][1])} issue, its code is "
+             f"{named[-1][1]}. " if named else "")
+    return (f"{lead} {issue}An issue known by a name rather than a date goes "
+            "in the 863's $o, Title of unit, with a $o caption in the 853 "
+            "(MARC 21's own example is an annual buyer's guide). Or say it in "
+            f"a $z public note, or {_KEEP_866}.")
 
 
 def _hierarchy_values(
@@ -1616,6 +1685,8 @@ def convert_holdings(
     # What the reading itself says needs a decision: wording a confirmed
     # pattern matched and wrote nowhere. See bridge._name_unencoded_text().
     flags.update(parse_result.attention)
+    # And what was left out to fit MARC with a decision still to make.
+    flags.update(w for w in warnings if isinstance(w, LeftOutToCheck))
 
     levels = parse_result.caption_union()
 

@@ -15,6 +15,14 @@ more than one release; numbering resumed with 0.6.1. Reasoning behind the
 parser and converter decisions, including the defects a real corpus exposed and
 what was done about each, is in [CORPUS-FINDINGS.md](CORPUS-FINDINGS.md).
 
+## 0.47.0 — 2026-10-29
+
+Wording MARC has no code for, like "Third Quarter" or "Buyers Guide", no longer costs the 863 its year, and the message says what MARC 21 lets you do with it.
+
+- **MARC Holdings Workbench** — When a date has wording beside its year, the year is now written. "v. 2 no. 1-v. 3 no. 4 (1st Quarter 1980-4th Quarter 1981)" used to convert with no $i at all; it now gets $i 1980-1981, and only the quarters are left out. On a 372-record export this restores the year on 4 of the 8 statements with such wording.
+- **MARC Holdings Workbench** — An issue dated across two years, like "no. 56 (2003:Dec./2004:Jan.)", gets both years, $i 2003/2004, as MARC 21's own example of this form records it. The months are left out and the record is marked to check. In a run, this also fixes an 863 that gave one year for several: "(Spring 1980-Fall 1981/Winter 1982)" used to be $i 1980 alone, and is now $i 1980-1981/1982. Two records of the 372-record export had this.
+- **MARC Holdings Workbench** — The message for wording with no MARC code no longer says the subfield "takes MARC codes, not wording", which MARC 21 doesn't say. It now says what you can do, by kind. For a qualified season like "Late Summer": the code of the issue it is, if it is that issue (Summer is 22), or the words. For a quarter: there is no code, and in a quarterly the issue number usually says which quarter. For a named issue like "Buyers Guide": $o Title of unit in the 863, or a $z public note. For any of them: keep the 866 to show the statement as written. HOW-IT-WORKS has a new section on this.
+
 ## 0.46.1 — 2026-10-29
 
 Every pattern card that wants an answer now says "needs a decision", and a one-page quick start for cataloguers trying the Workbench for the first time.
