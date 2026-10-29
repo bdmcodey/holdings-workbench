@@ -15,6 +15,12 @@ more than one release; numbering resumed with 0.6.1. Reasoning behind the
 parser and converter decisions, including the defects a real corpus exposed and
 what was done about each, is in [CORPUS-FINDINGS.md](CORPUS-FINDINGS.md).
 
+## 0.46.1 — 2026-10-29
+
+A one-page quick start for cataloguers trying the Workbench for the first time.
+
+- **MARC Holdings Workbench** — New: docs/QUICK-START.md, one page for a first try. It goes through the three steps in order (upload, answer what the Patterns step asks, check the settings, review the records under Needs attention, download the file and the log), names each button as the screen does, and says what each colour and label means. Nothing on the screen or in the output changed.
+
 ## 0.46.0 — 2026-10-16
 
 The workbench can be used from the keyboard alone and with a screen reader: a file can be chosen without a mouse, and every button and tick box says what it is for.

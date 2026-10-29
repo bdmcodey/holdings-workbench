@@ -1,5 +1,6 @@
 """
 docs/HOW-IT-WORKS.md says which version it describes, and must say the current one.
+So does docs/QUICK-START.md, which also names what to press, as the page names it.
 
 The explainer is written for librarians and quotes numbers -- tests passed, the
 corpus outcomes, the round trip -- that move with the tool. A guide that
@@ -28,3 +29,84 @@ def test_the_guide_describes_the_current_version():
         "its numbers, and move the version up")
     assert f"as of {about['version']}" in guide, (
         "the checks table still gives its results for an older version")
+
+
+# What the quick start tells a cataloguer to press or look for, as the page
+# says it. Each must still be on the page under that name, and still in the
+# guide: a button renamed on screen and not in the guide sends a first-time
+# user looking for something that is not there.
+QUICK_START_LABELS = [
+    # (as the guide writes it, as the page's source has it)
+    ("Drop the file on the box", "Drop a MARC file here, or click to browse"),
+    ("Pattern library", "Pattern library"),
+    ("**Import**", ">Import<"),
+    ("**Export**", ">Export<"),
+    ("Or paste 866 statements", "Or paste 866 statements"),
+    ("**Use these statements**", "Use these statements"),
+    ("**⟳ Find patterns**", "⟳ Find patterns"),
+    ("still wants an answer", "still ${undecided === 1 ? 'wants' : 'want'}"),
+    ("supplies a caption", "supplies' : 'supply'"),
+    ("decides how a statement is read", "decides' : 'decide'"),
+    ("**Review**", ">Review<"),
+    ("**Confirm pattern**", "Confirm pattern"),
+    ('"not read"', "not read</span>"),
+    ("**Edit**", ">Edit</button>"),
+    ("**Split**", ">Split</button>"),
+    ('"Statements to look at"', "Statements to look at"),
+    ("**Conversion settings**", "Conversion settings</summary>"),
+    ("Frequency (853 `$w`)", "Frequency (853 $w)"),
+    ("Numbering (853 `$v`)", "Numbering (853 $v)"),
+    ("Issues per volume (853 `$u`)", "Issues per volume (853 $u)"),
+    ("Holdings reported at (863 first indicator)", "Holdings reported at (863 first indicator)"),
+    ("When something would be left out to fit MARC", "When something would be left out to fit MARC"),
+    ("Clear existing 853 / 863 first", "Clear existing 853 / 863 first"),
+    ("**Needs attention**", ">Needs attention<"),
+    ("**Something left out**", ">Something left out<"),
+    ("**This record's 853**", "This record's 853"),
+    ("**Skip**", "> Skip</label>"),
+    ("**Reviewed**", "> Reviewed</label>"),
+    ("**Close**", "▴ Close"),
+    ("**Remove each 866 once it has been converted**", "Remove each 866 once it has been converted"),
+    ("**Convert all records**", "Convert all records"),
+    ("**Download .mrc**", "Download .mrc"),
+    ("**Download log**", "Download log"),
+    ("**100% matched**", "% matched</span>"),
+    ("**Confirmed**", ">Confirmed</span>"),
+    ("**needs a decision**", "needs a decision</span>"),
+    ('"To check:"', "To check:"),
+    ('"Left out to fit MARC:"', "Left out to fit MARC:"),
+]
+
+
+def _quick_start() -> str:
+    return (REPO_ROOT / "docs" / "QUICK-START.md").read_text(encoding="utf-8")
+
+
+def test_the_quick_start_describes_the_current_version():
+    about = json.loads((REPO_ROOT / "marc_serials" / "shared" / "about.json")
+                       .read_text(encoding="utf-8"))
+    stated = re.search(r"Describes version (\d+\.\d+\.\d+)", _quick_start())
+    assert stated, "the quick start no longer says which version it describes"
+    assert stated.group(1) == about["version"], (
+        f"docs/QUICK-START.md describes {stated.group(1)}, the tool is "
+        f"{about['version']}: walk through it against this release (every "
+        "button it names, in order) and move the version up")
+
+
+def test_what_the_quick_start_names_is_on_the_page():
+    guide = _quick_start()
+    page = (REPO_ROOT / "marc_serials" / "templates" / "tool.html").read_text(
+        encoding="utf-8")
+    for in_guide, on_page in QUICK_START_LABELS:
+        assert in_guide in guide, f"the quick start no longer says {in_guide!r}"
+        assert on_page in page, (
+            f"the quick start says {in_guide!r}, and the page no longer has "
+            f"{on_page!r}: rename it in the guide too")
+
+
+def test_the_guides_point_at_each_other():
+    readme = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
+    how = (REPO_ROOT / "docs" / "HOW-IT-WORKS.md").read_text(encoding="utf-8")
+    assert "docs/QUICK-START.md" in readme
+    assert "(QUICK-START.md)" in how
+    assert "(HOW-IT-WORKS.md)" in _quick_start()

@@ -2839,6 +2839,36 @@ real export gets no note on any of its 1,057 866s. The angle-bracket dates of
 D41 (`<1884:6:28>`) are not treated as the Newspaper Program's: nothing here
 says whose they are.
 
+## A one-page quick start · **0.46.1**
+
+*29 October 2026.* Asked for by the cataloguer: HOW-IT-WORKS is thorough and
+long, and a colleague trying the Workbench for the first time needs one page
+saying what to press, in order. `docs/QUICK-START.md` is that page; the README
+and HOW-IT-WORKS point to it.
+
+**Checked by following it.** Every button, setting and default the page names
+was driven in Chromium on a freshly started server, by the name the page uses,
+on the example file, the messy file and the real export, through to both
+downloads: all present, no script errors. The defaults it gives were read off
+the screen: frequency "(not specified)", holdings level 4, left out converted
+and marked, "Clear existing 853 / 863 first" and "Remove each 866" both off.
+
+**What following it corrected.** The first draft said a card wanting an answer
+is marked "needs a decision". On the real export the one card that does is the
+statement with a comma missing between runs, and it says "not read": the yellow
+"needs a decision" pill appears only while a value has no meaning, and the
+detector had given every value one. What the screen does say, every time, is
+where those cards are -- loose above the folded groups -- and the line above
+them ("1 still wants an answer"). The page now says that, and to Edit a "not
+read" statement rather than answer for it. A first draft also said the work
+lasts until the server is closed; an upload is in fact deleted about six hours
+after it is made, and the library after 30 days unused.
+
+**Kept from drifting.** `tests/test_how_it_works.py` now fails when the quick
+start describes an older version, or names a button or setting the page no
+longer has by that name. Nothing that reads or writes holdings changed; the
+corpus report is byte-for-byte the same.
+
 ## From the keyboard and with a screen reader · **0.46.0**
 
 *16 October 2026.* Asked for by the cataloguer: an accessibility check against

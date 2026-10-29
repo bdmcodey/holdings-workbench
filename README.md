@@ -24,7 +24,13 @@ each other's code, and the copies drifted far enough that one of them deleted
 the other's pattern libraries. Everything the three did is in the one
 application; nothing was dropped.
 
+New to it? [`docs/QUICK-START.md`](docs/QUICK-START.md) is a one-page
+walk-through for cataloguers: upload, answer what is asked, review, download.
+[`docs/HOW-IT-WORKS.md`](docs/HOW-IT-WORKS.md) explains every step in full.
+
 ## Quick start
+
+To install and start it:
 
 ```bash
 python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
@@ -84,6 +90,7 @@ holdings-workbench/
 │   ├── corpus_report.py       Runs the corpus through the engines
 │   ├── round_trip.py          Converts, regenerates the 866 as the ILS would, converts again
 │   └── build_changelog.py     Writes CHANGELOG.md from shared/about.json
+├── docs/QUICK-START.md   One page for a first try, written for cataloguers
 ├── docs/HOW-IT-WORKS.md  How the tool works, written for librarians
 ├── docs/marc/          The LC holdings documentation this is written against
 ├── CONTRIBUTING.md     The conventions this code follows, and why
