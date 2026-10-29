@@ -26,7 +26,9 @@ application; nothing was dropped.
 
 New to it? [`docs/QUICK-START.md`](docs/QUICK-START.md) is a one-page
 walk-through for cataloguers: upload, answer what is asked, review, download.
-[`docs/HOW-IT-WORKS.md`](docs/HOW-IT-WORKS.md) explains every step in full.
+[`docs/HOW-IT-WORKS.md`](docs/HOW-IT-WORKS.md) explains every step in full, and
+[`docs/CODE-MAP.md`](docs/CODE-MAP.md) says which file does what, and what
+happens, file by file, when you press each button.
 
 ## Quick start
 
@@ -92,6 +94,7 @@ holdings-workbench/
 │   ├── round_trip.py          Converts, regenerates the 866 as the ILS would, converts again
 │   └── build_changelog.py     Writes CHANGELOG.md from shared/about.json
 ├── docs/QUICK-START.md   One page for a first try, written for cataloguers
+├── docs/CODE-MAP.md      Which file does what, and what each button sets going
 ├── docs/HOW-IT-WORKS.md  How the tool works, written for librarians
 ├── docs/marc/          The LC holdings documentation this is written against
 ├── CONTRIBUTING.md     The conventions this code follows, and why

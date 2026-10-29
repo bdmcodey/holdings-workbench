@@ -1,6 +1,6 @@
 # How the Holdings Workbench Works
 
-*Written for librarians and cataloguers. Describes version 0.47.1.*
+*Written for librarians and cataloguers. Describes version 0.48.0.*
 
 *Trying it for the first time? [The quick start](QUICK-START.md) is one page: what to press, in order.*
 
@@ -555,9 +555,9 @@ As of 0.46.0 the page was checked against WCAG 2.1 AA: automatically, with axe, 
 
 Four checks run before any change is released, and each answers a different question.
 
-| Check | Question it answers | Result as of 0.47.1 |
+| Check | Question it answers | Result as of 0.48.0 |
 | --- | --- | --- |
-| Automated tests | Does every behaviour described here still hold? | 1,145 passed, 8 skipped |
+| Automated tests | Does every behaviour described here still hold? | 1,147 passed, 8 skipped |
 | Corpus report | What do 117 real 866 statements convert to, and has any outcome changed? | 89 clean (76%), 22 converted with a warning, 6 with no fields, 0 with values lost |
 | Conversion audit | Did any number in a statement reach no field and no warning? | 0 unaccounted for: the corpus, the LC examples, the other library's catalogue, and all 1,057 statements of the 372-record test export |
 | Round trip | Convert, write the 866 as Alma would, convert again: do the same 863s come back? | Test export: 938 identical, 103 identical apart from an 853 caption, 14 not converted (13 of them months and seasons in one 866), **0 drift** |
