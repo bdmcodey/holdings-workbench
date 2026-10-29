@@ -15,6 +15,12 @@ more than one release; numbering resumed with 0.6.1. Reasoning behind the
 parser and converter decisions, including the defects a real corpus exposed and
 what was done about each, is in [CORPUS-FINDINGS.md](CORPUS-FINDINGS.md).
 
+## 0.47.1 — 2026-10-29
+
+The advice to keep the 866 for wording MARC has no code for now says to check first that your system keeps it.
+
+- **MARC Holdings Workbench** — Where a message suggests keeping the 866 to show a statement as written, it now adds that a system which rebuilds 866s from the 863s, as Alma does, may replace it. The Workbench doesn't yet link a kept 866 to its 863s the way MARC 21 provides for (the 863's "use textual display"); that waits until it can be tried in Alma, and HOW-IT-WORKS says so.
+
 ## 0.47.0 — 2026-10-29
 
 Wording MARC has no code for, like "Third Quarter" or "Buyers Guide", no longer costs the 863 its year, and the message says what MARC 21 lets you do with it.

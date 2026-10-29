@@ -2839,6 +2839,19 @@ real export gets no note on any of its 1,057 866s. The angle-bracket dates of
 D41 (`<1884:6:28>`) are not treated as the Newspaper Program's: nothing here
 says whose they are.
 
+## Keeping the 866: the caution goes with the advice · **0.47.1**
+
+*29 October 2026.* 0.47.0's messages end "or keep the 866 to show it as
+written", and the page already says, under "Remove each 866", that "an ILS
+that rebuilds 866s from 853 / 863 will replace them anyway" -- Alma does,
+which is what the round trip imitates. Advice that the workbench's own screen
+contradicts is not advice to give bare, so it now carries the caution: check
+that your system keeps the 866. Linking the two as MARC 21 provides (863
+second indicator 2 or 3, "use textual display", and $8) is filed as a future
+feature in HOW-IT-WORKS: the cataloguer cannot try it in Alma for now, and
+writing it untried would be guessing what Alma does with it. Message text only;
+nothing converted differs, and the corpus summary is the same.
+
 ## Wording MARC has no code for: the year kept, and the cataloguer's options · **0.47.0**
 
 *29 October 2026.* Asked for by the cataloguer, who expected what MARC 21
