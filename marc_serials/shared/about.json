@@ -1,7 +1,7 @@
 {
   "name": "MARC Holdings Workbench",
-  "version": "0.46.0",
-  "released": "2026-10-16",
+  "version": "0.46.1",
+  "released": "2026-10-29",
   "status": "Proof of concept — under active development. Check your output before loading it into the catalog.",
   "description": "One tool for MARC serials holdings. Upload a MARC file, find the patterns in its 866 statements, confirm what each part of a pattern means, and convert to structured 853 caption/pattern and 863 enumeration/chronology fields. Statements no pattern matches are converted by the standard parser.",
   "licensing": "No license is granted at this time; the repository is published for reference only while institutional intellectual property rights are reviewed. See NOTICE.md.",
@@ -9,6 +9,21 @@
   "contact": "Matthew Codey, codey@usc.edu",
   "_comment": "Written for cataloging staff, not developers. Say what changed about the output or the screen, not how the code changed. Newest version first.",
   "changelog": [
+    {
+      "version": "0.46.1",
+      "date": "2026-10-29",
+      "summary": "Every pattern card that wants an answer now says \"needs a decision\", and a one-page quick start for cataloguers trying the Workbench for the first time.",
+      "changes": [
+        {
+          "tool": "MARC Holdings Workbench",
+          "text": "Every pattern card that wants an answer is now marked \"needs a decision\" in yellow, until you confirm or skip it: the same cards the Patterns step counts as still wanting one. Before, the mark showed only while a value had no meaning or only a suggested one, so a card could want an answer with nothing on it saying so. On a 372-record export the one such card showed only \"not read\"."
+        },
+        {
+          "tool": "MARC Holdings Workbench",
+          "text": "New: docs/QUICK-START.md, one page for a first try. It goes through the three steps in order (upload, answer what the Patterns step asks, check the settings, review the records under Needs attention, download the file and the log), names each button as the screen does, and says what each colour and label means."
+        }
+      ]
+    },
     {
       "version": "0.46.0",
       "date": "2026-10-16",
