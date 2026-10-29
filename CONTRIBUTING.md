@@ -166,9 +166,18 @@ The Python suite cannot see a template that renders an error. One bug —
 a function deleted while the line calling it stayed — broke every pasted
 statement and no route test noticed, because the server was fine throughout.
 
-When a change touches `marc_serials/templates/`, load the page and use it.
-A refresh is enough: since 0.13.1 the app sets `TEMPLATES_AUTO_RELOAD`, so a
-changed template is re-read rather than compiled once per process.
+When a change touches `marc_serials/templates/` or `marc_serials/static/`,
+load the page and use it. A refresh is enough: since 0.13.1 the app sets
+`TEMPLATES_AUTO_RELOAD`, so a changed template is re-read rather than compiled
+once per process, and the page's scripts and stylesheet are served `no-cache`
+(Flask 3's default), so the browser asks for a changed one rather than keeping
+its copy.
+
+Since 0.48.0 the page is `templates/tool.html` for its layout, with its styles
+in `static/workbench.css` and its script in `static/js/`, one file a part,
+loaded in the order the template lists them -- which is the order they run
+in, so a file may use what an earlier one defines when it loads, and anything
+at all once the page is running. `docs/CODE-MAP.md` says what is where.
 
 **A change to any `.py` file still needs the server restarted.** Only templates
 reload. And the header's version badge cannot tell you whether you restarted:

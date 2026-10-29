@@ -19,7 +19,7 @@ import io
 import pytest
 from pymarc import Field, MARCWriter, MARCReader, Record, Subfield
 
-from conftest import REPO_ROOT, upload_marc
+from conftest import REPO_ROOT, upload_marc, page_source
 from marc_serials.converter import convert_holdings
 from marc_serials.parser import LeftOut, parse_866
 
@@ -136,8 +136,7 @@ def test_a_pattern_group_says_how_many_lose_something(client):
 
 
 def test_the_page_carries_the_setting_and_says_it():
-    page = (REPO_ROOT / "marc_serials" / "templates" / "tool.html").read_text(
-        encoding="utf-8")
+    page = page_source()
     assert "left_out_policy: document.getElementById('opt-left-out').value" in page
     assert "<strong>Left out to fit MARC:</strong>" in page
     assert 'data-filter="leftout"' in page

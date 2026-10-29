@@ -1,0 +1,629 @@
+/* The page's own styles. Shared ones (colours, buttons, alerts) are in shared/ui.css. */
+
+/* ── Holdings Workbench — app-specific ───────────────────────────────── */
+
+/* Teal accent, distinct from the converter's amber and the detector's
+   blue: three tools on one host, and the colour says which one you are in.
+   Verified 5.9:1 on white and 9.2:1 on the dark ground. */
+:root { --accent: #0b6b6b; --accent-soft: #e2f2f2; }
+:root[data-theme="dark"] { --accent: #62d0d0; --accent-soft: #16292a; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --accent: #62d0d0; --accent-soft: #16292a; }
+}
+
+/* Any class that sets `display` outranks the [hidden] attribute's UA rule,
+   and both .pill and .btn do -- which showed the "Confirmed" pill on an
+   unconfirmed pattern. Give the attribute back its meaning everywhere. */
+[hidden] { display: none !important; }
+
+header h1 { font-size: var(--fs-xl); }
+.subtitle { font-size: var(--fs-sm); color: var(--text-muted); }
+.badge {
+  font-size: var(--fs-xs); font-weight: 600;
+  padding: var(--sp-1) var(--sp-2);
+  border-radius: var(--radius);
+  border: 2px solid var(--border);
+  color: var(--text);
+}
+.badge.ok  { border-color: var(--ok);     background: var(--ok-soft); }
+.badge.err { border-color: var(--danger); background: var(--danger-soft); }
+
+/* One column of steps. Wide enough for the 866-beside-863 pairs, capped so
+   the MARC strings do not run to arm's length on a big monitor. */
+main { display: block; overflow-y: auto; padding: var(--sp-5) var(--sp-4); }
+.step {
+  max-width: 78rem;
+  margin: 0 auto var(--sp-5);
+  border: 2px solid var(--border-soft);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+.step[hidden] { display: none; }
+.step-head {
+  display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap;
+  padding: var(--sp-3) var(--sp-4);
+  border-bottom: 2px solid var(--border-soft);
+  background: var(--surface-2);
+}
+.step-head h2 { font-size: var(--fs-lg); margin: 0; }
+.step-number {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 2rem; height: 2rem; flex: none;
+  border-radius: 50%;
+  background: var(--accent); color: var(--bg);
+  font-weight: 700; font-size: var(--fs-sm);
+}
+.step-head .btn { margin-left: auto; }
+.step-body { padding: var(--sp-4); }
+.step-body > .btn-row:first-child { margin-top: 0; }
+
+/* A step folds to a line once it has done its job -- step 1 when it has a
+   file, step 2 when its patterns are settled. */
+.step-summary {
+  display: flex; align-items: center; gap: var(--sp-2);
+  padding: var(--sp-3) var(--sp-4);
+  font-size: var(--fs-sm); color: var(--text);
+}
+.step-summary .icon { color: var(--ok); font-weight: 700; }
+/* Folded is not the same as finished. A step still asking something says
+   so on its one visible line, in the colour that means "look at me". */
+.step-summary .icon.pending { color: var(--warn); }
+.step-summary .count-warn { color: var(--warn); font-weight: 700; }
+
+/* Folded away by default: it is a record of work already done, and open it
+   pushed the pattern cards -- the thing actually being worked on -- down
+   the page. */
+.library {
+  margin-top: var(--sp-4);
+  padding-top: var(--sp-3);
+  border-top: 2px solid var(--border-soft);
+}
+.library > summary {
+  cursor: pointer;
+  padding: var(--sp-2) 0;
+  color: var(--text);
+  min-height: var(--control-min);
+  display: flex; align-items: center;
+}
+.library > summary:hover { color: var(--accent); }
+.library-body { padding-top: var(--sp-2); }
+/* Under step 1, outside the part that folds, so it stays in view. */
+.step-library { padding: 0 var(--sp-4) var(--sp-2); }
+.step-library .library { margin-top: 0; }
+
+/* Records: a row per record, expanding in place. Nothing can be pushed
+   out of view, which is what made the old two-pane arrangement fail. */
+.rec-row {
+  border: 2px solid var(--border-soft);
+  border-radius: var(--radius);
+  margin-bottom: var(--sp-2);
+  background: var(--bg);
+  overflow: hidden;
+}
+.rec-row.open { border-color: var(--accent); }
+.rec-toggle {
+  display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap;
+  width: 100%;
+  padding: var(--sp-3);
+  min-height: var(--control-min);
+  background: none; border: none; cursor: pointer;
+  text-align: left; color: var(--text); font: inherit;
+}
+.rec-toggle:hover { background: var(--surface-2); }
+.rec-caret { flex: none; color: var(--text-muted); }
+.rec-detail { padding: var(--sp-3); border-top: 2px solid var(--border-soft); }
+.rec-row.reviewed { border-left: 6px solid var(--ok); }
+/* Set aside, not finished: dimmed rather than ticked, so a skipped record
+   never reads as one that has been dealt with. */
+.rec-row.skipped { border-left: 6px solid var(--text-muted); opacity: 0.72; }
+.rec-row.skipped .rec-title { text-decoration: line-through; }
+.rec-row[hidden] { display: none; }
+.rec-sep {
+  width: 2px; height: 1.1em; flex: none;
+  background: var(--border-soft); margin: 0 var(--sp-2);
+}
+.rec-review {
+  display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap;
+  flex: 1;
+  font-size: var(--fs-xs); color: var(--text-muted);
+}
+.rec-review label { display: inline-flex; align-items: center; gap: var(--sp-2); cursor: pointer; }
+.rec-foot {
+  display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap;
+  padding: 0 var(--sp-3) var(--sp-3);
+}
+/* Close is beside Reviewed and Skip, at the foot of an open record, so a
+   record can be folded where the work on it ends: a long one put its
+   only Close -- the line at its top -- screens away. */
+.rec-row:not(.open) .rec-close { display: none; }
+/* Brought to the top of the screen on Close, with a little room above. */
+.rec-row { scroll-margin-top: var(--sp-3); }
+
+.review-bar {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: var(--sp-3); flex-wrap: wrap;
+  padding-bottom: var(--sp-3);
+  border-bottom: 2px solid var(--border-soft);
+}
+.filter-row { display: flex; gap: var(--sp-2); flex-wrap: wrap; }
+.search-row { display: flex; gap: var(--sp-2); align-items: center; flex-wrap: wrap; }
+.search-input {
+  font: inherit; font-size: var(--fs-sm);
+  padding: var(--sp-1) var(--sp-2);
+  min-height: var(--control-min);
+  border: 2px solid var(--border); border-radius: var(--radius);
+  background: var(--bg); color: var(--text);
+  flex: 1 1 22rem; min-width: 0;
+}
+.search-input:focus { border-color: var(--accent); outline: none; }
+.id-picker-body {
+  border: 2px solid var(--border); border-radius: var(--radius);
+  padding: var(--sp-2); background: var(--surface);
+}
+.id-options { display: flex; flex-direction: column; gap: var(--sp-1); }
+.id-option {
+  display: flex; gap: var(--sp-2); align-items: baseline; flex-wrap: wrap;
+  font: inherit; font-size: var(--fs-sm); text-align: left;
+  padding: var(--sp-1) var(--sp-2); cursor: pointer;
+  border: 2px solid var(--border); border-radius: var(--radius);
+  background: var(--bg); color: var(--text);
+}
+.id-option:hover { background: var(--surface-2); }
+.id-option.chosen { border-color: var(--accent); }
+.id-option .spec {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-weight: 600;
+}
+.id-option .sample {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  color: var(--text-muted); font-size: var(--fs-xs);
+  overflow-wrap: anywhere;
+}
+.id-option .tally { color: var(--text-muted); font-size: var(--fs-xs); }
+.id-option.not-unique .tally { color: var(--warn, var(--text-muted)); }
+.id-picker-actions { display: flex; gap: var(--sp-2); align-items: flex-end;
+                     flex-wrap: wrap; }
+/* The identifier is how a row is told apart from the 371 around it when
+   the records carry no title, so it reads as a label, not as metadata. */
+.rec-id {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: var(--fs-xs); color: var(--text);
+  background: var(--surface-2);
+  padding: 0 var(--sp-1); border-radius: var(--radius);
+  white-space: nowrap;
+}
+.review-meta { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; }
+/* ui.css makes every select full width, which in this row would push the
+   Open / Close buttons onto a line of their own. */
+.page-size { display: inline-flex; align-items: center; gap: var(--sp-1); }
+.page-size select { width: auto; font-size: var(--fs-xs); padding: var(--sp-1) var(--sp-2); }
+.chip {
+  font: inherit; font-size: var(--fs-xs); font-weight: 600;
+  padding: var(--sp-1) var(--sp-3);
+  min-height: var(--control-min);
+  border: 2px solid var(--border); border-radius: var(--radius);
+  background: var(--bg); color: var(--text); cursor: pointer;
+}
+.chip:hover { background: var(--surface-2); }
+.chip.active { background: var(--accent); border-color: var(--accent); color: var(--bg); }
+.chip:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.card {
+  background: var(--surface);
+  border: 2px solid var(--border-soft);
+  border-radius: var(--radius);
+  padding: var(--sp-4);
+}
+.card-title {
+  font-size: var(--fs-lg); font-weight: 700; color: var(--text);
+  margin-bottom: var(--sp-3);
+  display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap;
+}
+.card-title .tag {
+  font-family: var(--font-mono); font-size: var(--fs-xs); font-weight: 600;
+  padding: var(--sp-1) var(--sp-2);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  color: var(--text);
+  border: 2px solid var(--border);
+}
+
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-3); }
+@media (max-width: 40rem) { .form-row { grid-template-columns: 1fr; } }
+
+/* Per-level subfield + caption editor */
+.conv-grid {
+  display: grid;
+  grid-template-columns: minmax(4rem, auto) minmax(3rem, auto) 1fr;
+  gap: var(--sp-2);
+  align-items: center;
+}
+.conv-head  { font-size: var(--fs-xs); font-weight: 700; color: var(--text-muted); }
+.conv-level { font-size: var(--fs-sm); color: var(--text); }
+.conv-sf    { text-align: center; }
+.conv-sf.invalid { border-color: var(--danger); background: var(--danger-soft); }
+.f866-list { margin-bottom: var(--sp-3); }
+.rec-note { margin-top: var(--sp-3); border-top: 1px solid var(--border); padding-top: var(--sp-2); }
+.rec-note textarea { min-height: 3rem; font-family: var(--font-sans); }
+.f866-row { display: flex; gap: var(--sp-2); align-items: flex-start; margin-top: var(--sp-1); }
+.f866-row .field-display { flex: 1; }
+.edit866 { flex: 1; border: 2px solid var(--focus); border-radius: var(--radius); padding: var(--sp-2); }
+.edit866 textarea { min-height: 3.5rem; font-family: var(--font-mono); }
+.edit866 select { width: auto; }
+.edit866 .split-part + .split-part { margin-top: var(--sp-2); }
+#batch-ind1.invalid, #batch-ind2.invalid { border-color: var(--danger); background: var(--danger-soft); }
+
+#drop-zone {
+  border: 3px dashed var(--border);
+  border-radius: var(--radius);
+  padding: var(--sp-5) var(--sp-4);
+  text-align: center; cursor: pointer;
+  color: var(--text-muted);
+  font-size: var(--fs-md);
+  background: var(--bg);
+}
+#drop-zone:hover, #drop-zone.dragover {
+  border-color: var(--accent); background: var(--accent-soft); color: var(--text);
+}
+#drop-zone .icon { font-size: var(--fs-2xl); display: block; margin-bottom: var(--sp-2); }
+#drop-zone.loaded {
+  padding: var(--sp-3);
+  font-size: var(--fs-sm);
+  min-height: var(--control-min);
+  display: flex; align-items: center; justify-content: center;
+  gap: var(--sp-2);
+  border-style: solid;
+  border-color: var(--ok);
+  background: var(--ok-soft);
+  color: var(--text);
+  text-align: left;
+}
+#drop-zone.loaded .icon { font-size: var(--fs-md); display: inline; margin: 0; }
+#file-input, #import-input { display: none; }
+
+/* Record rows */
+.rec-title { font-weight: 600; font-size: var(--fs-sm); color: var(--text); }
+.rec-meta  { font-size: var(--fs-xs); color: var(--text-muted); margin-top: var(--sp-1); }
+.pill.has-866 { border-color: var(--ok); background: var(--ok-soft); }
+.pill.from-pattern { border-color: var(--accent); background: var(--accent-soft); }
+
+/* MARC field displays */
+.field-display {
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  line-height: 1.7;
+  padding: var(--sp-3);
+  border-radius: var(--radius);
+  background: var(--bg);
+  border: 2px solid var(--border-soft);
+  border-left-width: 6px;
+  word-break: break-word;
+  color: var(--text);
+}
+.field-display.f866 { border-left-color: var(--text-muted); }
+.field-display.f853 { border-left-color: var(--accent); }
+.field-display.f863 { border-left-color: var(--focus); }
+
+.sf-tag   { color: var(--accent); font-weight: 700; }
+.sf-ind   { color: var(--text-muted); font-weight: 600; }
+.sf-code  { color: var(--focus);  font-weight: 700; }
+.sf-value { color: var(--text); }
+
+.pattern-group {
+  border: 2px solid var(--border-soft);
+  border-radius: var(--radius);
+  margin-bottom: var(--sp-4);
+  overflow: hidden;
+}
+.pg-header {
+  padding: var(--sp-3);
+  background: var(--surface-2);
+  border-bottom: 2px solid var(--border-soft);
+}
+.pg-header-meta {
+  display: flex; align-items: center; flex-wrap: wrap;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-2);
+}
+.pg-title { font-size: var(--fs-sm); font-weight: 700; color: var(--text); }
+
+.pair-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--sp-3);
+  padding: var(--sp-3);
+  border-bottom: 2px solid var(--border-soft);
+}
+.pair-row:last-child { border-bottom: none; }
+@media (max-width: 60rem) { .pair-row { grid-template-columns: 1fr; } }
+.pair-col-label {
+  font-size: var(--fs-xs); font-weight: 700;
+  color: var(--text-muted);
+  margin-bottom: var(--sp-1);
+}
+.pair-row .field-display + .field-display { margin-top: var(--sp-2); }
+
+/* ── Pattern cards ───────────────────────────────────────────────────── */
+
+/* Cards are a stack, not a table: each one is a separate decision and
+   reads better with air between them. */
+#patterns-area, .pattern-group-body {
+  display: flex; flex-direction: column; gap: var(--sp-3);
+}
+/* Patterns needing nothing from the cataloguer still have to be reachable
+   -- to re-read one, or to take it back out -- so they fold rather than
+   disappear. Same control as the confirmed-pattern library below them. */
+.pattern-group {
+  border: 2px dashed var(--border-soft);
+  border-radius: var(--radius);
+  padding: 0 var(--sp-3) 0;
+}
+.pattern-group > summary {
+  cursor: pointer;
+  padding: var(--sp-3) 0;
+  color: var(--text);
+  min-height: var(--control-min);
+  display: flex; align-items: center;
+}
+.pattern-group > summary:hover { color: var(--accent); }
+.pattern-group[open] > summary {
+  border-bottom: 2px solid var(--border-soft);
+  margin-bottom: var(--sp-3);
+}
+.pattern-group-body { padding-bottom: var(--sp-3); }
+
+.pattern-card {
+  border: 2px solid var(--border-soft);
+  border-radius: var(--radius);
+  background: var(--surface);
+  overflow: hidden;
+}
+.pattern-card.confirmed { border-color: var(--ok); }
+.pattern-card.skipped { border-color: var(--text-muted); border-style: dashed; }
+/* Arriving from a record: say which card the link landed on, or the jump
+   looks like nothing happened. */
+.pattern-card.jumped-to { border-color: var(--accent); box-shadow: 0 0 0 4px var(--accent-soft); }
+.pill.skipped-pill { border-color: var(--text-muted); color: var(--text-muted); }
+.pattern-card.too-complex { border-style: dashed; }
+.pc-head {
+  display: flex; align-items: center; flex-wrap: wrap;
+  gap: var(--sp-2);
+  padding: var(--sp-3);
+  background: var(--surface-2);
+}
+.pc-label {
+  font-family: var(--font-mono); font-weight: 700;
+  font-size: var(--fs-sm); color: var(--text);
+  flex: 1; min-width: 12rem; word-break: break-word;
+}
+.pc-body {
+  padding: var(--sp-4);
+  border-top: 2px solid var(--border-soft);
+  display: flex; flex-direction: column; gap: var(--sp-4);
+}
+.pc-body[hidden] { display: none; }
+.pill.confirmed-pill { border-color: var(--ok); background: var(--ok-soft); }
+.pill.decide { border-color: var(--warn); background: var(--warn-soft); }
+.pill.attention { border-color: var(--attention); background: var(--attention-soft); }
+/* A supplement or an index: held, but for moving to 867/868 rather than
+   for a pattern, so it does not wear the same colour as "held". */
+.pill.elsewhere { border-color: var(--accent); background: var(--accent-soft); }
+/* Read correctly, and left out because MARC has no place for it: neither a
+   note for the log (yellow) nor a decision to make (orange). */
+.pill.leftout { border-color: var(--accent); border-style: dashed; }
+.alert-leftout { background: var(--accent-soft); border-color: var(--accent);
+                 border-style: dashed; color: var(--text); }
+
+/* The expression, readable without opening the card. Two lines until it is
+   clicked; Copy takes the whole of it either way. */
+.pc-expr-row {
+  display: flex; align-items: flex-start; gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+  border-top: 2px solid var(--border-soft);
+}
+.pc-expr {
+  flex: 1; min-width: 0;
+  font-family: var(--font-mono); font-size: var(--fs-xs); line-height: 1.6;
+  color: var(--text-muted); word-break: break-all; cursor: pointer;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.pc-expr.open { display: block; color: var(--text); }
+/* The chosen tool has no way to write this one: the reason, in its place. */
+.pc-expr.refused { font-family: inherit; color: var(--warn); }
+.flavour-row {
+  display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-2);
+  margin-top: var(--sp-2);
+}
+.flavour-row select { width: auto; max-width: 100%; }
+.pc-records {
+  display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-2);
+  padding: 0 var(--sp-3) var(--sp-2);
+}
+.pc-records:empty { display: none; }
+/* Pasted statements have no Convert step, so each one that is not simply
+   converted says so on its card, with its reason. */
+.pc-outcomes { padding: 0 var(--sp-3) var(--sp-2); display: flex;
+               flex-direction: column; gap: var(--sp-2); }
+.pc-outcome-head { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-2); }
+.look-row { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-2); }
+.look-reason { display: flex; flex-direction: column; gap: var(--sp-1); }
+.look-reason + .look-reason { margin-top: var(--sp-2); }
+.look-reason .pc-outcome { padding-left: var(--sp-3); }
+.look-hint { color: var(--text); }
+#fix-toast {
+  position: fixed; right: var(--sp-4); bottom: 4rem; z-index: 50;
+  max-width: min(34rem, calc(100vw - 2 * var(--sp-4)));
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+  display: flex; gap: var(--sp-3); align-items: flex-start;
+}
+#fix-toast[hidden] { display: none; }
+#fix-toast .toast-text { flex: 1; }
+
+.regex-box {
+  width: 100%;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  line-height: 1.6;
+  min-height: 5rem;
+  resize: vertical;
+}
+
+/* The role table: one row per captured value. This is where a cataloguer
+   says what the tool found, so it is the most important thing on screen —
+   full width, real controls, nothing abbreviated. */
+.role-table { width: 100%; border-collapse: collapse; }
+.role-table th {
+  text-align: left;
+  font-size: var(--fs-xs); font-weight: 700; color: var(--text-muted);
+  padding: var(--sp-2); border-bottom: 2px solid var(--border-soft);
+}
+.role-table td {
+  padding: var(--sp-2);
+  border-bottom: 2px solid var(--border-soft);
+  vertical-align: middle;
+}
+.role-table tr:last-child td { border-bottom: none; }
+.role-table tr.needs-decision td { background: var(--warn-soft); }
+/* Read from the statement: shown, but nothing here would change it. */
+.role-table tr.role-fixed td { color: var(--text-muted); }
+.role-table tr.role-fixed select:disabled,
+.role-table tr.role-fixed input:disabled { background: var(--surface-2); color: var(--text-muted);
+                                           border-style: dashed; cursor: not-allowed; }
+.role-fixed-note { display: block; font-size: var(--fs-sm); color: var(--text-muted); }
+/* What answering this card would change: the first thing in the body,
+   because it decides how much care the rest of it deserves. */
+.decides-note { margin-bottom: var(--sp-3); }
+.role-group  { font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--text); }
+.role-sample { font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--text-muted); word-break: break-word; }
+.role-guess {
+  display: block; margin-top: var(--sp-1);
+  font-family: var(--font-sans); font-size: var(--fs-xs);
+  color: var(--warn); font-weight: 600;
+}
+.role-table select { min-width: 8rem; }
+/* Caption and level belong to enumeration alone and sit at the end of the
+   row, so they stay narrow and let the decision columns lead. */
+.role-table .role-enum-level { min-width: 7rem; }
+.role-caption {
+  width: 7rem;
+  font-family: var(--font-mono); font-size: var(--fs-xs);
+}
+.role-scroll { overflow-x: auto; }
+
+/* The 866 under examination: the top of the reading order that runs
+   statement -> table -> output. */
+.example-bar {
+  display: flex; align-items: center; gap: var(--sp-2);
+  padding: var(--sp-3);
+  border: 2px solid var(--border-soft);
+  border-left: 6px solid var(--text-muted);
+  border-radius: var(--radius);
+  background: var(--bg);
+}
+.example-text {
+  flex: 1; min-width: 0;
+  font-family: var(--font-mono); font-size: var(--fs-sm);
+  color: var(--text); word-break: break-word;
+}
+.example-bar .btn { flex: none; }
+.example-count { flex: none; white-space: nowrap; }
+.mb-1 { margin-bottom: var(--sp-2); }
+
+/* The example's own row, among the record's other statements. */
+.pair-row.is-example { background: var(--accent-soft); }
+.pair-row.is-example .pair-col-label { color: var(--text); }
+
+.preview-pair {
+  display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-3);
+  padding: var(--sp-3);
+  border: 2px solid var(--border-soft);
+  border-radius: var(--radius);
+  margin-bottom: var(--sp-3);
+}
+@media (max-width: 60rem) { .preview-pair { grid-template-columns: 1fr; } }
+.preview-stmt {
+  font-family: var(--font-mono); font-size: var(--fs-sm);
+  color: var(--text); margin-bottom: var(--sp-2); word-break: break-word;
+}
+.preview-head {
+  display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap;
+  margin-bottom: var(--sp-2);
+}
+
+/* The batch result. It used to be one sentence with every source joined by
+   commas -- 432 characters on a 10-source file, and the pattern labels
+   contain em-dashes of their own, so the separators were unreadable. The
+   figures a cataloguer actually wants are how much their own patterns did
+   and how much fell through, so those lead and the rest is a table. */
+.sum-figures {
+  display: flex; flex-wrap: wrap; gap: var(--sp-3);
+  margin-top: var(--sp-2);
+}
+.sum-figure {
+  min-width: 7rem;
+  padding: var(--sp-2) var(--sp-3);
+  border: 2px solid var(--border-soft); border-radius: var(--radius);
+  background: var(--surface);
+}
+.sum-figure .n {
+  display: block;
+  font-size: var(--fs-lg); font-weight: 700; color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+.sum-figure .what { font-size: var(--fs-xs); color: var(--text-muted); }
+.sum-figure.is-patterns { border-color: var(--accent); background: var(--accent-soft); }
+.sum-figure.is-review   { border-color: var(--warn);   background: var(--warn-soft); }
+.sum-figure.is-zero .n  { color: var(--text-muted); }
+
+.sum-table { width: 100%; border-collapse: collapse; margin-top: var(--sp-2); }
+.sum-table th {
+  text-align: left;
+  font-size: var(--fs-xs); font-weight: 700; color: var(--text-muted);
+  padding: var(--sp-1) var(--sp-2);
+  border-bottom: 2px solid var(--border-soft);
+}
+.sum-table td {
+  padding: var(--sp-1) var(--sp-2);
+  border-bottom: 2px solid var(--border-soft);
+  vertical-align: middle;
+}
+.sum-table tr:last-child td { border-bottom: none; }
+.sum-table .sum-label {
+  font-family: var(--font-mono); font-size: var(--fs-xs);
+  word-break: break-word;
+}
+/* The three sources that are not a pattern read as prose, not as a label. */
+.sum-table tr.not-a-pattern .sum-label { font-family: var(--font-sans); }
+.sum-table .sum-count {
+  width: 4rem; text-align: right;
+  font-variant-numeric: tabular-nums; font-weight: 700;
+}
+.sum-bar-cell { width: 40%; }
+.sum-bar {
+  height: 0.6rem; border-radius: var(--radius);
+  background: var(--accent); min-width: 2px;
+}
+.sum-table tr.not-a-pattern .sum-bar { background: var(--text-muted); }
+/* Long libraries: the table scrolls rather than pushing the download button
+   off the screen. */
+.sum-scroll { max-height: 22rem; overflow-y: auto; }
+
+/* The library list in the sidebar */
+.lib-item {
+  display: flex; align-items: center; gap: var(--sp-2);
+  padding: var(--sp-2);
+  border: 2px solid var(--border-soft);
+  border-radius: var(--radius);
+  margin-bottom: var(--sp-2);
+  background: var(--bg);
+}
+.lib-label {
+  flex: 1; min-width: 0;
+  font-family: var(--font-mono); font-size: var(--fs-xs);
+  color: var(--text); word-break: break-word;
+}
+.lib-example {
+  display: block; margin-top: var(--sp-1);
+  color: var(--text-muted);
+}

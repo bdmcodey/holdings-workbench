@@ -39,4 +39,4 @@ marc-serials = "marc_serials.webapp:main"
 packages = ["marc_serials"]
 
 [tool.setuptools.package-data]
-marc_serials = ["templates/*.html", "shared/*"]
+marc_serials = ["templates/*.html", "shared/*", "static/*.css", "static/js/*.js"]

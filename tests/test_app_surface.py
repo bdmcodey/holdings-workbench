@@ -16,7 +16,7 @@ import re
 
 import pytest
 
-from conftest import REPO_ROOT
+from conftest import REPO_ROOT, page_source, served_page
 
 TEMPLATES = REPO_ROOT / "marc_serials" / "templates"
 
@@ -133,7 +133,7 @@ def test_the_find_box_narrows_the_filter_rather_than_replacing_it():
     showed another. Both predicates meet in filteredIndices(), and this pins
     them there.
     """
-    script = (TEMPLATES / "tool.html").read_text(encoding="utf-8")
+    script = page_source()
     assert "function recordMatchesSearch(" in script
     combined = re.search(
         r"function filteredIndices\(\)\s*\{(.*?)\n\}", script, re.S)
@@ -146,7 +146,7 @@ def test_the_find_box_narrows_the_filter_rather_than_replacing_it():
 
 def test_the_find_box_and_its_controls_are_on_the_page(client):
     """The markup the search handler binds to, so a rename cannot go unnoticed."""
-    page = client.get("/").get_data(as_text=True)
+    page = served_page(client)
     for element in ('id="review-search"', 'id="btn-search-clear"',
                     'id="review-empty"', 'id="identifier-notice"'):
         assert element in page, f"{element} is missing from the page"
@@ -159,14 +159,14 @@ def test_the_review_list_offers_a_choice_of_page_size(client):
     "All records" was withdrawn in 0.24.1 at the cataloguer's request: every
     row of a 372-record file on screen made opening a record lag.
     """
-    page = client.get("/").get_data(as_text=True)
+    page = served_page(client)
     menu = re.search(r'<select id="review-page-size">(.*?)</select>', page, re.S)
     assert menu, "the records-per-page menu is missing from the page"
     values = re.findall(r'<option value="([^"]+)"', menu.group(1))
     assert values == ["5", "10", "25", "50"]
     assert '<option value="10" selected>' in menu.group(1)
 
-    script = (TEMPLATES / "tool.html").read_text(encoding="utf-8")
+    script = page_source()
     sizes = re.search(r"const REVIEW_PAGE_SIZES = \[(.*?)\];", script)
     assert sizes, "REVIEW_PAGE_SIZES has moved or been renamed"
     assert re.findall(r"'([^']+)'", sizes.group(1)) == values, (
@@ -184,10 +184,10 @@ def test_all_records_are_fetched_in_batches_the_server_will_answer():
     from marc_serials import webapp
 
     client = webapp.app.test_client()
-    page = client.get("/").get_data(as_text=True)
+    page = served_page(client)
     assert f"const PREVIEW_BATCH = {webapp.PREVIEW_PAGE_MAX};" in page
 
-    script = (TEMPLATES / "tool.html").read_text(encoding="utf-8")
+    script = page_source()
     loader = re.search(
         r"async function loadReviewPage\(\)\s*\{(.*?)\n\}", script, re.S)
     assert loader, "loadReviewPage() has moved or been renamed"
@@ -205,7 +205,7 @@ def test_each_leader_note_can_be_hidden_and_folds_to_its_count():
     browser. Hidden folds the note to one line that keeps its count and a Show
     button: nothing the tool found may disappear from the screen.
     """
-    script = (TEMPLATES / "tool.html").read_text(encoding="utf-8")
+    script = page_source()
     shown = re.search(
         r"function showLeaderNotices\(data\)\s*\{(.*?)\n\}", script, re.S)
     assert shown, "showLeaderNotices() has moved or been renamed"
@@ -233,7 +233,7 @@ def test_a_skipped_record_never_needs_attention():
     existing 853s do not, and until 0.24.2 they kept a skipped record under
     "Needs attention" -- two records on a real file, found in testing.
     """
-    script = (TEMPLATES / "tool.html").read_text(encoding="utf-8")
+    script = page_source()
     held = re.search(r"case 'held':\s*return (.*?);", script, re.S)
     assert held, "the Needs attention filter has moved or been renamed"
     rule = held.group(1)
@@ -275,7 +275,7 @@ def test_the_tab_icon_is_served_under_both_names(client):
 
 
 def test_the_page_asks_for_the_icon(client):
-    page = client.get("/").get_data(as_text=True)
+    page = served_page(client)
     assert 'rel="icon"' in page and "favicon.png" in page
 
 
@@ -329,7 +329,7 @@ def test_the_page_carries_its_fold_controls(client):
     without them renders fine, just missing the controls. Pin the handful of
     hooks the script drives.
     """
-    page = client.get("/").get_data(as_text=True)
+    page = served_page(client)
     for anchor in ('id="btn-toggle-patterns"', 'id="patterns-body"',
                    'id="patterns-summary"', 'aria-controls="patterns-body"',
                    'class="rec-skip"', 'pc-skip', 'data-filter="skipped"',
@@ -362,7 +362,10 @@ def test_every_named_map_callback_in_the_template_exists(template):
     Nothing here type-checks the template. It catches exactly the shape that
     went wrong: a callback passed to .map() by a name that nothing defines.
     """
-    script = template.read_text(encoding="utf-8")
+    # The page's script is in static/js/ since 0.48.0; read it with the template,
+    # since a name can be defined in one file and used in another.
+    script = (page_source() if template.name == "tool.html"
+              else template.read_text(encoding="utf-8"))
     declared = _declared_names(script)
     used = set(_MAP_CALLBACK_RE.findall(script))
     # Built-ins are legitimate callbacks and are not declared anywhere.
@@ -380,7 +383,7 @@ def test_the_summary_knows_which_sources_are_not_patterns():
     """
     from marc_serials.bridge import PARSER_SOURCE, SKIPPED_SOURCE, UNMATCHED_SOURCE
 
-    script = (TEMPLATES / "tool.html").read_text(encoding="utf-8")
+    script = page_source()
     match = re.search(r"const NOT_A_PATTERN = new Set\(\[([^\]]*)\]\)", script)
     assert match, "the summary no longer names the non-pattern sources"
 
@@ -394,7 +397,7 @@ def test_the_page_explains_what_confirming_decides(client):
     a caption, or nothing at all. It is built client-side from group.decides,
     so no route test would notice it going missing.
     """
-    page = client.get("/").get_data(as_text=True)
+    page = served_page(client)
     assert "function decidesNote(" in page
     assert "decides-note" in page
     for verdict in ("reading:", "caption:", "nothing:"):
@@ -407,7 +410,7 @@ def test_patterns_the_parser_reads_are_not_presented_as_work(client):
     the `open` list -- that list is the work, and a question with no consequence
     is not work.
     """
-    page = client.get("/").get_data(as_text=True)
+    page = served_page(client)
     assert "group.decides === 'nothing'" in page
     assert "parts.readable" in page
 
@@ -423,7 +426,7 @@ def test_a_pattern_deciding_a_reading_is_never_confirmed_unasked(client):
     19, issue 2, and the supplement, which is what the library actually holds,
     disappears into an ordinary 863.
     """
-    page = client.get("/").get_data(as_text=True)
+    page = served_page(client)
     assert "g.decides !== 'reading'" in page, \
         "auto-confirm no longer excludes patterns that decide a reading"
 
@@ -434,7 +437,7 @@ def test_the_summary_says_what_the_outstanding_patterns_decide(client):
     supply only a caption, which is a different amount of care, so the count
     distinguishes them.
     """
-    page = client.get("/").get_data(as_text=True)
+    page = served_page(client)
     assert "function openBreakdown(" in page
     assert "how a statement is read" in page
     assert "supply' : 'supplies'" in page or "supplies' : 'supply'" in page \
@@ -451,7 +454,7 @@ def test_confirming_a_suggestion_unchanged_puts_out_needs_a_decision(client):
     Found in testing. confirmPattern now redraws the table from the roles it
     saved, which carry no suggestions.
     """
-    script = (TEMPLATES / "tool.html").read_text(encoding="utf-8")
+    script = page_source()
     confirm = re.search(
         r"async function confirmPattern\(card\)\s*\{(.*?)\n\}", script, re.S)
     assert confirm, "confirmPattern() has moved or been renamed"
@@ -475,7 +478,7 @@ def test_the_pattern_library_is_on_screen_before_anything_is_loaded():
     first. It sits under step 1 now, outside the part that folds, and is never
     hidden: empty, it says so and offers Import.
     """
-    page = (TEMPLATES / "tool.html").read_text(encoding="utf-8")
+    page = page_source()
     source = page[page.index('<section class="step" id="step-source">'):
                   page.index('<section class="step" id="step-patterns"')]
     assert '<details id="library-bar"' in source, "the library is not in step 1"
@@ -492,7 +495,7 @@ def test_an_open_record_can_be_closed_from_its_foot():
     screens up from Reviewed, Skip and the note. Close sits beside them now,
     shown only while the record is open, and brings the folded line into view.
     """
-    page = (TEMPLATES / "tool.html").read_text(encoding="utf-8")
+    page = page_source()
     foot = page[page.index('<div class="rec-foot">'):page.index("`).join('');",
                                                              page.index('<div class="rec-foot">'))]
     assert 'class="rec-skip"' in foot and 'onclick="closeRecord(${i})"' in foot
@@ -510,7 +513,7 @@ def test_a_record_being_worked_on_stays_until_it_is_closed():
     says it no longer matches, and leaves on Close; moving to another
     filter, search or page closes what is open first.
     """
-    page = (TEMPLATES / "tool.html").read_text(encoding="utf-8")
+    page = page_source()
     assert "row.hidden = !on && !open;" in page
     assert 'class="small dim rec-leaving" hidden' in page
     closing = page[page.index("function closeRecord("):page.index("function foldRow(")]
@@ -528,7 +531,7 @@ def test_an_edit_or_split_says_whether_it_fixed_the_statement():
     record now reads, and the result is said: fixed, converts with something
     to check, or still held -- with the reason.
     """
-    page = (TEMPLATES / "tool.html").read_text(encoding="utf-8")
+    page = page_source()
     assert '<div id="fix-toast" class="alert" role="status" aria-live="polite" hidden></div>' in page
     outcome = page[page.index("async function recordOutcome("):page.index("function pastedOutcome(")]
     for said in ("Saved, but still held.", "Saved. It converts, with something to check:",
@@ -549,7 +552,7 @@ def test_clear_starts_over_and_a_removed_pattern_is_said_to_be_held_back():
     on its own is still not re-confirmed, and the step says how many were
     held back for that reason.
     """
-    page = (TEMPLATES / "tool.html").read_text(encoding="utf-8")
+    page = page_source()
     clear = page[page.index("document.getElementById('btn-clear-library').addEventListener"):]
     clear = clear[:clear.index("});")]
     assert "dismissed.clear();" in clear
@@ -568,7 +571,7 @@ def test_a_card_that_wants_an_answer_says_so():
     libraries' catalogues, 3 of the 10 on the first page. The pill now asks the
     same question the count does, needsAnAnswer(), as well as the rows.
     """
-    script = (TEMPLATES / "tool.html").read_text(encoding="utf-8")
+    script = page_source()
     assert ("!skipped && (needsAnAnswer(group, confirmed)\n"
             "          || roles.some(r => r.kind === UNRESOLVED_KIND || r.suggested))") in script
     update = re.search(r"function updateCardWarnings\(card\)\s*\{(.*?)\n\}", script, re.S)
@@ -579,3 +582,27 @@ def test_a_card_that_wants_an_answer_says_so():
     # And the step files its cards by the same test.
     partition = re.search(r"function partitionGroups\(groups\)\s*\{(.*?)\n\}", script, re.S)
     assert partition and "needsAnAnswer(group, stored)" in partition.group(1)
+
+
+def test_the_page_loads_every_file_of_its_own_and_ships_them(client):
+    """
+    Since 0.48.0 the page's styles and script are files in static/, loaded by
+    the template in order, rather than one 5,690-line tool.html. A file that is
+    written and not linked would sit unused; one linked and missing, or left out
+    of an installed copy, would leave the page without part of itself.
+    """
+    template = (TEMPLATES / "tool.html").read_text(encoding="utf-8")
+    linked = re.findall(r'(?:href|src)="(static/[^"?]+)', template)
+    static = REPO_ROOT / "marc_serials" / "static"
+    on_disk = sorted(str(p.relative_to(static.parent)) for p in static.rglob("*")
+                     if p.is_file())
+    assert sorted(linked) == on_disk
+    # Each is served where the page asks for it (served_page asserts the 200).
+    assert "function runDetect(" in served_page(client)
+    # And an installed copy carries them.
+    pyproject = (REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    assert '"static/*.css", "static/js/*.js"' in pyproject
+    # The scripts run in the order they were written in when they were one
+    # file: core first, the library loaded last.
+    assert [p.rsplit("/", 1)[-1] for p in linked if p.endswith(".js")][0] == "core.js"
+    assert template.rstrip().endswith('<script src="static/js/page.js?v={{ about.version }}"></script>\n</body>\n</html>')

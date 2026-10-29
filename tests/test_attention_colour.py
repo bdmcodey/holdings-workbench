@@ -16,7 +16,7 @@ import re
 
 from pymarc import Field, MARCWriter, Record, Subfield
 
-from conftest import REPO_ROOT, upload_marc
+from conftest import REPO_ROOT, upload_marc, page_source
 from marc_serials.converter import convert_holdings
 from marc_serials.parser import parse_866
 
@@ -63,8 +63,7 @@ def test_the_preview_carries_it_to_the_screen(client):
 
 
 def test_the_page_colours_by_it():
-    page = (REPO_ROOT / "marc_serials" / "templates" / "tool.html").read_text(
-        encoding="utf-8")
+    page = page_source()
     helper = re.search(r"function warningHtml.*?\n}\n", page, re.S).group(0)
     assert "pv.attention" in helper and "alert-attention" in helper
     assert "To check:" in helper
@@ -79,8 +78,7 @@ def test_a_held_statement_shows_every_reason():
     then "Read 'v.1' but could not account for '// 1982//'". Only the first
     was shown, and it is the second that says what to clean up.
     """
-    page = (REPO_ROOT / "marc_serials" / "templates" / "tool.html").read_text(
-        encoding="utf-8")
+    page = page_source()
     assert "pv.warnings[0]" not in page
     # A held statement, on the record and in a pattern's preview -- one
     # renderer for both since 0.42.0, heldRowsHtml() -- and "Belongs in

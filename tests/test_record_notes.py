@@ -16,7 +16,7 @@ import re
 
 from pymarc import Field, MARCReader, MARCWriter, Record, Subfield
 
-from conftest import REPO_ROOT, upload_marc
+from conftest import REPO_ROOT, upload_marc, page_source
 
 
 def _file() -> bytes:
@@ -93,8 +93,7 @@ def test_ticking_skip_leaves_the_cursor_where_it_was():
     attention" the record leaves the list, so there was nothing to open. The
     note is written from the record's detail, or from the Skipped filter.
     """
-    script = (REPO_ROOT / "marc_serials" / "templates" / "tool.html").read_text(
-        encoding="utf-8")
+    script = page_source()
     handler = re.search(r"skipRecords\.add\(idx\).*?\}\)\);", script, re.S)
     assert handler, "the Skip handler has moved or been renamed"
     body = handler.group(0)

@@ -64,7 +64,8 @@ python run.py
 holdings-workbench/
 ├── marc_serials/       the whole tool, as one installable package
 │   ├── webapp.py           the Flask application: routes and session handling
-│   ├── templates/          the page
+│   ├── templates/          the page's layout (tool.html)
+│   ├── static/             the page's styles and scripts, one file a part
 │   ├── shared/             stylesheet and version/changelog
 │   ├── parser.py           866 text            → ParseResult
 │   ├── converter.py        ParseResult         → MARC 853 / 863 fields

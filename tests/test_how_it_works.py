@@ -14,7 +14,7 @@ from __future__ import annotations
 import json
 import re
 
-from conftest import REPO_ROOT
+from conftest import REPO_ROOT, page_source
 
 
 def test_the_guide_describes_the_current_version():
@@ -95,8 +95,7 @@ def test_the_quick_start_describes_the_current_version():
 
 def test_what_the_quick_start_names_is_on_the_page():
     guide = _quick_start()
-    page = (REPO_ROOT / "marc_serials" / "templates" / "tool.html").read_text(
-        encoding="utf-8")
+    page = page_source()
     for in_guide, on_page in QUICK_START_LABELS:
         assert in_guide in guide, f"the quick start no longer says {in_guide!r}"
         assert on_page in page, (
