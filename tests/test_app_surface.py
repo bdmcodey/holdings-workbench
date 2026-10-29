@@ -556,3 +556,26 @@ def test_clear_starts_over_and_a_removed_pattern_is_said_to_be_held_back():
     assert "dismissed.add(" not in clear
     assert "const ready = readable.filter(g => !dismissed.has(patternIdFor(g)));" in page
     assert "you removed from the library ${" in page
+
+
+def test_a_card_that_wants_an_answer_says_so():
+    """
+    Asked for by the cataloguer: a card the step counts as still wanting an
+    answer should carry the yellow "needs a decision". Until 0.46.1 only an
+    undecided or suggested row lit it, so a card whose every value the detector
+    had given a meaning wanted an answer with nothing on it saying so -- on the
+    real export the one such card said "not read" and no more; from other
+    libraries' catalogues, 3 of the 10 on the first page. The pill now asks the
+    same question the count does, needsAnAnswer(), as well as the rows.
+    """
+    script = (TEMPLATES / "tool.html").read_text(encoding="utf-8")
+    assert ("!skipped && (needsAnAnswer(group, confirmed)\n"
+            "          || roles.some(r => r.kind === UNRESOLVED_KIND || r.suggested))") in script
+    update = re.search(r"function updateCardWarnings\(card\)\s*\{(.*?)\n\}", script, re.S)
+    assert update and "needsAnAnswer(card._group, stored)" in update.group(1)
+    # Taken out of the library, it wants an answer again.
+    remove = re.search(r"async function removePattern\(card\)\s*\{(.*?)\n\}", script, re.S)
+    assert remove and "updateCardWarnings(card);" in remove.group(1)
+    # And the step files its cards by the same test.
+    partition = re.search(r"function partitionGroups\(groups\)\s*\{(.*?)\n\}", script, re.S)
+    assert partition and "needsAnAnswer(group, stored)" in partition.group(1)

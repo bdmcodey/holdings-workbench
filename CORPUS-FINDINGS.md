@@ -2839,7 +2839,7 @@ real export gets no note on any of its 1,057 866s. The angle-bracket dates of
 D41 (`<1884:6:28>`) are not treated as the Newspaper Program's: nothing here
 says whose they are.
 
-## A one-page quick start · **0.46.1**
+## "Needs a decision" on every card that wants an answer; a quick start · **0.46.1**
 
 *29 October 2026.* Asked for by the cataloguer: HOW-IT-WORKS is thorough and
 long, and a colleague trying the Workbench for the first time needs one page
@@ -2864,9 +2864,29 @@ read" statement rather than answer for it. A first draft also said the work
 lasts until the server is closed; an upload is in fact deleted about six hours
 after it is made, and the library after 30 days unused.
 
+**Then fixed on screen, at the cataloguer's asking:** a card that wants an
+answer carries the pill. It now lights on the same test the step's count uses
+(not confirmed, and an answer would change what is written) as well as on an
+undecided or suggested row, until the card is confirmed or skipped; removing
+the pattern from the library lights it again. Cards wanting an answer, and how
+many carried the pill, before and after, each corpus run fresh:
+
+| Source | Want an answer | Pill before | Pill after |
+| --- | --- | --- | --- |
+| Real export (uploaded) | 1 | 0 | 1 |
+| Example file | 2 | 2 | 2 |
+| Messy file | 6 | 6 | 6 |
+| Main corpus (pasted) | 5 | 5 | 5 |
+| LC examples (pasted) | 1 | 1 | 1 |
+| Other libraries' catalogues (pasted) | 18 | 7 of the 10 on page 1 | 10 of 10, and 8 of 8 on page 2 |
+
+No card that wants no answer carries it, before or after. Confirm puts it out,
+Remove from library lights it, Skip puts it out: checked in Chromium.
+
 **Kept from drifting.** `tests/test_how_it_works.py` now fails when the quick
 start describes an older version, or names a button or setting the page no
-longer has by that name. Nothing that reads or writes holdings changed; the
+longer has by that name; `tests/test_app_surface.py` keeps the pill on the
+same test as the count. Nothing that reads or writes holdings changed; the
 corpus report is byte-for-byte the same.
 
 ## From the keyboard and with a screen reader · **0.46.0**

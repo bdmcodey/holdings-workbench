@@ -3525,7 +3525,8 @@ function buildPatternCard(group, idx) {
       <span class="pill confirmed-pill" ${confirmed && !skipped ? '' : 'hidden'}>Confirmed</span>
       <span class="pill skipped-pill" ${skipped ? '' : 'hidden'}>Skipped</span>
       <span class="pill decide role-warning" ${
-        !skipped && roles.some(r => r.kind === UNRESOLVED_KIND || r.suggested) ? '' : 'hidden'}>
+        !skipped && (needsAnAnswer(group, confirmed)
+          || roles.some(r => r.kind === UNRESOLVED_KIND || r.suggested)) ? '' : 'hidden'}>
         needs a decision</span>
       <button type="button" class="btn btn-secondary btn-sm pc-toggle" aria-expanded="false"
               aria-label="Review pattern ${escHtml(group.human_label)}">Review</button>
@@ -4337,15 +4338,23 @@ function wireCard(card) {
 /**
  * The pill and the Confirm button answer different questions.
  *
- * The pill asks "has a cataloguer looked at this yet?", so a suggested level
- * keeps it lit until the row is touched or the pattern confirmed (confirmPattern
- * redraws the table from the saved roles, which carry no suggestions). The button
- * asks "is there an answer to act on?", which a suggestion already is.
+ * The pill asks "is this card waiting on a cataloguer?". It is whenever the
+ * step counts it as wanting an answer -- not confirmed, and an answer would
+ * change what is written -- and whenever a row is undecided or only suggested.
+ * Until 0.46.1 only the rows lit it, so a card whose every value the detector
+ * had given a meaning wanted an answer with nothing on it saying so: on the
+ * real export the one such card said "not read" and no more, and 3 of the 10
+ * on the first page from other libraries' catalogues were the same. Confirming
+ * puts it out (confirmPattern redraws the table from the saved roles, which
+ * carry no suggestions); removing the pattern from the library lights it again.
+ * The button asks "is there an answer to act on?", which a suggestion already is.
  */
 function updateCardWarnings(card) {
   const warn = card.querySelector('.role-warning');
   if (!warn) return;
-  warn.hidden = card.querySelectorAll('.role-rows tr.needs-decision').length === 0;
+  const stored = library.find(p => p.id === card._id);
+  warn.hidden = !needsAnAnswer(card._group, stored)
+    && card.querySelectorAll('.role-rows tr.needs-decision').length === 0;
 }
 
 let previewTimer = null;
@@ -4772,6 +4781,7 @@ async function removePattern(card) {
   card.querySelector('.confirmed-pill').hidden = true;
   card.querySelector('.pc-remove').hidden = true;
   card.querySelector('.pc-confirm').textContent = 'Confirm pattern';
+  updateCardWarnings(card);
   showAlert(card.querySelector('.pc-status'), 'Removed from the library.', 'info');
 }
 

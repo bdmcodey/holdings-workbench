@@ -17,9 +17,10 @@ what was done about each, is in [CORPUS-FINDINGS.md](CORPUS-FINDINGS.md).
 
 ## 0.46.1 — 2026-10-29
 
-A one-page quick start for cataloguers trying the Workbench for the first time.
+Every pattern card that wants an answer now says "needs a decision", and a one-page quick start for cataloguers trying the Workbench for the first time.
 
-- **MARC Holdings Workbench** — New: docs/QUICK-START.md, one page for a first try. It goes through the three steps in order (upload, answer what the Patterns step asks, check the settings, review the records under Needs attention, download the file and the log), names each button as the screen does, and says what each colour and label means. Nothing on the screen or in the output changed.
+- **MARC Holdings Workbench** — Every pattern card that wants an answer is now marked "needs a decision" in yellow, until you confirm or skip it: the same cards the Patterns step counts as still wanting one. Before, the mark showed only while a value had no meaning or only a suggested one, so a card could want an answer with nothing on it saying so. On a 372-record export the one such card showed only "not read".
+- **MARC Holdings Workbench** — New: docs/QUICK-START.md, one page for a first try. It goes through the three steps in order (upload, answer what the Patterns step asks, check the settings, review the records under Needs attention, download the file and the log), names each button as the screen does, and says what each colour and label means.
 
 ## 0.46.0 — 2026-10-16
 

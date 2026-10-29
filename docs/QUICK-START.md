@@ -41,8 +41,9 @@ for example every statement written like `v.1:no.1(1990:Jan.)-v.5:no.4(1994:Dec.
 - **Most cards need nothing from you.** A pattern whose every value already has
   a meaning is confirmed for you. If nothing needs deciding, the step folds
   away and you can go straight to step 3.
-- **The cards that want an answer come first,** loose above the folded groups.
-  The line above them says how many ("1 still wants an answer"), and whether
+- **The cards that want an answer come first,** loose above the folded groups,
+  each marked **needs a decision** in yellow until you confirm it. The line
+  above them says how many ("1 still wants an answer"), and whether
   each one supplies a caption (a level written as a bare number, as in
   `39 no 1 (2018)`) or decides how a statement is read (nothing in the wording
   says what a value is, like the `5` in `v.1(1990)-5(1994)`). Press **Review**, say what each value is
@@ -107,7 +108,7 @@ line.
 | --- | --- |
 | Green **100% matched** | The pattern's expression matches every statement in its group |
 | Green **Confirmed** | The pattern is in your library, confirmed for you or by you, and will be used when you convert |
-| Yellow **needs a decision** | A value on the card has no meaning yet. The card can't be confirmed until you choose one |
+| Yellow **needs a decision** | The card is waiting on you: confirm it, or Skip it. It goes out when you do |
 | Yellow **not read** | The standard parser can't read the statement at all, often because of a typo. Edit fixes it |
 | Orange **held** | Nothing was written from it, because writing part of it would be wrong. The 866 stays |
 | Orange **to check**, a box beginning "To check:" | It converted, with something you should look at before loading |

@@ -211,6 +211,8 @@ An 866 can hold more than one range, as in `v.1(1990)-v.3(1992), v.5(1994)-`. Be
 | The parser writes nothing for these | Nothing in the wording says what a value is, like `?: 16` or `v.1(1990)-5(1994)` | Your answer is what converts them |
 | These read as a supplement (or an index) | The statement says `Suppl.`, `Special issue`, `Index` or the like | Nothing: they are held whatever you confirm. See "Supplements and indexes" below |
 
+A card that wants an answer is marked **needs a decision** in yellow until it is confirmed or skipped: the same cards the line above them counts as still wanting one. Removing a pattern from the library marks its card again. Before 0.46.1 the mark showed only while a value was undecided or only suggested, so a card whose values the detector had all given a meaning could want an answer with nothing on it saying so.
+
 ### What you decide for each value
 
 - **What it is:** Enumeration, Year, Month / season, Day, or Not encoded. A value with no caption in front of it starts as "Not yet decided", and the pattern cannot be saved until you choose.
@@ -541,7 +543,7 @@ Four checks run before any change is released, and each answers a different ques
 
 | Check | Question it answers | Result as of 0.46.1 |
 | --- | --- | --- |
-| Automated tests | Does every behaviour described here still hold? | 1,125 passed, 8 skipped |
+| Automated tests | Does every behaviour described here still hold? | 1,126 passed, 8 skipped |
 | Corpus report | What do 117 real 866 statements convert to, and has any outcome changed? | 89 clean (76%), 22 converted with a warning, 6 with no fields, 0 with values lost |
 | Conversion audit | Did any number in a statement reach no field and no warning? | 0 unaccounted for: the corpus, the LC examples, the other library's catalogue, and all 1,057 statements of the 372-record test export |
 | Round trip | Convert, write the 866 as Alma would, convert again: do the same 863s come back? | Test export: 938 identical, 103 identical apart from an 853 caption, 14 not converted (13 of them months and seasons in one 866), **0 drift** |
