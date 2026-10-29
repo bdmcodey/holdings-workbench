@@ -2839,6 +2839,73 @@ real export gets no note on any of its 1,057 866s. The angle-bracket dates of
 D41 (`<1884:6:28>`) are not treated as the Newspaper Program's: nothing here
 says whose they are.
 
+## Wording MARC has no code for: the year kept, and the cataloguer's options · **0.47.0**
+
+*29 October 2026.* Asked for by the cataloguer, who expected what MARC 21
+bears out: what to do with "Late Summer", "Third Quarter" or "Buyers Guide" is
+the cataloguer's decision -- keep the 866 to show it, or encode it by their own
+judgement. Researched first in the LC pages in `docs/marc/`:
+
+- **Words are allowed.** "Months and seasons may be expressed either in natural
+  language or by the following codes" (863-865, $i-$m). The season codes are
+  21-24 and there is none for a quarter. Words cannot be compressed or
+  expanded by a system, which is why the workbench writes codes.
+- **A named issue has a subfield.** $o, Title of unit, "e.g., annual buyer's
+  guide", with $o Type of unit in the 853.
+- **The 866 is provided for this.** It may be used "in addition to" the 863s
+  "to record and generate an alternative display for all or part" of them
+  (866-868); the 863's second indicator 2 or 3 says "use textual display".
+  MARC 21's own example of that is one of the LC examples here:
+  `no.56(2003:Dec./2004:Jan.)` as `863 42 $81.2 $a56 $i2003/2004` and a linked
+  866. The workbench wrote `$a56`.
+
+**What was wrong.** The message said the subfield "takes MARC codes, not
+wording", which the standard does not say. And wording beside a year cost the
+863 its year: the reader for one date took wording of letters only, so "1st
+Quarter 1980", "July 2010 Addendum" and "1st Quarter/Winter 1985" came back
+unread, the whole date was kept as the year, and the year subfield refused it.
+Statements with such wording, and of those, converted with no $i though the
+statement gives a year:
+
+| Source | With wording | No $i, before | No $i, after |
+| --- | --- | --- | --- |
+| Real export (1,057 statements) | 8 | 4 | 0 |
+| Main corpus (117) | 2 | 0 | 0 |
+| LC examples (7) | 1 | 1 | 0 |
+| Other libraries' catalogues (63) | 5 | 2 | 0 |
+
+**Found on the way: a run with an issue across two years kept one year.**
+"(Spring 1980-Fall 1981/Winter 1982)" was written `$i1980`, and
+"(Fall 1984/Winter 1985-Summer/Fall 1985)" `$i1985`: the years of the
+cross-year end went, with nothing naming them. The audit counted them
+accounted for only because the season warning quotes the whole date. Two
+records of the real export had this; both now give every year
+(`$i1980-1981/1982`) and are marked to check for the seasons left out. One of
+the other libraries' statements, "(Apr. 1906)-(Dec. 1920/Mar. 1921)", wrote a
+lone `$j04` and no year; it now writes `$i1906-1920/1921`, and the start-only
+month is named as left out by the rule every other range follows.
+
+**Now.** A date that reads no other way but holds one year keeps the year, and
+its wording goes where a month would, to be named; one issue dated across two
+consecutive years keeps both, as LC writes it, and is marked to check. The
+message says what the standard offers by kind of wording: the code of the issue
+it is, if it is that issue (Summer is 22), or the words; for a quarter, that
+there is no code and the issue number usually says which; for a named issue,
+$o or $z; for any of them, the 866 kept for display. The workbench does none of
+these itself -- each depends on the piece in hand.
+
+**Measured.** Converted output changed on 6 of the real export's 1,057
+statements (the years above), 1 LC example and 2 of the other libraries', and
+none in the main corpus or the two made-up files; 2 more statements of the
+export are marked to check, both the runs across two years. With the patterns
+found and confirmed, all 10 of the export's statements with quarter, addendum
+or cross-year wording carry their year in the app, read by their patterns, each
+marked to check: checked on a fresh server. Round trip unchanged on every source,
+drift included (5 main corpus, 6 messy file, 0 elsewhere, as before); the audit
+finds nothing unaccounted for; the corpus summary is the same, and only the two
+messages differ in its detail. Not done: linking the kept 866 to its 863s with
+"use textual display", which waits on seeing what Alma does with it.
+
 ## "Needs a decision" on every card that wants an answer; a quick start · **0.46.1**
 
 *29 October 2026.* Asked for by the cataloguer: HOW-IT-WORKS is thorough and
