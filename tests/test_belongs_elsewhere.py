@@ -21,7 +21,7 @@ import re
 import pytest
 from pymarc import Field, MARCWriter, Record, Subfield
 
-from conftest import REPO_ROOT, upload_marc
+from conftest import REPO_ROOT, upload_marc, page_source
 from marc_serials.bridge import (KIND_ENUM, KIND_UNRESOLVED, build_parse_result,
                                  infer_roles)
 from marc_serials.converter import convert_holdings
@@ -182,8 +182,7 @@ def test_a_pattern_of_supplements_asks_nothing(client):
 
 
 def test_the_page_never_confirms_one_unasked_and_files_them_apart():
-    page = (REPO_ROOT / "marc_serials" / "templates" / "tool.html").read_text(
-        encoding="utf-8")
+    page = page_source()
     assert "g.decides !== 'elsewhere'" in page, \
         "auto-confirm must not confirm a pattern that is held whatever is said"
     assert "parts.elsewhere.push(entry)" in page

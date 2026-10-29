@@ -15,7 +15,7 @@ import io
 
 from pymarc import Field, MARCWriter, Record, Subfield
 
-from conftest import REPO_ROOT, upload_marc
+from conftest import REPO_ROOT, upload_marc, page_source
 
 BROKEN = "v. 21-26, 29-31 33 (1921-25, 1928-30)"
 FIXED = "v. 21-26, 29-31, 33 (1921-25, 1928-30, 1932)"
@@ -92,8 +92,7 @@ def test_an_edited_statement_still_leads_back_to_its_record(client):
 
 
 def test_the_card_offers_edit_and_the_box_starts_unticked():
-    page = (REPO_ROOT / "marc_serials" / "templates" / "tool.html").read_text(
-        encoding="utf-8")
+    page = page_source()
     assert 'class="btn btn-secondary btn-sm ex-edit"' in page
     assert '<input type="checkbox" class="ex-edit-same"' in page
     assert 'class="ex-edit-same" checked' not in page

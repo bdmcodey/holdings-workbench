@@ -21,7 +21,7 @@ import re
 
 from pymarc import Field, MARCWriter, Record, Subfield
 
-from conftest import REPO_ROOT, upload_marc
+from conftest import REPO_ROOT, upload_marc, page_source
 
 
 def _file(*statements) -> bytes:
@@ -71,8 +71,7 @@ def test_the_examples_do_not_carry_the_whole_list(client):
 
 
 def _page() -> str:
-    return (REPO_ROOT / "marc_serials" / "templates" / "tool.html").read_text(
-        encoding="utf-8")
+    return page_source()
 
 
 def test_the_card_shows_its_expression_and_can_copy_it():

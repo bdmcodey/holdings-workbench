@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import pytest
 
-from conftest import REPO_ROOT
+from conftest import REPO_ROOT, page_source
 
 SWITCH = "v. 94 no. 1 - v. 101 no. 4 (Jan 1988 - Fall 1995)"
 GUIDE = "v. 15 (1998 Buyers Guide)"
@@ -77,8 +77,7 @@ def test_outcomes_line_up_with_the_examples_shown(client):
 
 
 def test_the_page_never_folds_a_held_or_to_check_card():
-    page = (REPO_ROOT / "marc_serials" / "templates" / "tool.html").read_text(
-        encoding="utf-8")
+    page = page_source()
     # Filed before the folds are, in a group of their own that starts open.
     assert ("else if (needsALook(group) && !needsAnAnswer(group, stored)) "
             "parts.attention.push(entry);") in page

@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import io
 import os
+import re
 from pathlib import Path
 from typing import Optional
 
@@ -30,6 +31,42 @@ DATA_DIR = REPO_ROOT / "data"
 
 EXAMPLE_MRC = DATA_DIR / "example_holdings.mrc"
 MESSY_MRC = DATA_DIR / "messy_holdings.mrc"
+
+PACKAGE = REPO_ROOT / "marc_serials"
+TOOL_TEMPLATE = PACKAGE / "templates" / "tool.html"
+
+# A stylesheet or script the page loads from the package's static folder.
+_STATIC_LINK_RE = re.compile(r'(?:href|src)="(static/[^"?]+)')
+
+
+def page_source() -> str:
+    """
+    The page as written: the template, then each stylesheet and script it
+    loads, in the order it loads them.
+
+    Until 0.48.0 the whole page was one file, templates/tool.html, and the
+    tests that check how it behaves read that file. Its styles and scripts are
+    now in static/, so this reads all of it in the order the browser does --
+    the checks themselves are the same.
+    """
+    template = TOOL_TEMPLATE.read_text(encoding="utf-8")
+    return "\n".join([template] + [(PACKAGE / rel).read_text(encoding="utf-8")
+                                    for rel in _STATIC_LINK_RE.findall(template)])
+
+
+def served_page(client) -> str:
+    """
+    The page as a browser gets it: "/", then every static file it links,
+    each of which has to be served.
+    """
+    page = client.get("/").get_data(as_text=True)
+    parts = [page]
+    for url in re.findall(r'(?:href|src)="(static/[^"]+)"', page):
+        response = client.get("/" + url)
+        assert response.status_code == 200, f"the page links {url}, which is not served"
+        parts.append(response.get_data(as_text=True))
+        response.close()            # a static file is served open; close it
+    return "\n".join(parts)
 
 import sys
 # The repository root, so `import marc_serials` resolves when the suite is run

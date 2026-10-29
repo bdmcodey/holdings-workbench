@@ -15,6 +15,13 @@ more than one release; numbering resumed with 0.6.1. Reasoning behind the
 parser and converter decisions, including the defects a real corpus exposed and
 what was done about each, is in [CORPUS-FINDINGS.md](CORPUS-FINDINGS.md).
 
+## 0.48.0 — 2026-10-29
+
+Nothing on the screen or in your records changed. The page's code is now in files of its own, and a new code map says which file does what.
+
+- **MARC Holdings Workbench** — The page was one 5,690-line file. It is now its layout (templates/tool.html), its styles (static/workbench.css) and eleven scripts in static/js/, one for each part of the screen: settings, step 1, the record list, step 2's cards, Edit and Split, the library, step 3 and so on. The page looks and works exactly as before; every check run on it gives the same result.
+- **MARC Holdings Workbench** — New: docs/CODE-MAP.md, which says which file does what, follows each button (upload, Find patterns, Edit, Confirm, Convert all records, Download) through the files it sets going, and says where to look when a statement converts wrongly.
+
 ## 0.47.1 — 2026-10-29
 
 The advice to keep the 866 for wording MARC has no code for now says to check first that your system keeps it.

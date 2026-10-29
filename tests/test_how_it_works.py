@@ -14,7 +14,7 @@ from __future__ import annotations
 import json
 import re
 
-from conftest import REPO_ROOT
+from conftest import REPO_ROOT, page_source
 
 
 def test_the_guide_describes_the_current_version():
@@ -95,8 +95,7 @@ def test_the_quick_start_describes_the_current_version():
 
 def test_what_the_quick_start_names_is_on_the_page():
     guide = _quick_start()
-    page = (REPO_ROOT / "marc_serials" / "templates" / "tool.html").read_text(
-        encoding="utf-8")
+    page = page_source()
     for in_guide, on_page in QUICK_START_LABELS:
         assert in_guide in guide, f"the quick start no longer says {in_guide!r}"
         assert on_page in page, (
@@ -110,3 +109,27 @@ def test_the_guides_point_at_each_other():
     assert "docs/QUICK-START.md" in readme
     assert "(QUICK-START.md)" in how
     assert "(HOW-IT-WORKS.md)" in _quick_start()
+
+
+def test_the_code_map_names_every_file_and_the_current_version():
+    """
+    docs/CODE-MAP.md is how the cataloguer keeps track of where everything is,
+    written when the page was split into files of its own (0.48.0). A file
+    added and not on the map, or one renamed, leaves it describing a project
+    that is not there -- so this fails until the map is brought up to date.
+    """
+    code_map = (REPO_ROOT / "docs" / "CODE-MAP.md").read_text(encoding="utf-8")
+    about = json.loads((REPO_ROOT / "marc_serials" / "shared" / "about.json")
+                       .read_text(encoding="utf-8"))
+    stated = re.search(r"Describes version (\d+\.\d+\.\d+)", code_map)
+    assert stated and stated.group(1) == about["version"], (
+        "docs/CODE-MAP.md describes another version: check it against this "
+        "release and move the version up")
+    package = REPO_ROOT / "marc_serials"
+    engine = [p.name for p in package.glob("*.py") if p.name != "__init__.py"]
+    page = [str(p.relative_to(package)) for p in (package / "static").rglob("*")
+            if p.is_file()] + ["templates/tool.html"]
+    missing = [name for name in engine + page if f"`{name}`" not in code_map]
+    assert not missing, f"docs/CODE-MAP.md does not say what these are: {missing}"
+    readme = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
+    assert "docs/CODE-MAP.md" in readme

@@ -29,7 +29,7 @@ import sys
 
 import pytest
 
-from conftest import DATA_DIR, REPO_ROOT
+from conftest import DATA_DIR, REPO_ROOT, served_page
 from marc_serials.detector import detect_patterns
 from marc_serials.flavours import (FLAVOURS, ORACLE_MAX_BYTES, choices,
                                    convert)
@@ -451,7 +451,7 @@ def test_endpoint_refuses_bad_requests(client, payload):
 
 
 def test_page_offers_the_flavours(client):
-    page = client.get("/").get_data(as_text=True)
+    page = served_page(client)
     assert 'id="regex-flavour"' in page or "regex-flavour" in page
     for choice in choices():
         assert json.dumps(choice["label"]) in page

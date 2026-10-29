@@ -20,10 +20,10 @@ import io
 
 from pymarc import Field, MARCWriter, Record, Subfield
 
-from conftest import REPO_ROOT, upload_marc
+from conftest import REPO_ROOT, upload_marc, page_source
 
 BROKEN = "v. 21-26, 29-31 33, 35, 37-38-(1921-25,1928-30,1932,1935,1937-38)"
-PAGE = (REPO_ROOT / "marc_serials" / "templates" / "tool.html").read_text(encoding="utf-8")
+PAGE = page_source()
 
 
 def test_a_card_counts_what_the_parser_cannot_read(client):

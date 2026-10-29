@@ -20,7 +20,7 @@ import pytest
 import pymarc
 from pymarc import Field, MARCWriter, Record, Subfield
 
-from conftest import REPO_ROOT, upload_marc
+from conftest import REPO_ROOT, upload_marc, page_source, served_page
 from marc_serials.bridge import fill_record_captions, uncaptioned_levels
 from marc_serials.converter import convert_record
 from marc_serials.parser import parse_866
@@ -144,14 +144,13 @@ def test_what_is_not_an_853_setting_is_refused(client):
 
 
 def test_the_file_setting_begins_at_not_specified(client):
-    page = client.get("/").get_data(as_text=True)
+    page = served_page(client)
     assert '<option value="" selected>(not specified)</option>' in page
     assert '<option value="a" >Annual</option>' in page
 
 
 def test_the_record_shows_its_853_settings():
-    page = (REPO_ROOT / "marc_serials" / "templates" / "tool.html").read_text(
-        encoding="utf-8")
+    page = page_source()
     assert "${record853Html(idx, about)}" in page
     assert "postJson('api/record-853'" in page
 

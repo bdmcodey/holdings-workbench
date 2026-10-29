@@ -19,12 +19,11 @@ from __future__ import annotations
 
 import re
 
-from conftest import REPO_ROOT
+from conftest import REPO_ROOT, page_source
 
 
 def _page() -> str:
-    return (REPO_ROOT / "marc_serials" / "templates" / "tool.html").read_text(
-        encoding="utf-8")
+    return page_source()
 
 
 def _css() -> str:

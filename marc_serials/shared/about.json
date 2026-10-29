@@ -1,6 +1,6 @@
 {
   "name": "MARC Holdings Workbench",
-  "version": "0.47.1",
+  "version": "0.48.0",
   "released": "2026-10-29",
   "status": "Proof of concept — under active development. Check your output before loading it into the catalog.",
   "description": "One tool for MARC serials holdings. Upload a MARC file, find the patterns in its 866 statements, confirm what each part of a pattern means, and convert to structured 853 caption/pattern and 863 enumeration/chronology fields. Statements no pattern matches are converted by the standard parser.",
@@ -9,6 +9,21 @@
   "contact": "Matthew Codey, codey@usc.edu",
   "_comment": "Written for cataloging staff, not developers. Say what changed about the output or the screen, not how the code changed. Newest version first.",
   "changelog": [
+    {
+      "version": "0.48.0",
+      "date": "2026-10-29",
+      "summary": "Nothing on the screen or in your records changed. The page's code is now in files of its own, and a new code map says which file does what.",
+      "changes": [
+        {
+          "tool": "MARC Holdings Workbench",
+          "text": "The page was one 5,690-line file. It is now its layout (templates/tool.html), its styles (static/workbench.css) and eleven scripts in static/js/, one for each part of the screen: settings, step 1, the record list, step 2's cards, Edit and Split, the library, step 3 and so on. The page looks and works exactly as before; every check run on it gives the same result."
+        },
+        {
+          "tool": "MARC Holdings Workbench",
+          "text": "New: docs/CODE-MAP.md, which says which file does what, follows each button (upload, Find patterns, Edit, Confirm, Convert all records, Download) through the files it sets going, and says where to look when a statement converts wrongly."
+        }
+      ]
+    },
     {
       "version": "0.47.1",
       "date": "2026-10-29",

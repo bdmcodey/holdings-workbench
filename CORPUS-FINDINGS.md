@@ -2839,6 +2839,39 @@ real export gets no note on any of its 1,057 866s. The angle-bracket dates of
 D41 (`<1884:6:28>`) are not treated as the Newspaper Program's: nothing here
 says whose they are.
 
+## The page in files of its own, and a code map · **0.48.0**
+
+*29 October 2026.* Asked for by the cataloguer, so as to keep understanding
+how the project is put together now that it is far from the script it began
+as. `templates/tool.html` was 5,690 lines -- 627 of styles, 515 of layout and
+4,520 of script. It is now the layout and the twelve values the server writes
+into the page; the styles are `static/workbench.css`, and the script eleven
+files in `static/js/`, one a part of the screen, loaded in the order the code
+had in the one file. `docs/CODE-MAP.md` says which file does what and follows
+each button through the files it sets going.
+
+**Cut, not rewritten.** A script cut the page at its section boundaries:
+every non-blank line of the old script is in the new files exactly once and in
+the same order, bar the two server values moved up into the page with the
+others; styles and layout are line for line the same.
+
+**Measured the same.** On a fresh server, before and after: the quick-start
+walk on the example, messy and real files; the keyboard and screen-reader
+checks; the "needs a decision" pill through Confirm, Remove and Skip, and its
+counts on all six sources; Edit and Split focus; axe in light and dark (0 both
+times); and the 863s of the real export's quarter, addendum and cross-year
+statements -- every output identical, the version on the badge aside. 12 files
+load, with no failed request and no console error. A built wheel carries all
+13 page files. The corpus report is identical; no Python that converts was
+touched. One run of the example walk timed out waiting for the file chooser
+at its first step; 19 reruns, 4 from a cold start, passed, as did the same
+keyboard upload in the accessibility check every time; the cause was not found.
+
+**Tests.** Those that check the page read it through two helpers -- the
+template and what it loads, or what the server sends -- with their checks
+unchanged. New ones fail if a static file is not linked, served or packaged,
+or if the code map leaves out a file or describes another version.
+
 ## Keeping the 866: the caution goes with the advice · **0.47.1**
 
 *29 October 2026.* 0.47.0's messages end "or keep the 866 to show it as

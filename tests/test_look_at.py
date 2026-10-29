@@ -15,9 +15,9 @@ import io
 
 from pymarc import Field, MARCWriter, Record, Subfield
 
-from conftest import REPO_ROOT, upload_marc
+from conftest import REPO_ROOT, upload_marc, page_source
 
-PAGE = (REPO_ROOT / "marc_serials" / "templates" / "tool.html").read_text(encoding="utf-8")
+PAGE = page_source()
 HELD = "v. 9 no. 1 - v. 12 no. 4 (Jan 1971 - Fall 1974)"   # months to seasons
 
 
