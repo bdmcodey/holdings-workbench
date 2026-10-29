@@ -1234,7 +1234,12 @@ def _note_uncodeable(warnings: Optional[List[str]], label: tuple,
 # an issue of its own: the "Late" of "Late Summer".
 _CHRON_QUALIFIERS = {"early", "late", "mid", "middle", "end", "of", "beginning"}
 
-_KEEP_866 = "keep the 866 to show it as written"
+# Keeping the 866 is what MARC 21 provides for, but a system that rebuilds
+# 866s from the 853/863s -- Alma does -- may replace it, and the workbench does
+# not yet link the two ("use textual display", 863 second indicator 2 or 3), so
+# the advice carries its caution with it.
+_KEEP_866 = ("keep the 866 to show it as written (a system that rebuilds 866s "
+             "from the 863s, as Alma does, may replace it: check yours)")
 
 
 def _uncodeable_message(value: str, word: str) -> str:

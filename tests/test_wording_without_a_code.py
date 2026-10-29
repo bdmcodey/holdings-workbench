@@ -100,3 +100,16 @@ def test_a_quarter_is_told_there_is_no_code():
 def test_a_named_issue_is_pointed_at_title_of_unit():
     note = _message("v. 15 (1998 Buyers Guide)")
     assert "$o, Title of unit" in note and "$z public note" in note
+
+
+@pytest.mark.parametrize("statement", [
+    "v. 4 no. 2 (Late Summer 1999)", "v. 8 no. 3 (Third Quarter 1991)",
+    "v. 15 (1998 Buyers Guide)", "no.56(2003:Dec./2004:Jan.)",
+])
+def test_keeping_the_866_comes_with_its_caution(statement):
+    # The workbench does not yet link a kept 866 to its 863s, and a system
+    # that rebuilds 866s from the 863s -- Alma does -- may replace it. Until
+    # the link can be tried in Alma, the advice says so wherever it is given.
+    rc = convert_holdings(parse_866(statement))
+    advice = [w for w in rc.warnings if "keep the 866" in w]
+    assert advice and all("as Alma does, may replace it" in w for w in advice)

@@ -1366,7 +1366,9 @@ def _parse_chron_single(raw: str,
                     "example of this form does; the months or seasons were "
                     "left out. "
                     "Add them by hand if you want them, or keep the 866 to "
-                    "show the date as written.")
+                    "show the date as written (a system that rebuilds 866s "
+                    "from the 863s, as Alma does, may replace it: check "
+                    "yours).")
                 if warnings is not None and note not in warnings:
                     warnings.append(note)
             return f"{first[0]}/{second[0]}", None, None

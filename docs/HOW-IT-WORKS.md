@@ -1,6 +1,6 @@
 # How the Holdings Workbench Works
 
-*Written for librarians and cataloguers. Describes version 0.47.0.*
+*Written for librarians and cataloguers. Describes version 0.47.1.*
 
 *Trying it for the first time? [The quick start](QUICK-START.md) is one page: what to press, in order.*
 
@@ -403,9 +403,9 @@ MARC 21 codes months 01–12 and seasons 21–24, and allows a month or season i
 | A qualified season or month, like `Late Summer` | The code of the issue it is, if it is that issue (Summer is 22), or the words in `$j` |
 | A quarter, like `Third Quarter` | No code exists. In a quarterly the issue number usually says which quarter already; otherwise the words, or the 866 |
 | A named issue, like `Buyers Guide` or `Addendum` | The 863's `$o` Title of unit, with a `$o` caption in the 853 (MARC 21's own example is an annual buyer's guide), or a `$z` public note |
-| Any of these | Keep the 866 to show the statement as written. MARC 21 allows an 866 "in addition to" the 863s, to give the display |
+| Any of these | Keep the 866 to show the statement as written. MARC 21 allows an 866 "in addition to" the 863s, to give the display. But check your system first: one that rebuilds 866s from the 853/863s, as Alma does, may replace it |
 
-The Workbench does none of these for you, because each depends on the piece in hand. Add what you choose to the downloaded record. Before 0.47.0 the message said such a subfield "takes MARC codes, not wording", which isn't what MARC 21 says. And wording beside the year, as in `1st Quarter 1980` or `July 2010 Addendum`, cost the 863 its year as well. On a 372-record export, 4 of the 8 statements with such wording had no `$i`, and 2 seasonal runs with an issue dated across two years had only one of their years.
+The Workbench does none of these for you, because each depends on the piece in hand. **Not yet done:** MARC 21's way of tying a kept 866 to its 863s, so a system shows the 866 in their place. The 863's second indicator says "use textual display" (2 or 3), and `$8` links the two. The Workbench writes 0 or 1 and leaves the kept 866 unlinked. It will wait until it can be tried in Alma. Add what you choose to the downloaded record. Before 0.47.0 the message said such a subfield "takes MARC codes, not wording", which isn't what MARC 21 says. And wording beside the year, as in `1st Quarter 1980` or `July 2010 Addendum`, cost the 863 its year as well. On a 372-record export, 4 of the 8 statements with such wording had no `$i`, and 2 seasonal runs with an issue dated across two years had only one of their years.
 
 ### Months and seasons
 
@@ -555,9 +555,9 @@ As of 0.46.0 the page was checked against WCAG 2.1 AA: automatically, with axe, 
 
 Four checks run before any change is released, and each answers a different question.
 
-| Check | Question it answers | Result as of 0.47.0 |
+| Check | Question it answers | Result as of 0.47.1 |
 | --- | --- | --- |
-| Automated tests | Does every behaviour described here still hold? | 1,141 passed, 8 skipped |
+| Automated tests | Does every behaviour described here still hold? | 1,145 passed, 8 skipped |
 | Corpus report | What do 117 real 866 statements convert to, and has any outcome changed? | 89 clean (76%), 22 converted with a warning, 6 with no fields, 0 with values lost |
 | Conversion audit | Did any number in a statement reach no field and no warning? | 0 unaccounted for: the corpus, the LC examples, the other library's catalogue, and all 1,057 statements of the 372-record test export |
 | Round trip | Convert, write the 866 as Alma would, convert again: do the same 863s come back? | Test export: 938 identical, 103 identical apart from an 853 caption, 14 not converted (13 of them months and seasons in one 866), **0 drift** |
