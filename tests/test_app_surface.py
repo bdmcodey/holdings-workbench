@@ -13,6 +13,8 @@ before they were merged. Nothing may quietly fall out of them.
 from __future__ import annotations
 
 import re
+import shutil
+import subprocess
 
 import pytest
 
@@ -518,7 +520,8 @@ def test_a_record_being_worked_on_stays_until_it_is_closed():
     assert 'class="small dim rec-leaving" hidden' in page
     closing = page[page.index("function closeRecord("):page.index("function foldRow(")]
     assert "applyReviewFilter();" in closing
-    for handler in ("reviewFilter = chip.dataset.filter;\n    closeOpenRecords();",
+    # A filter chip, since 0.49.0 through applyFilter() so a caller can wait on it.
+    for handler in ("reviewFilter = name;\n  closeOpenRecords();",
                     "closeOpenRecords();\n  reviewOffset += reviewPageLimit();",
                     "closeOpenRecords();\n  reviewOffset = Math.max(0, reviewOffset - reviewPageLimit());"):
         assert handler in page, handler
@@ -606,3 +609,42 @@ def test_the_page_loads_every_file_of_its_own_and_ships_them(client):
     # file: core first, the library loaded last.
     assert [p.rsplit("/", 1)[-1] for p in linked if p.endswith(".js")][0] == "core.js"
     assert template.rstrip().endswith('<script src="static/js/page.js?v={{ about.version }}"></script>\n</body>\n</html>')
+
+
+def _page_scripts():
+    static = REPO_ROOT / "marc_serials" / "static" / "js"
+    return sorted(static.glob("*.js"))
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="Node.js is not installed")
+@pytest.mark.parametrize("script", _page_scripts(), ids=lambda p: p.name)
+def test_each_page_script_parses(script):
+    """
+    A script the browser cannot parse is not run at all, and nothing in the
+    Python suite reads it as JavaScript. 0.49.0's first draft declared `text`
+    twice in one function of convert.js; the browser refused the whole file,
+    and every part of step 3 that lives in it -- opening a record, Edit, Split,
+    Convert all records -- went with it. Found in the app, not by the tests.
+    """
+    result = subprocess.run(["node", "--check", str(script)],
+                            capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr
+
+
+def test_no_name_is_declared_twice_across_the_page():
+    """
+    The page's scripts share one set of names, as one file did. A name declared
+    with const, let or function at the top of two files parses in each, and the
+    browser refuses the second when it loads -- which `node --check`, reading
+    one file at a time, cannot see.
+    """
+    declared = {}
+    inline = (TEMPLATES / "tool.html").read_text(encoding="utf-8")
+    sources = [("tool.html", inline)] + [(p.name, p.read_text(encoding="utf-8"))
+                                        for p in _page_scripts()]
+    for name, text in sources:
+        for found in re.findall(r"^(?:const|let|class|(?:async )?function)\s+([A-Za-z_$][\w$]*)",
+                                text, re.M):
+            declared.setdefault(found, []).append(name)
+    twice = {name: where for name, where in declared.items() if len(where) > 1}
+    assert not twice, twice

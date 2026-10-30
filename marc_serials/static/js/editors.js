@@ -187,8 +187,7 @@ async function recordOutcome({ record_index, fields }) {
   const data = await postJson('api/preview-record', { record_index, ...conventionPayload() });
   const mine = (data.previews || []).filter(pv => fields.includes(pv.field_index));
   if (!mine.length) return null;
-  const rec = allRecords[record_index];
-  const on = `on ${escHtml(rec ? rec.title : `record ${record_index + 1}`)}`;
+  const on = `on ${recordName(record_index)}`;
   const where = `the 866${mine.length > 1 ? 's' : ''} ${on}`;
   const Where = `The 866${mine.length > 1 ? 's' : ''} ${on}`;
   const held = mine.filter(pv => pv.needs_review || !pv.fields_863.length);
@@ -250,43 +249,33 @@ function showFixToast(kind, html) {
   if (kind === 'ok') fixToastTimer = setTimeout(() => { toast.hidden = true; }, 8000);
 }
 
-/** What Edit or Split on a card's example works on, or why it cannot. */
+/** What Edit or Split on a card's example works on, for pasted statements. */
 function cardTarget(card) {
+  // Pasted statements only: with a file the example is edited on its record,
+  // in step 3 (cardInStep3).
   const example = (card._group.examples || [])[card._example] || '';
-  if (sourceMode === 'paste') {
-    return { target: { pasted: true }, text: example,
-             where: 'The line you pasted. Saving changes it in the pasted text.' };
-  }
-  const src = exampleSource(card);
-  if (!src) return null;
-  if (src.split_part != null) {
-    return { refused: 'This statement is a part of an 866 you split. Change it with Split, on its record in step 3.' };
-  }
-  const rec = allRecords[src.record_index];
-  return {
-    target: { record_index: src.record_index, field_index: src.field_index },
-    text: src.source_866,
-    same: src.same_866 || 0,
-    where: `The 866 on ${escHtml(rec ? rec.title : `record ${src.record_index + 1}`)}`
-      + (src.source_866 !== example ? ', of which the example is one part' : '')
-      + '. Saved as an edit to that record, as in step 3.',
-  };
+  return { target: { pasted: true }, text: example,
+           where: 'The line you pasted. Saving changes it in the pasted text.' };
 }
 
 function openCardEdit(card) {
+  if (sourceMode !== 'paste') { cardInStep3(card, 'edit'); return; }
   const slot = card.querySelector('.ex-edit-slot');
   const t = cardTarget(card);
-  if (!t) return;
-  if (t.refused) { slot.innerHTML = `<div class="alert alert-info small">${t.refused}</div>`; return; }
-  openInlineEdit(slot, t.target, t.text, { where: t.where, same: t.same });
+  openInlineEdit(slot, t.target, t.text, { where: t.where });
 }
 
 function openCardSplit(card) {
+  if (sourceMode !== 'paste') { cardInStep3(card, 'split'); return; }
   const slot = card.querySelector('.ex-edit-slot');
   const t = cardTarget(card);
-  if (!t) return;
-  if (t.refused) { slot.innerHTML = `<div class="alert alert-info small">${t.refused}</div>`; return; }
   openInlineSplit(slot, t.target, t.text, { where: t.where });
+}
+
+/** The example on screen, edited on its record in step 3: see editInStep3(). */
+function cardInStep3(card, kind) {
+  const src = exampleSource(card);
+  if (src) editInStep3(src.record_index, src.field_index, kind, card);
 }
 
 /** Where the example on screen came from, when it came from a file at all. */

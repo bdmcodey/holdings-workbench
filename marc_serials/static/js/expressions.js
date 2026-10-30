@@ -84,12 +84,8 @@ function paintPatternRecords(card) {
   } else if (shape) {
     bits.push(button('shape', `Show the ${plural(shape)} with this shape`, shape));
   }
-  // Only the records with a statement held, to check or not read: for working
-  // through them in step 3 rather than on the card.
-  const look = (group.look_at_records || []).length;
-  if (look && look !== shape && recordIndex.size) {
-    bits.push(button('look', `Show the ${plural(look)} to look at`, look));
-  }
+  // The records with a statement held, to check or not read are reached from
+  // the card's line about them (lookStep3Html), which says why they are.
   slot.innerHTML = bits.join('');
 }
 
@@ -101,6 +97,14 @@ function refreshPatternRecordCounts() {
 
 /** Narrow the record list to one pattern's records, and go there. */
 function showPatternRecords(card, mode) {
+  narrowToPattern(card, mode);
+  filterTo('one-pattern');
+  const bar = document.getElementById('review-bar');
+  if (bar) bar.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+/** Which of a pattern's records the "one pattern" chip shows, and its name. */
+function narrowToPattern(card, mode) {
   const group = card._group;
   patternFilter = {
     id: card._id,
@@ -112,9 +116,6 @@ function showPatternRecords(card, mode) {
     : mode === 'look' ? 'To look at, with the shape' : 'Has the shape'}: ${group.human_label}`;
   chip.hidden = false;
   document.getElementById('btn-clear-pattern-filter').hidden = false;
-  filterTo('one-pattern');
-  const bar = document.getElementById('review-bar');
-  if (bar) bar.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 /** Stop filtering by a pattern; `refilter` goes back to All. */

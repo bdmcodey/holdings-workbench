@@ -1,6 +1,6 @@
 # Code map
 
-*Where everything is, and what happens when you press a button. Describes version 0.48.0.
+*Where everything is, and what happens when you press a button. Describes version 0.49.0.
 For what the Workbench does and why, see [How the Holdings Workbench works](HOW-IT-WORKS.md).*
 
 The Workbench has two halves that never touch directly:
@@ -60,7 +60,7 @@ The order matters only while the page is loading: a file can use what an earlier
 
 Back on the page, every pattern that needs no decision is confirmed for you. That is `library.js` sending the library to `api/patterns`, where `budget.py` checks each new expression finishes. Then the cards are drawn (`patterns.js`, `cards.js`).
 
-**Edit or Split an 866.** `editors.js` (from step 2) or `convert.js` (from step 3) sends the change to `api/edit-866` or `api/split-866`. `webapp.py` keeps it with your decisions: the uploaded file itself is never changed, and the edit is applied each time the records are read. The page then re-reads the record list, finds patterns again, and asks `api/preview-record` how that 866 now converts, for the message at the bottom right.
+**Edit or Split an 866.** With a file, Edit and Split in step 2 open the record in step 3 with the editor on that 866 (`editInStep3` in `convert.js`). The editor sends the change to `api/edit-866` or `api/split-866`. With pasted statements, `editors.js` edits the line on the card. `webapp.py` keeps it with your decisions: the uploaded file itself is never changed, and the edit is applied each time the records are read. The page then re-reads the record list, finds patterns again, and asks `api/preview-record` how that 866 now converts, for the message at the bottom right.
 
 **Confirm a pattern.** `library.js` sends the whole library to `api/patterns`. From then on `bridge.py` tries that pattern on every statement, before the parser.
 

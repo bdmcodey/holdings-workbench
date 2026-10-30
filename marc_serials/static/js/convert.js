@@ -25,6 +25,50 @@ async function selectRecord(idx) {
 }
 
 /**
+ * Edit or Split an 866 from step 2, done on its record in step 3.
+ *
+ * Asked for by the cataloguer: a statement held for changing from months to
+ * seasons, or one with wording MARC has no code for, is put right by reading
+ * the rest of its record -- where the change falls, what the 866s either side
+ * of it say -- and a card in step 2 shows the statement on its own. So with a
+ * file, Edit and Split in step 2 bring the record up in step 3, open, with the
+ * editor open on that 866. Given the card, the list is narrowed to its records
+ * to look at, so the next one is right below. Pasted statements have no
+ * records and no step 3, and are still corrected on the card.
+ */
+async function editInStep3(idx, fi, kind, card = null) {
+  if (card && (card._group.look_at_records || []).includes(idx)) {
+    narrowToPattern(card, 'look');
+    await applyFilter('one-pattern');
+  }
+  if (!filteredIndices().includes(idx)) {
+    // Out of the filter or the search in force: back to every record.
+    const box = document.getElementById('review-search');
+    if (box && box.value) {
+      box.value = ''; reviewSearch = '';
+      document.getElementById('btn-search-clear').hidden = true;
+    }
+    clearPatternFilter(false);
+    await applyFilter('all');
+  }
+  const at = filteredIndices().indexOf(idx);
+  const limit = reviewPageLimit();
+  if (at >= 0 && (at < reviewOffset || at >= reviewOffset + limit)) {
+    reviewOffset = Math.floor(at / limit) * limit;
+    await loadReviewPage();
+  }
+  const row = document.querySelector(`.rec-row[data-index="${idx}"]`);
+  if (!row) return;
+  if (!row.classList.contains('open')) await selectRecord(idx);
+  // A part of an earlier split is changed with Split, as its own buttons say.
+  const f = (allRecords[idx].fields_866 || [])[fi];
+  if (kind === 'split' || (f && f.split_part != null)) openSplit866(idx, fi);
+  else openEdit866(idx, fi);
+  const editor = row.querySelector('.edit866');
+  if (editor) editor.scrollIntoView({ block: 'center' });
+}
+
+/**
  * Fold an open record back to its line. From the Close at its foot, the
  * folded line is brought into view, since what was on screen has gone.
  */
@@ -249,6 +293,14 @@ function openEdit866(idx, fi) {
   const f = allRecords[idx].fields_866[fi];
   const row = document.getElementById(`f866-${idx}-${fi}`);
   const id = `${idx}-${fi}`;
+  // Other records with an 866 that reads word for word as this one does, as
+  // the server counts them. Edit on a pattern card offered to change those as
+  // well; since 0.49.0 that Edit opens here, so the offer is made here too.
+  const statement = (f.a || '').trim();
+  const same = statement && f.split_part == null
+    ? allRecords.filter((r, i) => i !== idx && (r.fields_866 || []).some(g =>
+        g.split_part == null && (g.a || '').trim() === statement)).length
+    : 0;
   row.innerHTML = `
     <div class="edit866">
       <label class="small" for="e866-code-${id}">Subfield</label>
@@ -258,6 +310,11 @@ function openEdit866(idx, fi) {
       </select>
       <textarea id="e866-text-${id}" rows="2" class="mt-1"
                 aria-label="New text for this subfield">${escHtml(f.a || '')}</textarea>
+      ${same ? `<div class="check-row mt-1" id="e866-same-row-${id}">
+        <input type="checkbox" id="e866-same-${id}" />
+        <label for="e866-same-${id}">Also make this change on the
+          ${same} other record${same !== 1 ? 's' : ''} with exactly this 866</label>
+      </div>` : ''}
       <div class="btn-row mt-1">
         <button type="button" class="btn btn-primary btn-sm"
                 onclick="saveEdit866(${idx}, ${fi}, false)">Save and check again</button>
@@ -271,7 +328,13 @@ function openEdit866(idx, fi) {
     </div>`;
   const code = document.getElementById(`e866-code-${id}`);
   const text = document.getElementById(`e866-text-${id}`);
-  code.addEventListener('change', () => { text.value = f[code.value] || ''; text.focus(); });
+  const sameRow = document.getElementById(`e866-same-row-${id}`);
+  code.addEventListener('change', () => {
+    text.value = f[code.value] || '';
+    // Only the statement is changed on the others: never a note.
+    if (sameRow) sameRow.hidden = code.value !== 'a';
+    text.focus();
+  });
   text.focus();
 }
 
@@ -390,20 +453,26 @@ async function saveEdit866(idx, fi, revert) {
   const code = document.getElementById(`e866-code-${id}`).value;
   const value = document.getElementById(`e866-text-${id}`).value;
   const status = document.getElementById(`e866-status-${id}`);
+  const box = document.getElementById(`e866-same-${id}`);
   status.innerHTML = '<span class="spinner"></span>';
   try {
     const data = await postJson('api/edit-866', {
-      record_index: idx, field_index: fi, code, value, revert });
+      record_index: idx, field_index: fi, code, value, revert,
+      same_text: !!(box && box.checked && code === 'a') });
     allRecords[idx].fields_866 = data.fields_866;
     allStatements = data.statements;
     recordPreviews.delete(idx);
+    (data.also || []).forEach(r => {
+      if (allRecords[r.record_index]) allRecords[r.record_index].fields_866 = r.fields_866;
+      recordPreviews.delete(r.record_index);
+    });
     await reloadReview();
     await renderRecordDetail(idx);
     focus866(idx, fi, 'edit');
     // Left folded or open as it was: folding step 2 above the record being
     // worked on moved the whole page under the cataloguer.
     if (code === 'a' && detected && detected.length) runDetect({ keepFold: true });
-    if (!revert) reportFix({ record_index: idx, fields: [fi] });
+    if (!revert) reportFix({ record_index: idx, fields: [fi], also: (data.also || []).length });
   } catch (err) {
     showAlert(status, err.message, 'err');
   }

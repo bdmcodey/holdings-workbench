@@ -2839,6 +2839,59 @@ real export gets no note on any of its 1,057 866s. The angle-bracket dates of
 D41 (`<1884:6:28>`) are not treated as the Newspaper Program's: nothing here
 says whose they are.
 
+## Step 2 for what the pattern decides; step 3 for what the record needs · **0.49.0**
+
+*30 October 2026.* Raised by the cataloguer, testing 0.48.0 with the real
+export: step 2 showed "17 patterns with statements to look at", most of them
+"months and seasons in one statement", each with Edit and Split on the card --
+and putting one right needs the rest of its record in view, which a card does
+not show. "This added information is kind of just adding noise a step earlier
+than it should be."
+
+**How it came to be there.** 0.39.0 counted held and to-check statements on
+each card, because with pasted statements there is no step 3 and nothing else
+showed them. 0.41.0 added Edit to step 2, asked for. 0.43.0 listed every one
+with Edit and Split, on the cataloguer's rule: called out in step 2, then
+fixable in step 2 -- or not called out there at all. The second half of that
+rule fits a file better, and is what this does.
+
+**What the 17 cards held,** on the real export: 28 statements --
+
+| Reason | Statements | Does it depend on the pattern? |
+| --- | --- | --- |
+| Months and seasons in one statement | 13 | No: split at the change, by the record |
+| Wording MARC has no code for | 8 | No: the cataloguer's choice, by the piece |
+| A range inside one end of the holdings | 4 | No |
+| An issue dated across two years | 2 | No |
+| Not read (a comma missing between runs) | 1 | Yes: the typo is why its card asks |
+
+**Now, with a file.**
+- A card lists only statements not read.
+- It counts the rest ("13 held and 14 to check" across the folded 106), with a button narrowing step 3 to its records, and the line under the pattern count gives the totals with "Show Needs attention" and "Show Something left out".
+- Every Edit and Split in step 2 -- a card's list, its example, its preview of the record -- opens the record in step 3, with the editor open on that 866.
+- Step 3's Edit offers what step 2's did: the same change on every record with exactly that 866.
+- Statements and the message after a fix name the record by its identifier as well as its title.
+- Pasted statements are as they were.
+
+**Measured.** On the real export: the group of "patterns with statements to
+look at" went from 17 to none, the statements listed in step 2 from 28 to 1,
+and Split from step 2 opened the right 866 in step 3 for all 27 statements it
+was tried on. On a made-up file: Edit, Split, Escape, focus, the same change on
+a second record, and the identifier in the message, all in the app; pasted
+statements still listed and split on the card. The other browser checks are
+unchanged, the keyboard check now landing in step 3's editor. No Python changed;
+the corpus report is identical.
+
+**Found on the way.** The first draft declared `text` twice in one function,
+and the browser refused all of `convert.js` -- step 3's opening of a record,
+Edit, Split and Convert all records with it -- while every Python test passed.
+The page's scripts are now each checked by Node, and checked for a name
+declared in two files, which would fail the same way only once loaded together.
+And the walk-through's occasional miss at its first step, the file chooser not
+opening on Enter: 1 in 30 on this version and 1 in 30 on the one before the
+split, with the page loaded and the focus on the upload box. A trait of the
+test browser, not of the page.
+
 ## The page in files of its own, and a code map · **0.48.0**
 
 *29 October 2026.* Asked for by the cataloguer, so as to keep understanding
