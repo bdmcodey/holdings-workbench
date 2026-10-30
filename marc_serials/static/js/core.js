@@ -125,6 +125,19 @@ function fieldHtml(display, cls) {
 }
 
 /** POST JSON and return the parsed body, or throw with the server's message. */
+/**
+ * A record as step 3's list names it: its identifier -- the MMS ID, when that
+ * is the field chosen in step 1 -- then its title. Asked for by the cataloguer,
+ * so a statement named in step 2 or in a message can be found again in step 3
+ * or in the ILS; the title alone is often shared. HTML, escaped.
+ */
+function recordName(index) {
+  const rec = allRecords[index];
+  if (!rec) return `record ${index + 1}`;
+  return (rec.identifier ? `<span class="rec-id">${escHtml(rec.identifier)}</span> ` : '')
+    + escHtml(rec.title);
+}
+
 async function postJson(url, payload) {
   const res  = await fetch(url, {
     method: 'POST',

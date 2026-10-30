@@ -76,9 +76,15 @@ def test_outcomes_line_up_with_the_examples_shown(client):
         assert len(group["example_outcomes"]) == group["examples_shown"]
 
 
-def test_the_page_never_folds_a_held_or_to_check_card():
+def test_pasted_statements_never_fold_a_held_or_to_check_card():
     page = page_source()
-    # Filed before the folds are, in a group of their own that starts open.
+    # Pasted statements have no step 3, so a card with one held or to check is
+    # filed before the folds are, in a group of their own that starts open.
+    # With a file it is not, since 0.49.0: those are put right on their
+    # records in step 3, and the group holds the cards with one not read.
+    assert ("return group.decides !== 'elsewhere' && (sourceMode === 'paste'\n"
+            "    ? ((group.held || 0) + (group.to_check || 0)) > 0\n"
+            "    : (group.unread || 0) > 0);") in page
     assert ("else if (needsALook(group) && !needsAnAnswer(group, stored)) "
             "parts.attention.push(entry);") in page
     assert "details.open = patternFolds[key] ?? key === 'attention';" in page

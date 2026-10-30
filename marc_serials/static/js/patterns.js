@@ -238,9 +238,18 @@ function partitionGroups(groups) {
   return parts;
 }
 
-/** A pattern with a statement held, or to check, on its own reading. */
+/**
+ * A pattern with a statement to look at here, in step 2.
+ *
+ * Pasted: one held or to check, on its own reading -- there is no step 3, so
+ * this is the only place they show. With a file, those are put right on their
+ * records in step 3 (since 0.49.0), and what keeps a card open here is a
+ * statement not read at all: the typo that also makes its pattern ask.
+ */
 function needsALook(group) {
-  return group.decides !== 'elsewhere' && ((group.held || 0) + (group.to_check || 0)) > 0;
+  return group.decides !== 'elsewhere' && (sourceMode === 'paste'
+    ? ((group.held || 0) + (group.to_check || 0)) > 0
+    : (group.unread || 0) > 0);
 }
 
 /** Whether partitionGroups() would file this pattern with the decisions. */
@@ -311,6 +320,46 @@ function lookChipsHtml(groups) {
       between two 866s.</p>`;
 }
 
+/**
+ * With a file: what there is to look at, and that it is looked at in step 3.
+ *
+ * The chips above stay for pasted statements, which have nowhere else to show
+ * them. With a file they narrowed step 2 to cards listing statements to put
+ * right, and those are put right on their records now: see lookStep3Html().
+ */
+function step3LookHtml(groups) {
+  const counted = groups.filter(g => {
+    const stored = library.find(p => p.id === patternIdFor(g));
+    return !(stored && stored.skip);
+  });
+  const sum = kind => counted.reduce((n, g) => n + (g[kind] || 0), 0);
+  const held = sum('held'), check = sum('to_check'), unread = sum('unread'), left = sum('left_out');
+  const s = n => n !== 1 ? 's' : '';
+  const bits = [];
+  if (held || check) {
+    bits.push(`<span><strong>${[held ? `${held} held` : '', check ? `${check} to check` : '']
+      .filter(Boolean).join(' and ')}</strong>: put right on their records, in step 3.</span>
+      <button type="button" class="btn btn-secondary btn-sm"
+              onclick="showInStep3('held')">Show Needs attention</button>`);
+  }
+  if (unread) {
+    bits.push(`<span><strong>${unread} not read</strong> by the standard parser: listed on
+      ${unread !== 1 ? 'their cards' : 'its card'} below, with Edit.</span>`);
+  }
+  if (left) {
+    bits.push(`<span><strong>${left} statement${s(left)}</strong> with something left out to
+      fit MARC.</span>
+      <button type="button" class="btn btn-ghost btn-sm"
+              onclick="showInStep3('leftout')">Show Something left out</button>`);
+  }
+  if (!bits.length) return '';
+  return `
+    <div class="look-step3 mt-1">${bits.map(b => `<div class="look-step3-line">${b}</div>`).join('')}</div>
+    <p class="small dim mt-05">Counted by reading each statement on its own. Step 3 reads
+      whole records, and can find a little more, such as months changing to seasons
+      between two 866s.</p>`;
+}
+
 document.addEventListener('click', e => {
   const chip = e.target.closest('[data-look]');
   if (!chip) return;
@@ -365,6 +414,8 @@ function buildPatternFold(key, label, entries) {
 function renderPatterns(data) {
   const area = document.getElementById('patterns-area');
   area.innerHTML = '';
+  // The kind chips are for pasted statements; a file has no way to set one.
+  if (sourceMode !== 'paste') lookFilter = 'all';
 
   const parts = partitionGroups(data.groups);
   const undecided = parts.open.length;
@@ -396,7 +447,7 @@ function renderPatterns(data) {
       removedHeldBack !== 1 ? 's' : ''} you removed from the library ${
       removedHeldBack !== 1 ? 'were' : 'was'} not confirmed again. Confirm on a card brings
       one back; Clear, in the library, starts over.</p>` : ''}
-    ${lookChipsHtml(data.groups)}
+    ${sourceMode === 'paste' ? lookChipsHtml(data.groups) : step3LookHtml(data.groups)}
     ${flavourChooserHtml()}`;
   area.appendChild(summary);
   paintFlavourAlert();
@@ -499,7 +550,8 @@ function patternsSummaryLine() {
   if (parts.skipped.length) bits.push(`${parts.skipped.length} skipped`);
   if (parts.complex.length) bits.push(`${parts.complex.length} too complex`);
   if (parts.attention.length) {
-    bits.push(`<span class="count-warn">${parts.attention.length} with statements held or to check</span>`);
+    bits.push(`<span class="count-warn">${parts.attention.length} with statements ${
+      sourceMode === 'paste' ? 'held or to check' : 'not read'}</span>`);
   }
   if (parts.open.length) {
     bits.push(`<span class="count-warn">${parts.open.length} need${

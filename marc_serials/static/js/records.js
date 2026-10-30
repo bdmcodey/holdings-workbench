@@ -250,8 +250,38 @@ function encodingLevelLine(summary) {
 
 /** Switch the review filter from somewhere other than a chip. */
 function filterTo(name) {
+  return applyFilter(name);
+}
+
+/**
+ * Show the records a filter matches, from the first page of them.
+ *
+ * What a chip does when clicked. Returned, so a caller can work on the list
+ * once it has been drawn: Edit from step 2 opens a record here, which it can
+ * only do when the record is on the page.
+ */
+function applyFilter(name) {
   const chip = document.querySelector(`.filter-row .chip[data-filter="${name}"]`);
-  if (chip) chip.click();
+  if (!chip) return Promise.resolve();
+  document.querySelectorAll('.filter-row .chip').forEach(c => {
+    c.classList.toggle('active', c === chip);
+    c.setAttribute('aria-pressed', String(c === chip));
+  });
+  reviewFilter = name;
+  closeOpenRecords();
+  // The pages are slices of what the filter shows, so a new filter means new
+  // pages -- and the first of them, not wherever the last filter had got to.
+  reviewOffset = 0;
+  recordIndex.clear();
+  return reloadReview().then(() =>
+    announce(document.getElementById('review-count').textContent));
+}
+
+/** A filter, from a button elsewhere on the page, and step 3 brought into view. */
+async function showInStep3(name) {
+  await applyFilter(name);
+  const bar = document.getElementById('review-bar');
+  if (bar) bar.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 /** The records the current filter shows, in file order. */
@@ -566,17 +596,4 @@ function renderPager(data) {
 })();
 
 document.querySelectorAll('.filter-row .chip').forEach(chip =>
-  chip.addEventListener('click', () => {
-    document.querySelectorAll('.filter-row .chip').forEach(c => {
-      c.classList.toggle('active', c === chip);
-      c.setAttribute('aria-pressed', String(c === chip));
-    });
-    reviewFilter = chip.dataset.filter;
-    closeOpenRecords();
-    // The pages are slices of what the filter shows, so a new filter means new
-    // pages -- and the first of them, not wherever the last filter had got to.
-    reviewOffset = 0;
-    recordIndex.clear();
-    reloadReview().then(() =>
-      announce(document.getElementById('review-count').textContent));
-  }));
+  chip.addEventListener('click', () => applyFilter(chip.dataset.filter)));

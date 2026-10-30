@@ -15,6 +15,15 @@ more than one release; numbering resumed with 0.6.1. Reasoning behind the
 parser and converter decisions, including the defects a real corpus exposed and
 what was done about each, is in [CORPUS-FINDINGS.md](CORPUS-FINDINGS.md).
 
+## 0.49.0 — 2026-10-30
+
+With a file, statements held or to check are put right on their records in step 3, where the rest of the record is in view; Edit and Split in step 2 open them there.
+
+- **MARC Holdings Workbench** — Step 2 no longer lists a file's statements that are held or to check on each pattern card. Fixing them means reading the rest of the record, which a card doesn't show, and almost none depend on the pattern. On a 372-record export, 27 of the 28 statements listed across 17 cards came out the same whatever was decided on the cards. Each card now says how many it has ("3 held and 2 to check: put right on their records in step 3"), with a button that takes you to their records, and the line under the pattern count gives the totals, with "Show Needs attention" and "Show Something left out". A card still lists a statement the standard parser can't read at all, since that is usually a typo and is why its card asks for an answer.
+- **MARC Holdings Workbench** — Edit and Split anywhere in step 2 open the 866 on its record in step 3: the record opens and the editor opens on that 866, with step 3 narrowed to the pattern's records to look at. Step 3's Edit now offers what step 2's did: "Also make this change on the other records with exactly this 866".
+- **MARC Holdings Workbench** — A statement named in step 2, and the message after a fix, now give the record's identifier (the field chosen in step 1, such as the MMS ID) before its title, so it can be found in step 3 or in your ILS.
+- **MARC Holdings Workbench** — Pasted statements are unchanged: they have no records and no step 3, so their cards still list everything and are edited in place.
+
 ## 0.48.0 — 2026-10-29
 
 Nothing on the screen or in your records changed. The page's code is now in files of its own, and a new code map says which file does what.

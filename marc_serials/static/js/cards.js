@@ -6,14 +6,48 @@
  */
 
 function lookRows(group) {
-  const want = lookFilter === 'all' ? ['held', 'to_check', 'unread'] : [lookFilter];
+  // With a file, a statement held or to check is put right on its record in
+  // step 3, and the card says how many and takes you there (lookStep3Html).
+  // What stays listed is what reading the pattern turns on: a statement the
+  // standard parser cannot read at all, usually for a typo, which is also why
+  // its card asks for an answer.
+  const want = lookFilter !== 'all' ? [lookFilter]
+    : sourceMode === 'paste' ? ['held', 'to_check', 'unread'] : ['unread'];
   return (group.to_look_at || []).map((r, i) => ({ r, i }))
     .filter(({ r }) => r.kinds.some(k => want.includes(k)));
 }
 
+/**
+ * With a file: how many of a card's statements are held or to check, and a
+ * way to them in step 3.
+ *
+ * Until 0.49.0 each was listed on the card with Edit and Split -- 28
+ * statements across 17 cards on the real export, under "patterns with
+ * statements to look at". Asked for by the cataloguer, who found it noise a
+ * step early: 27 of the 28 were the same whatever was decided on the card
+ * (13 changing between months and seasons, 8 with wording MARC has no code
+ * for, 4 with a range inside one end, 2 issues across two years), and putting
+ * one right means reading the rest of its record, which a card does not show.
+ */
+function lookStep3Html(group) {
+  if (sourceMode === 'paste' || lookFilter !== 'all') return '';
+  const held = group.held || 0;
+  const check = group.to_check || 0;
+  if (!held && !check) return '';
+  const said = [held ? `${held} held` : '', check ? `${check} to check` : '']
+    .filter(Boolean).join(' and ');
+  return `<div class="pc-step3 small">
+    <span><strong>${said}</strong>: put right on ${held + check !== 1 ? 'their records' : 'its record'}
+      in step 3, with the rest of the record in view.</span>
+    <button type="button" class="btn btn-secondary btn-sm pc-show-records"
+            data-mode="look">Show ${held + check !== 1 ? 'them' : 'it'} in step 3</button>
+  </div>`;
+}
+
 function lookAtHtml(group, idx) {
+  const step3 = lookStep3Html(group);
   const rows = lookRows(group);
-  if (!rows.length) return '';
+  if (!rows.length) return step3;
   const all = lookExpanded.has(patternIdFor(group));
   const shown = all ? rows : rows.slice(0, LOOK_SHOWN);
   // One explanation per reason, the statements it applies to under it.
@@ -23,7 +57,7 @@ function lookAtHtml(group, idx) {
     if (!byReason.has(reason.key)) byReason.set(reason.key, { reason, rows: [] });
     byReason.get(reason.key).rows.push(row);
   });
-  return `<div class="pc-outcomes">
+  return `${step3}<div class="pc-outcomes">
     <div class="small"><strong>Statements to look at</strong> (${rows.length}${
       (group.to_look_at || []).length >= 200 ? ' or more' : ''})</div>
     ${[...byReason.values()].map(({ reason, rows: these }) => `
@@ -104,7 +138,7 @@ function lookRowHtml(r, reason) {
   const rec = src && allRecords[src.record_index];
   const others = (r.records || []).length - 1;
   const where = src && sourceMode !== 'paste'
-    ? `<span class="small dim">on ${escHtml(rec ? rec.title : `record ${src.record_index + 1}`)}${
+    ? `<span class="small dim">on ${recordName(src.record_index)}${
         others > 0 ? ` and ${others} other record${others !== 1 ? 's' : ''}` : ''}</span>` : '';
   const pills = r.kinds.map(k => {
     const [cls, label] = LOOK_PILLS[k];
@@ -139,19 +173,9 @@ function lookAction(button, kind) {
                         { where: 'Saving changes it in the pasted text.' });
     return;
   }
+  // With a file, on its record in step 3: see editInStep3().
   const src = r.source;
-  if (!src) return;
-  if (src.split_part != null) {
-    slot.innerHTML = `<div class="alert alert-info small mt-1">This is a part of an 866 you
-      split. Change it with Split, on its record in step 3.</div>`;
-    return;
-  }
-  const rec = allRecords[src.record_index];
-  const where = `The 866 on ${escHtml(rec ? rec.title : `record ${src.record_index + 1}`)}`
-    + (src.source_866 !== r.text ? ', of which this statement is one part' : '') + '.';
-  const target = { record_index: src.record_index, field_index: src.field_index };
-  if (kind === 'split') openInlineSplit(slot, target, src.source_866, { where });
-  else openInlineEdit(slot, target, src.source_866, { where, same: src.same_866 || 0 });
+  if (src) editInStep3(src.record_index, src.field_index, kind, row.closest('.pattern-card'));
 }
 
 document.addEventListener('click', e => {
@@ -636,6 +660,10 @@ function heldAction(button, kind) {
   const slot = row.querySelector('.held-slot');
   const f = ((allRecords[idx] || {}).fields_866 || [])[fi];
   if (!f) return;
+  // In a card's preview, in step 2: on the record itself, in step 3. The same
+  // preview inside step 3's record is edited where it stands.
+  const card = button.closest('.pattern-card');
+  if (card) { editInStep3(idx, fi, kind, card); return; }
   if (f.split_part != null) {
     slot.innerHTML = `<div class="alert alert-info small mt-1">This is a part of an 866 you
       split. Change it with Split in the record's list of 866s, in step 3.</div>`;

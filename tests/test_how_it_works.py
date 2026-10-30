@@ -52,7 +52,6 @@ QUICK_START_LABELS = [
     ('"not read"', "not read</span>"),
     ("**Edit**", ">Edit</button>"),
     ("**Split**", ">Split</button>"),
-    ('"Statements to look at"', "Statements to look at"),
     ("**Conversion settings**", "Conversion settings</summary>"),
     ("Frequency (853 `$w`)", "Frequency (853 $w)"),
     ("Numbering (853 `$v`)", "Numbering (853 $v)"),

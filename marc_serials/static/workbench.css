@@ -448,6 +448,10 @@ main { display: block; overflow-y: auto; padding: var(--sp-5) var(--sp-4); }
 .pc-outcome-head { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-2); }
 .look-row { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-2); }
 .look-reason { display: flex; flex-direction: column; gap: var(--sp-1); }
+/* With a file: what is to look at, and that it is put right in step 3. */
+.look-step3 { display: flex; flex-direction: column; gap: var(--sp-1); }
+.look-step3-line, .pc-step3 { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-2); }
+.pc-step3 { padding: 0 var(--sp-3) var(--sp-2); }
 .look-reason + .look-reason { margin-top: var(--sp-2); }
 .look-reason .pc-outcome { padding-left: var(--sp-3); }
 .look-hint { color: var(--text); }

@@ -1,6 +1,6 @@
 # Quick start for cataloguers
 
-*One page, for a first try with the Workbench. Describes version 0.48.0.
+*One page, for a first try with the Workbench. Describes version 0.49.0.
 [How the Holdings Workbench works](HOW-IT-WORKS.md) has the detail behind every step.*
 
 The Workbench reads the free-text holdings in your 866s and writes 853 captions
@@ -53,12 +53,13 @@ for example every statement written like `v.1:no.1(1990:Jan.)-v.5:no.4(1994:Dec.
 - **A card saying "not read" usually has a typo,** such as a comma missing
   between runs. **Edit** the statement rather than answering for it: written
   as meant, it reads like the others.
-- **"Statements to look at"** on a card lists the ones that won't convert
-  cleanly, each with the record it's on. Fix a typo with **Edit**. Where
+- **Statements held or to check are fixed in step 3,** on their records, where
+  the rest of each record is in view. A card says how many, with a button that
+  takes you to them; the line under the pattern count gives the total. Where
   months change to seasons inside one statement, as in
-  `v. 19 no. 3-v. 20 no. 4 (September 1986-Winter 1987)`, use **Split** to
-  divide it where the change falls. A message at the bottom right says whether
-  the fix worked.
+  `v. 19 no. 3-v. 20 no. 4 (September 1986-Winter 1987)`, **Split** it where
+  the change falls. **Edit** and **Split** in step 2 open the 866 there, in
+  step 3, too. A message at the bottom right says whether the fix worked.
 
 When you're done, **Export** the pattern library, so next time starts with
 these answers.

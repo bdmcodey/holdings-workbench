@@ -73,15 +73,19 @@ def test_the_card_lists_them_with_edit_and_split():
     row = PAGE[PAGE.index("function lookRowHtml("):PAGE.index("function lookAction(")]
     assert "onclick=\"lookAction(this, 'edit')\"" in row
     assert "onclick=\"lookAction(this, 'split')\"" in row
-    # Left out is a filter, not something to look at by default.
-    assert "lookFilter === 'all' ? ['held', 'to_check', 'unread'] : [lookFilter]" in PAGE
-    # And the card can narrow step 3 to the records to look at.
-    assert "button('look', `Show the ${plural(look)} to look at`, look)" in PAGE
+    # Left out is a filter, not something to look at by default. Pasted, the
+    # card lists every statement held, to check or not read; with a file, since
+    # 0.49.0, only those not read -- the rest are put right in step 3, and the
+    # card says how many and narrows step 3 to their records (test_step3_fixes).
+    assert ("const want = lookFilter !== 'all' ? [lookFilter]\n"
+            "    : sourceMode === 'paste' ? ['held', 'to_check', 'unread'] : ['unread'];") in PAGE
+    assert 'class="btn btn-secondary btn-sm pc-show-records"\n            data-mode="look"' in PAGE
 
 
 def test_the_step_has_buttons_by_kind_in_place_of_the_sentence():
     assert "function outcomeSentence(" not in PAGE
-    assert "${lookChipsHtml(data.groups)}" in PAGE
+    # For pasted statements; with a file, a line pointing to step 3 instead.
+    assert "${sourceMode === 'paste' ? lookChipsHtml(data.groups) : step3LookHtml(data.groups)}" in PAGE
     assert "if (lookFilter !== 'all') {" in PAGE
     assert "with statements to look at`" in PAGE
 
