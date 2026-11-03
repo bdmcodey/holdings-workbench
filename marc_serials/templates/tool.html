@@ -515,7 +515,8 @@ v.6(1995)-"></textarea>
     {% if rel.summary %}<div class="release-summary">{{ rel.summary }}</div>{% endif %}
     <ul class="release-changes">
       {% for c in rel.changes %}
-      <li><span class="change-tool">{{ c.tool }}</span><span>{{ c.text }}</span></li>
+      {# Only changes from before 0.11.0, when there were separate tools, name one. #}
+      <li>{% if c.tool %}<strong>{{ c.tool }}:</strong> {% endif %}{{ c.text }}</li>
       {% endfor %}
     </ul>
   </div>

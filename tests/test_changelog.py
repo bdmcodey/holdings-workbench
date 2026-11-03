@@ -81,3 +81,23 @@ def test_the_packaged_version_matches_about_json():
         f'pyproject.toml says {declared.group(1)}, '
         f'about.json says {about["version"]}'
     )
+
+
+def test_only_changes_from_before_the_one_tool_name_a_tool():
+    """
+    Until 0.11.0 there were separate tools -- a Converter, a Pattern Detector
+    and a Workbench joining them -- and each change said which it was for.
+    Since then every change is to the one Workbench, and a column of labels
+    saying so beside every change said nothing. Asked for by the cataloguer:
+    the early changes name their tool at the start of the line, the rest none.
+    """
+    about = json.loads(ABOUT.read_text(encoding="utf-8"))
+    names = {"Converter", "Pattern Detector", "Workbench",
+             "Converter and Pattern Detector", "All tools"}
+    for entry in about["changelog"]:
+        version = tuple(int(n) for n in entry["version"].split("."))
+        for change in entry["changes"]:
+            if version >= (0, 11, 0):
+                assert "tool" not in change, f"{entry['version']} names a tool"
+            else:
+                assert change.get("tool") in names, (entry["version"], change.get("tool"))

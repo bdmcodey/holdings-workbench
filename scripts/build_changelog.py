@@ -38,12 +38,12 @@ the screen, not how the code changed.
 
 A note on the version numbers. Each is three whole numbers, not a decimal, so
 0.10.0 comes after 0.9.0, and 0.49.0 after 0.6.0. The middle number goes up for
-each release that changes something, and the last for one that only fixes
-something. 1.0.0 will mark the first version declared stable. The numbers stood
-still for a week in August 2026 while the three separate tools were being built
-out, so the 0.6.0 entry covers rather more than one release; numbering resumed
-with 0.6.1. Reasoning behind the parser and converter decisions, including the
-defects a real corpus exposed and what was done about each, is in
+each release that changes something, and the last for fixes and small additions.
+1.0.0 will mark the first version declared stable. The numbers stood still for a
+week in August 2026 while the three separate tools were being built out, so the
+0.6.0 entry covers rather more than one release; numbering resumed with 0.6.1.
+Reasoning behind the parser and converter decisions, including the defects a
+real corpus exposed and what was done about each, is in
 [CORPUS-FINDINGS.md](CORPUS-FINDINGS.md).
 """
 
@@ -58,9 +58,11 @@ def render(about: dict) -> str:
         if summary:
             out.append(f"{summary}\n\n")
         for change in entry.get("changes", []):
+            # Only a change from before 0.11.0, when there were separate tools,
+            # names one: since then every change is to the one Workbench.
             tool = (change.get("tool") or "").strip()
             text = " ".join((change.get("text") or "").split())
-            out.append(f"- **{tool}** — {text}\n" if tool else f"- {text}\n")
+            out.append(f"- **{tool}:** {text}\n" if tool else f"- {text}\n")
     return "".join(out)
 
 
