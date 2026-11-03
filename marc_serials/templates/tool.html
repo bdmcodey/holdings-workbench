@@ -506,6 +506,15 @@ v.6(1995)-"></textarea>
   </div>
 
   <h2>What has changed</h2>
+  {% if about.unreleased %}
+  {# Merged since the last release; the next release numbers them. #}
+  <div class="release">
+    <div class="release-head"><span class="release-version">Not yet released</span></div>
+    <ul class="release-changes">
+      {% for c in about.unreleased %}<li>{{ c.text }}</li>{% endfor %}
+    </ul>
+  </div>
+  {% endif %}
   {% for rel in about.changelog %}
   <div class="release">
     <div class="release-head">

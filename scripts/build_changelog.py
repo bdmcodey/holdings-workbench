@@ -50,6 +50,13 @@ real corpus exposed and what was done about each, is in
 
 def render(about: dict) -> str:
     out = [PREAMBLE]
+    # Changes merged since the last release, waiting for the next one to number
+    # them (CONTRIBUTING, section 9).
+    waiting = about.get("unreleased") or []
+    if waiting:
+        out.append("\n## Unreleased\n\nMerged, and in the tool as it stands, but not yet in a numbered release.\n\n")
+        for change in waiting:
+            out.append(f"- {' '.join((change.get('text') or '').split())}\n")
     for entry in about.get("changelog", []):
         version = entry.get("version", "?")
         date = entry.get("date", "")

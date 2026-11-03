@@ -185,6 +185,54 @@ reload. And the header's version badge cannot tell you whether you restarted:
 the version of the code answering you. If the screen and the badge disagree,
 believe the screen.
 
+## 9. Batch changes into releases
+
+Until 0.50.0 every merged change was a release with a number of its own: 118 of
+them in 14 weeks, some no more than a line of wording. A number was a handy
+name for what was being tested, but most projects number a release only when
+there is a set of changes worth installing, and that is the practice from
+0.50.0 on. The way a change is made does not change: it still gets its own pull
+request, its tests, its before-and-after measurements, a check in the real
+application, and a merge only on the say-so of the person the tool is for. What
+stops is the version going up with each one.
+
+**Each change, as it merges:**
+
+- Leave the version alone in `about.json` and `pyproject.toml`.
+- Add its changelog lines to `unreleased` in `about.json`, newest first, as
+  `{"text": "…"}`, written for cataloguers (section 5). `build_changelog.py`
+  shows them at the top of `CHANGELOG.md` under "Unreleased", and the About
+  dialog under "Not yet released".
+- Update `docs/HOW-IT-WORKS.md`, `docs/QUICK-START.md` and `docs/CODE-MAP.md`
+  where the change makes them wrong. They describe the tool as it stands on
+  main; their version lines move at the release.
+- If it has a `CORPUS-FINDINGS.md` entry, head it `· **unreleased**`.
+
+**A release** is cut when the set is worth handing to someone: before a
+demonstration or a presentation, before someone else installs it, or when
+changes have built up for a few weeks. A fix for something that loses or
+misreads a value does not wait: it is released on its own. The middle number
+goes up for a release that changes something, the last for fixes and small
+additions, as the note at the top of `CHANGELOG.md` says. A release is its own
+pull request, which:
+
+1. moves the `unreleased` lines into a new changelog entry, with its version,
+   date and a one-sentence summary, and leaves `unreleased` empty;
+2. sets the version and date in `about.json`, and the version in
+   `pyproject.toml`;
+3. runs `python scripts/build_changelog.py`;
+4. re-measures and updates "How the tool is checked" in HOW-IT-WORKS: the test
+   count, the corpus report, the conversion audit and the round trip, on every
+   corpus and on a real file;
+5. moves the version lines of HOW-IT-WORKS, QUICK-START and CODE-MAP up, after
+   walking the quick start through in the application on a freshly started
+   server;
+6. gives each `· **unreleased**` heading in CORPUS-FINDINGS its version.
+
+Version numbers are cited throughout the findings, the guides, the code and the
+tests ("before 0.47.0 the year was lost"), so released numbers are never
+changed afterwards.
+
 ---
 
 ## Tests
