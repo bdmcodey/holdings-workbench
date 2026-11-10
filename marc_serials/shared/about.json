@@ -8,7 +8,9 @@
   "attribution": "Portions derive from extract.py by Phani Chaitanya Pendyala (MIT). See THIRD-PARTY-NOTICES.md.",
   "contact": "Matthew Codey, codey@usc.edu",
   "_comment": "Written for cataloging staff, not developers. Say what changed about the output or the screen, not how the code changed. Newest version first. A change names its tool (\"tool\") only before 0.11.0, when there were separate tools; since then every change is to the one Workbench, so new entries carry no \"tool\". Changes merged since the last release wait in \"unreleased\" (each {\"text\": ...}), newest first, until a release moves them into its entry: see CONTRIBUTING, section 9.",
-  "unreleased": [],
+  "unreleased": [
+    {"text": "A date with a doubled or extra hyphen, such as v.3 (1990--1995), or with a further year after a range, such as v.3 (1990-1992 1995), is now marked to check, with a note naming the dates. Before, only the first year was written and the rest were dropped without a word, so with \"Remove each 866\" ticked they were lost from the record. None of these shapes is in the sample statements or in the real export the tool was measured on, but if your file has them, re-run it."}
+  ],
   "changelog": [
     {
       "version": "0.49.0",

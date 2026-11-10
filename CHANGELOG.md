@@ -19,6 +19,12 @@ Reasoning behind the parser and converter decisions, including the defects a
 real corpus exposed and what was done about each, is in
 [CORPUS-FINDINGS.md](CORPUS-FINDINGS.md).
 
+## Unreleased
+
+Merged, and in the tool as it stands, but not yet in a numbered release.
+
+- A date with a doubled or extra hyphen, such as v.3 (1990--1995), or with a further year after a range, such as v.3 (1990-1992 1995), is now marked to check, with a note naming the dates. Before, only the first year was written and the rest were dropped without a word, so with "Remove each 866" ticked they were lost from the record. None of these shapes is in the sample statements or in the real export the tool was measured on, but if your file has them, re-run it.
+
 ## 0.49.0 — 2026-10-30
 
 With a file, statements held or to check are put right on their records in step 3, where the rest of the record is in view; Edit and Split in step 2 open them there.

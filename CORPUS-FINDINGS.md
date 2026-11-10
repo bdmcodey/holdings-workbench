@@ -2839,6 +2839,56 @@ real export gets no note on any of its 1,057 866s. The angle-bracket dates of
 D41 (`<1884:6:28>`) are not treated as the Newspaper Program's: nothing here
 says whose they are.
 
+## A date group read on one side only · **unreleased**
+
+*10 November 2026.* Found by a review of the repository before 0.50.0, on
+made-up statements. A silent loss, the one kind of defect the tool exists to
+prevent.
+
+**What happened.** `_parse_chron()` divides a date group at its first hyphen
+and reads each side. When one side read and the other did not, the side that
+read was kept and the other dropped, with no warning, no flag and no hold:
+
+| Made-up statement | Written | Gone, without a word |
+| --- | --- | --- |
+| `v.3 (1990--1995)` | `$a 3 $i 1990` | 1995 |
+| `v.10-12 (1990-1992-1995)` | `$a 10-12 $i 1990` | 1992, 1995 |
+| `v.3 (1990-1992 1995)` | `$a 3 $i 1990` | 1992, 1995 |
+| `v.41 1935-1938. 1910.` | `$a 41 $i 1935` | 1938, 1910 |
+
+In the application each showed a green "1 converted" and had no line in the
+log, and with "Remove each 866" ticked the 866 was gone from the download.
+
+**Why nothing caught it.** The shape is in none of the three corpora and not
+in the real export: 0 of the 1,242 statements across them changed when it was
+fixed. The audit did report all four when it was given them -- which is the
+point "The corpus can only answer for what is in it" makes: it answers for
+the statements it is run on.
+
+**Now.** A group with one side read and the other not goes back whole, as one
+with neither side read always has. The 863 has no year, the group is named
+("'1990--1995' is not a year the 863 can hold…"), and the record is marked to
+check with the value counted as left out -- what `v.3 (1990, 1995)` already
+did. `v.10-12 (1990-1992-1995)` now finds its dividing hyphen and is read as a
+range inside one end (0.29.0): `$i 1990-1995`, with that note. An open end,
+`(1990-)`, has nothing on its right and is not affected; nor are `(Jan-Jun
+1984)` and `(1990-Dec. 1996)`.
+
+**Held, or converted and marked?** Converted and marked, because that is what
+the tool does with every other value it reads but cannot place, and the
+"When something would be left out to fit MARC" setting already lets the
+cataloguer hold such a statement instead, or leave the record as uploaded.
+Holding these four regardless of that setting would make one kind of left-out
+value behave unlike the others.
+
+**Measured.** Before and after: the suite, the corpus report (no drift), the
+audit and the round trip on all three corpora, both sample files and the real
+export -- every output identical. On a file of the four made-up statements the
+audit went from 4 values unaccounted for to 0. In the application, on a fresh
+server, a made-up file of the four and three unchanged neighbours: each of the
+four "to check" and "left out" with a line in the log, the neighbours as
+before, no page error.
+
 ## Step 2 for what the pattern decides; step 3 for what the record needs · **0.49.0**
 
 *30 October 2026.* Raised by the cataloguer, testing 0.48.0 with the real
