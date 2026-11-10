@@ -1,6 +1,6 @@
 # Code map
 
-*Where everything is, and what happens when you press a button. Describes version 0.49.0.
+*Where everything is, and what happens when you press a button. Describes version 0.50.0.
 For what the Workbench does and why, see [How the Holdings Workbench works](HOW-IT-WORKS.md).*
 
 The Workbench has two halves that never touch directly:

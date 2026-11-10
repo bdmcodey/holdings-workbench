@@ -19,11 +19,13 @@ Reasoning behind the parser and converter decisions, including the defects a
 real corpus exposed and what was done about each, is in
 [CORPUS-FINDINGS.md](CORPUS-FINDINGS.md).
 
-## Unreleased
+## 0.50.0 — 2026-11-10
 
-Merged, and in the tool as it stands, but not yet in a numbered release.
+A date the tool can only half read is now marked to check instead of losing its later years, and changes are now gathered into releases.
 
 - A date with a doubled or extra hyphen, such as v.3 (1990--1995), or with a further year after a range, such as v.3 (1990-1992 1995), is now marked to check, with a note naming the dates. Before, only the first year was written and the rest were dropped without a word, so with "Remove each 866" ticked they were lost from the record. None of these shapes is in the sample statements or in the real export the tool was measured on, but if your file has them, re-run it.
+- Changes are now gathered into releases rather than each having a number of its own. Any change made since the last release is listed in About under "Not yet released".
+- In About, a change names the tool it was made to only where it comes from before 0.11.0, when there were three separate tools. The changelog now says how to read the version numbers: 0.10.0 comes after 0.9.0.
 
 ## 0.49.0 — 2026-10-30
 

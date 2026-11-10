@@ -2839,7 +2839,7 @@ real export gets no note on any of its 1,057 866s. The angle-bracket dates of
 D41 (`<1884:6:28>`) are not treated as the Newspaper Program's: nothing here
 says whose they are.
 
-## A date group read on one side only · **unreleased**
+## A date group read on one side only · **0.50.0**
 
 *10 November 2026.* Found by a review of the repository before 0.50.0, on
 made-up statements. A silent loss, the one kind of defect the tool exists to

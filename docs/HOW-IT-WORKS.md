@@ -1,6 +1,6 @@
 # How the Holdings Workbench Works
 
-*Written for librarians and cataloguers. Describes version 0.49.0.*
+*Written for librarians and cataloguers. Describes version 0.50.0.*
 
 *Trying it for the first time? [The quick start](QUICK-START.md) is one page: what to press, in order.*
 
@@ -555,14 +555,14 @@ As of 0.46.0 the page was checked against WCAG 2.1 AA: automatically, with axe, 
 
 Four checks run before any change is released, and each answers a different question.
 
-| Check | Question it answers | Result as of 0.49.0 |
+| Check | Question it answers | Result as of 0.50.0 |
 | --- | --- | --- |
-| Automated tests | Does every behaviour described here still hold? | 1,166 passed, 8 skipped |
+| Automated tests | Does every behaviour described here still hold? | 1,177 passed, 8 skipped |
 | Corpus report | What do 117 real 866 statements convert to, and has any outcome changed? | 89 clean (76%), 22 converted with a warning, 6 with no fields, 0 with values lost |
 | Conversion audit | Did any number in a statement reach no field and no warning? | 0 unaccounted for: the corpus, the LC examples, the other library's catalogue, and all 1,057 statements of the 372-record test export |
-| Round trip | Convert, write the 866 as Alma would, convert again: do the same 863s come back? | Test export: 938 identical, 103 identical apart from an 853 caption, 14 not converted (13 of them months and seasons in one 866), **0 drift** |
+| Round trip | Convert, write the 866 as Alma would, convert again: do the same 863s come back? | Test export: 938 identical, 103 identical apart from an 853 caption, 14 not converted (13 of them months and seasons in one 866), **0 drift**. Corpus: 89, 17, 6, and 5 that differ, every one a level with no caption (below) |
 
-- **The tests** are small worked examples, each saying what should happen to a particular statement or record. Many are named after a real mistake the tool once made, so it can't come back unnoticed. The 8 skipped tests need real library files that aren't kept in the project.
+- **The tests** are small worked examples, each saying what should happen to a particular statement or record. Many are named after a real mistake the tool once made, so it can't come back unnoticed. 8 tests are skipped because they need real library files that aren't kept in the project. A machine without PowerShell skips 2 more, which try the expressions written for .NET and MarcEdit.
 - **The corpus report** runs a collection of real statements (enumeration and chronology text only, with no identifiers) through both the detector and the parser. Each statement's expected outcome is recorded, so the report can say exactly what a change moved.
 - **The audit** compares what went in with what came out, and it can be run on a real file. It found two silent losses that the corpus couldn't, because their shapes weren't in it. It reads the file where it lies and writes nothing.
 - **The Library of Congress examples** are the 7 866 statements in LC's MARC holdings documentation, kept as a second, separate corpus. They're the only statements in the project written outside the collection the tool was built on. Four convert cleanly, one converts with a warning, and two are in the US Newspaper Program's own notation and are held rather than misread.
