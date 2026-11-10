@@ -65,6 +65,17 @@ def test_a_real_loss_is_reported(audit_module):
     assert audit_module.accounted_for("1993", "", "could not encode 1993") is True
 
 
+def test_a_year_after_an_unread_hyphen_is_accounted_for(audit_module):
+    """
+    The audit found these when it was given them, before 0.50.0: a date group
+    with one side read and the other not kept the side that read and lost the
+    rest. Made up; the shape is in no corpus, so this is where it is checked.
+    """
+    for statement in ("v.3 (1990--1995)", "v.10-12 (1990-1992-1995)",
+                      "v.3 (1990-1992 1995)", "v.41 1935-1938. 1910."):
+        assert audit_module.audit(statement)["missing"] == [], statement
+
+
 def test_the_link_number_cannot_account_for_a_holding(audit_module):
     """
     $8 is the tool's own bookkeeping -- "1.1", "1.12" -- and counting its

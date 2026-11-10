@@ -1480,6 +1480,16 @@ def _parse_chron(raw: str,
         l_year, l_month, l_day = start_read or _parse_chron_single(left, warnings)
         r_year, r_month, r_day = end_read or _parse_chron_single(right, warnings)
 
+        # One side read and the other did not: the group was not understood,
+        # so it goes back whole, as it does below when neither side reads.
+        # Keeping the side that read wrote "v.3 (1990--1995)" as "$i 1990",
+        # its end left as "-1995", which reads as nothing, and the 1995 gone
+        # without a word. An open end, "(1990-)", has nothing on its right and
+        # is not affected.
+        if (left and not (l_year or l_month or l_day)) or \
+           (right and not (r_year or r_month or r_day)):
+            return raw, None, None
+
         # Year: share the right-hand year if the left boundary omits it.
         # Equal years collapse: the year is the most significant chronology
         # level, so there is nothing above it whose endpoints a repeat would
