@@ -76,6 +76,7 @@ holdings-workbench/
 │   ├── bridge.py           a confirmed pattern → the parser's ParseResult
 │   ├── library.py          the patterns a cataloguer has confirmed
 │   ├── records.py          reading and writing MARC records
+│   ├── flavours.py         a pattern's expression, written for another tool
 │   ├── store.py            the per-session file store, and its sweep
 │   └── budget.py           runs a regex in a child process, under a time limit
 ├── run.py              start it without installing
@@ -91,7 +92,10 @@ holdings-workbench/
 │   ├── create_example_mrc.py  Regenerates the synthetic sample
 │   ├── create_messy_mrc.py    Regenerates the awkward-case fixture
 │   ├── corpus_report.py       Runs the corpus through the engines
+│   ├── audit_conversion.py    What went into a conversion against what came out
 │   ├── round_trip.py          Converts, regenerates the 866 as the ILS would, converts again
+│   ├── extract_marc_doc.py    Turns an LC holdings PDF into the pages under docs/marc/
+│   ├── measure_863_indicator.py  Whether the 863 first indicator can be worked out
 │   └── build_changelog.py     Writes CHANGELOG.md from shared/about.json
 ├── docs/QUICK-START.md   One page for a first try, written for cataloguers
 ├── docs/CODE-MAP.md      Which file does what, and what each button sets going
@@ -133,8 +137,8 @@ python scripts/corpus_report.py --drift    # only outcomes that have changed
 
 [`CORPUS-FINDINGS.md`](CORPUS-FINDINGS.md) records what it revealed and what has
 been fixed since. Silent losses — a value dropped with nothing on screen to say
-so — are down from 32% of statements to **none**: 77% now convert cleanly, 19%
-convert while naming a value they could not place, and 4% are held for review
+so — are down from 32% of statements to **none**: 76% now convert cleanly, 19%
+convert while naming a value they could not place, and 5% are held for review
 rather than half-converted. On the detector side, no shape is split across
 clusters any more.
 
@@ -145,9 +149,8 @@ pip install -r requirements-dev.txt
 python -m pytest
 ```
 
-The suite runs in under a second: everything is in-process, with no servers and
-no network. A few tests are marked `xfail` — they describe known defects and say
-what the behaviour should be, so fixing one turns its test green.
+The suite runs in under a minute: everything is in-process, with no servers and
+no network.
 
 A further set of tests pins exact output counts against real library holdings
 that are deliberately not in this repository — the counts live in
