@@ -53,5 +53,4 @@ Worth having eventually, in rough order of usefulness to this project:
 ## Licensing
 
 Works of the US federal government. Their presence here does not change this
-repository's own position, which is [NOTICE.md](../../NOTICE.md): no license
-granted while institutional IP ownership is under review.
+repository's own license, which is the [MIT License](../../LICENSE).

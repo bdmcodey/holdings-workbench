@@ -272,11 +272,9 @@ suite catches it wherever it runs.
 
 ## Licensing
 
-**There is no `LICENSE` file, and there must not be one yet.** Institutional
-intellectual property ownership is under review. Do not add a license, state an
-intended license, or write about licensing history. `NOTICE.md` says only that
-the question is open.
+The project is released under the MIT License: see [`LICENSE`](LICENSE).
+Contributions are accepted under the same license.
 
 `THIRD-PARTY-NOTICES.md` attributes the `MARC_CHRON_CODES` table, which derives
 from `extract.py` by Phani Chaitanya Pendyala under MIT. That attribution is
-required by that license, is unaffected by the review, and stays.
+required by that license and must be kept.
