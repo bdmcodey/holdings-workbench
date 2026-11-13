@@ -104,7 +104,7 @@ holdings-workbench/
 ├── CONTRIBUTING.md     The conventions this code follows, and why
 ├── CHANGELOG.md        Every released version (generated; see the script above)
 ├── CORPUS-FINDINGS.md  What that corpus reveals about the tool
-├── NOTICE.md           Licensing status — no license currently granted
+├── LICENSE             The MIT License
 ├── THIRD-PARTY-NOTICES.md  Attribution for derived third-party code
 └── .gitignore
 ```
@@ -211,10 +211,7 @@ field-by-field breakdown.
 
 ## License
 
-**No license is granted at this time.** This repository is published for
-reference only while institutional intellectual property rights are under
-review; default copyright applies. See [NOTICE.md](NOTICE.md) for the full
-statement.
+The MARC Holdings Workbench is released under the [MIT License](LICENSE).
 
 Portions of this project derive from third-party code — see
 [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).

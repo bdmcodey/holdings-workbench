@@ -19,6 +19,12 @@ Reasoning behind the parser and converter decisions, including the defects a
 real corpus exposed and what was done about each, is in
 [CORPUS-FINDINGS.md](CORPUS-FINDINGS.md).
 
+## Unreleased
+
+Merged, and in the tool as it stands, but not yet in a numbered release.
+
+- The Workbench is now released under the MIT License, so anyone may use, change and share it.
+
 ## 0.50.0 — 2026-11-10
 
 A date the tool can only half read is now marked to check instead of losing its later years, and changes are now gathered into releases.
